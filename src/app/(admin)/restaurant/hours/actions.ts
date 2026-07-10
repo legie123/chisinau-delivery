@@ -1,0 +1,60 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+
+export type ActionState = { error: string | null };
+
+const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
+
+async function requireOwnRestaurant() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Neautentificat.");
+
+  const { data: staffRow } = await supabase
+    .from("restaurant_staff")
+    .select("restaurant_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!staffRow) throw new Error("Contul tău nu este asociat cu un restaurant.");
+
+  return { supabase, restaurantId: staffRow.restaurant_id as string };
+}
+
+export async function updateHours(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const { supabase, restaurantId } = await requireOwnRestaurant();
+
+    const rows = DAYS.map((day) => ({
+      restaurant_id: restaurantId,
+      day_of_week: day,
+      opens_at: String(formData.get(`day_${day}_opens`) ?? "11:00"),
+      closes_at: String(formData.get(`day_${day}_closes`) ?? "22:00"),
+      is_closed: formData.get(`day_${day}_closed`) === "on",
+    }));
+
+    const { error } = await supabase
+      .from("restaurant_hours")
+      .upsert(rows, { onConflict: "restaurant_id,day_of_week" });
+    if (error) return { error: error.message };
+
+    revalidatePath("/restaurant/hours");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
+}
+
+export async function toggleAcceptingOrders(accepting: boolean) {
+  const { supabase, restaurantId } = await requireOwnRestaurant();
+  const { error } = await supabase
+    .from("restaurants")
+    .update({ accepting_orders: accepting })
+    .eq("id", restaurantId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/restaurant/hours");
+}

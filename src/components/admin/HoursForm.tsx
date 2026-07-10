@@ -1,0 +1,52 @@
+"use client";
+
+import { useActionState } from "react";
+import { updateHours } from "@/app/(admin)/restaurant/hours/actions";
+import type { RestaurantHours } from "@/lib/types/domain";
+
+const initialState = { error: null as string | null };
+
+const DAY_LABELS = ["Duminică", "Luni", "Marți", "Miercuri", "Joi", "Vineri", "Sâmbătă"];
+
+export function HoursForm({ hours }: { hours: RestaurantHours[] }) {
+  const [state, formAction, pending] = useActionState(updateHours, initialState);
+  const byDay = new Map(hours.map((h) => [h.day_of_week, h]));
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3">
+      {DAY_LABELS.map((label, day) => {
+        const existing = byDay.get(day);
+        return (
+          <div key={day} className="flex items-center gap-3 text-sm">
+            <span className="w-24">{label}</span>
+            <input
+              type="time"
+              name={`day_${day}_opens`}
+              defaultValue={existing?.opens_at?.slice(0, 5) ?? "11:00"}
+              className="rounded-md border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <span>–</span>
+            <input
+              type="time"
+              name={`day_${day}_closes`}
+              defaultValue={existing?.closes_at?.slice(0, 5) ?? "22:00"}
+              className="rounded-md border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+            />
+            <label className="flex items-center gap-1">
+              <input type="checkbox" name={`day_${day}_closed`} defaultChecked={existing?.is_closed ?? false} />
+              Închis
+            </label>
+          </div>
+        );
+      })}
+      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      <button
+        type="submit"
+        disabled={pending}
+        className="w-fit rounded-full bg-zinc-900 px-5 py-2 text-sm text-white transition hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+      >
+        {pending ? "Se salvează..." : "Salvează programul"}
+      </button>
+    </form>
+  );
+}
