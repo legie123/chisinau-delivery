@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   },
   addressLabel: {
     fontSize: 9,
-    fontWeight: '850',
+    fontWeight: '800',
     color: COLORS.textMuted,
     letterSpacing: 1,
     marginBottom: 4,
@@ -592,14 +592,14 @@ const styles = StyleSheet.create({
   },
   phoneLabel: {
     fontSize: 9,
-    fontWeight: '850',
+    fontWeight: '800',
     color: COLORS.textMuted,
     letterSpacing: 1,
     marginBottom: 4,
   },
   phoneText: {
     fontSize: 13,
-    fontWeight: '750',
+    fontWeight: '700',
     color: COLORS.white,
   },
   swipeContainer: {
