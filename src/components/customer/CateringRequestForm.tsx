@@ -48,10 +48,23 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
   const belowMinimum =
     restaurant?.catering_min_amount_mdl != null && subtotal < restaurant.catering_min_amount_mdl;
 
+  // No clamping while typing — Math.max on every keystroke corrupts input
+  // (typing "1" toward "12" would jump to the minimum). Minimums are checked
+  // at submit instead, with a clear message.
   function setQty(item: MenuItem, raw: number) {
-    const min = item.catering_min_qty ?? 1;
-    const qty = raw <= 0 ? 0 : Math.max(raw, min);
-    setQuantities((prev) => ({ ...prev, [item.id]: qty }));
+    setQuantities((prev) => ({ ...prev, [item.id]: Math.max(0, raw) }));
+  }
+
+  const FRIENDLY_ERRORS: [string, string][] = [
+    ["below minimum", "Comanda nu atinge minimul de catering al restaurantului."],
+    ["not currently accepting orders", "Restaurantul nu acceptă comenzi momentan."],
+    ["menu item unavailable", "Un articol din selecție nu mai este disponibil — reîncarcă pagina."],
+    ["invalid quantity", "Cantitate invalidă pentru unul dintre articole."],
+  ];
+
+  function friendlyError(message: string): string {
+    const hit = FRIENDLY_ERRORS.find(([needle]) => message.includes(needle));
+    return hit ? hit[1] : "A apărut o eroare la trimiterea cererii. Încearcă din nou.";
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -63,8 +76,19 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
       setError("Alege cel puțin un articol pentru eveniment.");
       return;
     }
+    const underMin = selected.find(
+      (item) => item.catering_min_qty != null && (quantities[item.id] ?? 0) < item.catering_min_qty,
+    );
+    if (underMin) {
+      setError(`„${underMin.name}" se comandă de la minim ${underMin.catering_min_qty} buc.`);
+      return;
+    }
     if (!eventDate || !eventAddress.trim() || !contactPerson.trim() || !contactPhone.trim()) {
       setError("Data, adresa evenimentului și datele de contact sunt obligatorii.");
+      return;
+    }
+    if (eventDate < new Date().toISOString().slice(0, 10)) {
+      setError("Data evenimentului nu poate fi în trecut.");
       return;
     }
 
@@ -102,7 +126,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
 
       router.push(`/catering/${orderId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "A apărut o eroare.");
+      setError(friendlyError(err instanceof Error ? err.message : ""));
     } finally {
       setPending(false);
     }
@@ -138,6 +162,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
             <input
               type="date"
               required
+              min={new Date().toISOString().slice(0, 10)}
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
               className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"

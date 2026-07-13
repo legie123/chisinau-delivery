@@ -10,11 +10,8 @@ export function AvailableOrderRow({ order }: { order: Order }) {
 
   function handleAccept() {
     startTransition(async () => {
-      try {
-        await acceptDelivery(order.id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await acceptDelivery(order.id);
+      setError(result.error);
     });
   }
 
@@ -29,7 +26,7 @@ export function AvailableOrderRow({ order }: { order: Order }) {
         type="button"
         onClick={handleAccept}
         disabled={pending}
-        className="rounded-full bg-primary px-4 py-1.5 text-xs text-white disabled:opacity-50"
+        className="rounded-full bg-primary px-4 py-1.5 text-xs text-white transition hover:bg-primary-dark disabled:opacity-50"
       >
         {pending ? "..." : "Acceptă livrarea"}
       </button>

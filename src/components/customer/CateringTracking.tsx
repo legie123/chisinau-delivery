@@ -32,6 +32,21 @@ export function CateringTracking({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  // Server Actions revalidate this route and the server component re-renders
+  // with fresh props — without this sync, useState would keep the stale copy
+  // and the confirm button would stay on screen after a successful confirm.
+  // Adjust-during-render is React's recommended pattern for prop-driven state.
+  const [prevInitialOrder, setPrevInitialOrder] = useState(initialOrder);
+  if (prevInitialOrder !== initialOrder) {
+    setPrevInitialOrder(initialOrder);
+    setOrder(initialOrder);
+  }
+  const [prevInitialDetails, setPrevInitialDetails] = useState(initialDetails);
+  if (prevInitialDetails !== initialDetails) {
+    setPrevInitialDetails(initialDetails);
+    setDetails(initialDetails);
+  }
+
   useEffect(() => {
     const supabase = createClient();
     const unsubOrder = subscribeTable<Order>(supabase, "catering-order", "orders", `id=eq.${order.id}`, (payload) => {
@@ -54,26 +69,24 @@ export function CateringTracking({
 
   function handleConfirm() {
     startTransition(async () => {
-      try {
-        await confirmCateringQuote(order.id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await confirmCateringQuote(order.id);
+      setError(result.error);
     });
   }
 
   function handleCancel() {
-    const reason = window.prompt("Motivul anulării (opțional):") ?? "";
+    const reason = window.prompt("Motivul anulării (opțional):");
+    if (reason === null) return; // user dismissed the prompt — don't cancel
     startTransition(async () => {
-      try {
-        await cancelCateringOrder(order.id, reason);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await cancelCateringOrder(order.id, reason);
+      setError(result.error);
     });
   }
 
   const isTerminal = order.status === "cancelled" || order.status === "rejected";
+  const hasQuote =
+    (details.quote_status === "quoted" || details.quote_status === "confirmed") &&
+    details.quoted_total_mdl != null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -117,12 +130,8 @@ export function CateringTracking({
           </li>
         ))}
         <li className="flex justify-between border-t border-zinc-200 pt-1 font-medium dark:border-zinc-800">
-          <span>{details.quote_status === "requested" ? "Subtotal estimativ" : "Total ofertat"}</span>
-          <span>
-            {details.quote_status === "requested"
-              ? `${order.subtotal_mdl} MDL`
-              : `${details.quoted_total_mdl ?? order.total_mdl} MDL`}
-          </span>
+          <span>{hasQuote ? "Total ofertat" : "Subtotal estimativ"}</span>
+          <span>{hasQuote ? `${details.quoted_total_mdl} MDL` : `${order.subtotal_mdl} MDL`}</span>
         </li>
       </ul>
 

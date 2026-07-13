@@ -4,11 +4,14 @@ import type { Restaurant } from "@/lib/types/domain";
 
 export default async function CateringPage() {
   const supabase = await createClient();
+  // accepting_orders matters too: place_order hard-rejects when it's false,
+  // so listing such a restaurant would only produce a failing form.
   const { data: restaurants } = await supabase
     .from("restaurants")
     .select("*")
     .eq("is_active", true)
     .eq("accepts_catering", true)
+    .eq("accepting_orders", true)
     .order("name");
 
   return (

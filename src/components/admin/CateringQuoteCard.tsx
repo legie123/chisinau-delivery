@@ -17,45 +17,46 @@ export function CateringQuoteCard({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit() {
+  // A cancelled/rejected order must not keep offering quote actions —
+  // submit_catering_quote only checks quote_status, so the UI is the guard here.
+  const isTerminal = order.status === "cancelled" || order.status === "rejected";
+
+  function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     if (quote <= 0) {
       setError("Introdu o sumă validă.");
       return;
     }
     startTransition(async () => {
-      try {
-        await submitCateringQuote(order.id, quote);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await submitCateringQuote(order.id, quote);
+      setError(result.error);
     });
   }
 
   function handleDecline() {
-    const reason = window.prompt("Motivul refuzului:") ?? "";
-    if (!reason.trim()) return;
+    const reason = window.prompt("Motivul refuzului:");
+    if (reason === null || !reason.trim()) return;
     startTransition(async () => {
-      try {
-        await declineCateringQuote(order.id, reason);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await declineCateringQuote(order.id, reason);
+      setError(result.error);
     });
   }
+
+  const statusLabel = isTerminal
+    ? ORDER_STATUS_LABEL[order.status]
+    : details.quote_status === "requested"
+      ? "Așteaptă ofertă"
+      : details.quote_status === "quoted"
+        ? "Ofertă trimisă"
+        : details.quote_status === "confirmed"
+          ? `Confirmată · ${ORDER_STATUS_LABEL[order.status]}`
+          : "Refuzată";
 
   return (
     <li className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
       <div className="flex items-center justify-between">
         <p className="font-medium">{order.order_number}</p>
-        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
-          {details.quote_status === "requested"
-            ? "Așteaptă ofertă"
-            : details.quote_status === "quoted"
-              ? "Ofertă trimisă"
-              : details.quote_status === "confirmed"
-                ? `Confirmată · ${ORDER_STATUS_LABEL[order.status]}`
-                : "Refuzată"}
-        </span>
+        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">{statusLabel}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
@@ -87,22 +88,22 @@ export function CateringQuoteCard({
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {details.quote_status === "requested" && (
-        <div className="flex flex-wrap items-center gap-3">
+      {!isTerminal && details.quote_status === "requested" && (
+        <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-sm">
             Ofertă finală (MDL)
             <input
               type="number"
               min={1}
               step="0.01"
+              required
               value={quote}
               onChange={(e) => setQuote(Number(e.target.value))}
               className="w-32 rounded-md border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
           <button
-            type="button"
-            onClick={handleSubmit}
+            type="submit"
             disabled={pending}
             className="rounded-full bg-primary px-5 py-2 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
           >
@@ -116,10 +117,10 @@ export function CateringQuoteCard({
           >
             Refuză
           </button>
-        </div>
+        </form>
       )}
 
-      {details.quote_status === "quoted" && (
+      {!isTerminal && details.quote_status === "quoted" && (
         <p className="text-sm text-zinc-500">
           Ofertă trimisă: <span className="font-medium">{details.quoted_total_mdl} MDL</span> — așteptăm
           confirmarea clientului.

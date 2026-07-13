@@ -10,32 +10,24 @@ export function OrderQueueRow({ order }: { order: Order }) {
 
   function handleAccept() {
     startTransition(async () => {
-      try {
-        await acceptOrder(order.id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await acceptOrder(order.id);
+      setError(result.error);
     });
   }
 
   function handleReject() {
-    const reason = window.prompt("Motiv refuz:") ?? "";
+    const reason = window.prompt("Motiv refuz:");
+    if (reason === null) return; // dismissed — don't reject
     startTransition(async () => {
-      try {
-        await rejectOrder(order.id, reason);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await rejectOrder(order.id, reason);
+      setError(result.error);
     });
   }
 
   function handleReady() {
     startTransition(async () => {
-      try {
-        await markReadyForPickup(order.id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await markReadyForPickup(order.id);
+      setError(result.error);
     });
   }
 
@@ -55,7 +47,7 @@ export function OrderQueueRow({ order }: { order: Order }) {
               type="button"
               onClick={handleAccept}
               disabled={pending}
-              className="rounded-full bg-primary px-4 py-1.5 text-xs text-white disabled:opacity-50"
+              className="rounded-full bg-primary px-4 py-1.5 text-xs text-white transition hover:bg-primary-dark disabled:opacity-50"
             >
               Acceptă
             </button>
@@ -74,7 +66,7 @@ export function OrderQueueRow({ order }: { order: Order }) {
             type="button"
             onClick={handleReady}
             disabled={pending}
-            className="rounded-full bg-primary px-4 py-1.5 text-xs text-white disabled:opacity-50"
+            className="rounded-full bg-primary px-4 py-1.5 text-xs text-white transition hover:bg-primary-dark disabled:opacity-50"
           >
             Gata de ridicare
           </button>

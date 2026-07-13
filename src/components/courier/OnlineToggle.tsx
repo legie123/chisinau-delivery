@@ -12,11 +12,8 @@ export function OnlineToggle({ initialStatus }: { initialStatus: string }) {
     const next = !online;
     setOnline(next);
     startTransition(async () => {
-      try {
-        await setOnlineStatus(next);
-      } catch {
-        setOnline(!next);
-      }
+      const result = await setOnlineStatus(next);
+      if (result.error) setOnline(!next);
     });
   }
 

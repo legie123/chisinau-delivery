@@ -17,10 +17,13 @@ export default async function RestaurantOrdersPage() {
     .eq("user_id", user?.id ?? "")
     .maybeSingle();
 
-  // RLS (orders_partner_scope) already restricts this to the caller's own restaurant.
+  // RLS (orders_partner_scope) already restricts this to the caller's own
+  // restaurant. Catering orders are excluded — accepting one here would skip
+  // the quote flow entirely; they live in /restaurant/catering.
   const { data: orders } = await supabase
     .from("orders")
     .select("*")
+    .eq("order_type", "standard")
     .in("status", QUEUE_STATUSES)
     .order("created_at");
 

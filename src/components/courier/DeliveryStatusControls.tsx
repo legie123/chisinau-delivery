@@ -28,11 +28,8 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
       paymentConfirmed = window.confirm("Ai încasat plata (cash/POS)?");
     }
     startTransition(async () => {
-      try {
-        await advanceStatus(order.id, step.next, paymentConfirmed);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Eroare");
-      }
+      const result = await advanceStatus(order.id, step.next, paymentConfirmed);
+      setError(result.error);
     });
   }
 
@@ -51,7 +48,7 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
           type="button"
           onClick={handleAdvance}
           disabled={pending}
-          className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white disabled:opacity-50"
+          className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
         >
           {pending ? "..." : step.label}
         </button>

@@ -22,19 +22,30 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
 
   const typedOrder = order as Order;
 
-  const [{ data: items }, { data: restaurant }, { data: address }] = await Promise.all([
+  // Catering orders carry their destination in catering_details (event venue),
+  // not in the customer's saved addresses — without this, the courier page
+  // would show "Fără adresă atașată" for every catering delivery.
+  const [{ data: items }, { data: restaurant }, { data: address }, { data: catering }] = await Promise.all([
     supabase.from("order_items").select("*").eq("order_id", deliveryId),
     supabase.from("restaurants").select("name, address, phone").eq("id", typedOrder.restaurant_id).single(),
     typedOrder.delivery_address_id
       ? supabase.from("addresses").select("*").eq("id", typedOrder.delivery_address_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    typedOrder.order_type === "catering"
+      ? supabase
+          .from("catering_details")
+          .select("event_address_text, contact_person, contact_phone, event_date, event_time")
+          .eq("order_id", deliveryId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const typedAddress = address as Address | null;
+  const destinationText = typedAddress?.street_address ?? catering?.event_address_text ?? null;
   const mapsUrl = typedAddress?.lat
     ? `https://www.google.com/maps/dir/?api=1&destination=${typedAddress.lat},${typedAddress.lng}`
-    : typedAddress
-      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${typedAddress.street_address}, Chișinău`)}`
+    : destinationText
+      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${destinationText}, Chișinău`)}`
       : null;
 
   return (
@@ -63,6 +74,25 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
                   .join(", ")}
               </p>
               {typedAddress.notes && <p className="text-xs text-zinc-500">{typedAddress.notes}</p>}
+              {mapsUrl && (
+                <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-xs underline underline-offset-4">
+                  Deschide în Google Maps
+                </a>
+              )}
+            </>
+          ) : catering ? (
+            <>
+              <p>{catering.event_address_text}</p>
+              <p className="text-zinc-500">
+                Eveniment {catering.event_date}
+                {catering.event_time ? ` · ${String(catering.event_time).slice(0, 5)}` : ""}
+              </p>
+              <p className="text-zinc-500">
+                {catering.contact_person} ·{" "}
+                <a href={`tel:${catering.contact_phone}`} className="underline underline-offset-4">
+                  {catering.contact_phone}
+                </a>
+              </p>
               {mapsUrl && (
                 <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-xs underline underline-offset-4">
                   Deschide în Google Maps

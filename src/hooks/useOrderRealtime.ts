@@ -12,6 +12,20 @@ export function useOrderRealtime(orderId: string, initialOrder: Order, initialEv
   const [order, setOrder] = useState(initialOrder);
   const [events, setEvents] = useState(initialEvents);
 
+  // Keep state in sync when the server component re-renders with fresh props
+  // (e.g. after a Server Action revalidates this route). Adjust-during-render
+  // is React's recommended pattern for prop-driven state.
+  const [prevInitialOrder, setPrevInitialOrder] = useState(initialOrder);
+  if (prevInitialOrder !== initialOrder) {
+    setPrevInitialOrder(initialOrder);
+    setOrder(initialOrder);
+  }
+  const [prevInitialEvents, setPrevInitialEvents] = useState(initialEvents);
+  if (prevInitialEvents !== initialEvents) {
+    setPrevInitialEvents(initialEvents);
+    setEvents(initialEvents);
+  }
+
   useEffect(() => {
     const supabase = createClient();
 

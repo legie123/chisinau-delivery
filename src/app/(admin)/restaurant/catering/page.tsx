@@ -1,9 +1,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { CateringQuoteCard } from "@/components/admin/CateringQuoteCard";
+import { OrderQueueLive } from "@/components/admin/OrderQueueLive";
 import type { CateringDetails, Order, OrderItem } from "@/lib/types/domain";
 
 export default async function RestaurantCateringPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: staffRow } = await supabase
+    .from("restaurant_staff")
+    .select("restaurant_id")
+    .eq("user_id", user?.id ?? "")
+    .maybeSingle();
 
   // RLS (orders_partner_scope) restricts everything to the caller's restaurant.
   const { data: orders } = await supabase
@@ -34,6 +44,7 @@ export default async function RestaurantCateringPage() {
 
   return (
     <main className="flex-1 px-6 py-10">
+      {staffRow && <OrderQueueLive restaurantId={staffRow.restaurant_id} />}
       <h1 className="mb-6 text-2xl font-semibold">Cereri de catering</h1>
       {orderList.length === 0 ? (
         <p className="text-zinc-500">Nicio cerere de catering încă.</p>
