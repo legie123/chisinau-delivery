@@ -51,7 +51,7 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
           type="button"
           onClick={handleAdvance}
           disabled={pending}
-          className="w-fit rounded-full bg-zinc-900 px-6 py-3 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+          className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white disabled:opacity-50"
         >
           {pending ? "..." : step.label}
         </button>

@@ -29,7 +29,7 @@ export function AvailableOrderRow({ order }: { order: Order }) {
         type="button"
         onClick={handleAccept}
         disabled={pending}
-        className="rounded-full bg-zinc-900 px-4 py-1.5 text-xs text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+        className="rounded-full bg-primary px-4 py-1.5 text-xs text-white disabled:opacity-50"
       >
         {pending ? "..." : "Acceptă livrarea"}
       </button>

@@ -27,7 +27,7 @@ export function InviteCourierForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-full bg-zinc-900 px-5 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+        className="w-fit rounded-full bg-primary px-5 py-2 text-sm text-white disabled:opacity-50"
       >
         {pending ? "Se trimite..." : "Trimite invitația"}
       </button>

@@ -3,10 +3,15 @@ import Link from "next/link";
 export default function CourierLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+      <header className="flex items-center justify-between border-b border-white/10 bg-[#0d0d1f] px-6 py-4 text-white">
         <Link href="/" className="font-semibold">
-          Chișinău Delivery — Curier
+          <span className="text-gold">Dragons</span> Delivery — Curier
         </Link>
+        <nav className="flex gap-4 text-sm text-white/70">
+          <Link href="/deliveries" className="transition hover:text-white">
+            Livrările mele
+          </Link>
+        </nav>
       </header>
       {children}
     </div>

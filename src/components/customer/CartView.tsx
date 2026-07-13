@@ -65,7 +65,7 @@ export function CartView() {
       </div>
       <Link
         href="/checkout"
-        className="w-fit rounded-full bg-zinc-900 px-6 py-3 text-sm text-white transition hover:bg-zinc-700 dark:bg-white dark:text-zinc-900"
+        className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark"
       >
         Continuă spre plată
       </Link>

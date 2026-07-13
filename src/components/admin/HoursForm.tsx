@@ -43,7 +43,7 @@ export function HoursForm({ hours }: { hours: RestaurantHours[] }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-full bg-zinc-900 px-5 py-2 text-sm text-white transition hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+        className="w-fit rounded-full bg-primary px-5 py-2 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
       >
         {pending ? "Se salvează..." : "Salvează programul"}
       </button>

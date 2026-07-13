@@ -199,7 +199,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       <button
         type="submit"
         disabled={pending || belowMinimum}
-        className="w-fit rounded-full bg-zinc-900 px-6 py-3 text-sm text-white transition hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
+        className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
       >
         {pending ? "Se trimite..." : "Plasează comanda"}
       </button>

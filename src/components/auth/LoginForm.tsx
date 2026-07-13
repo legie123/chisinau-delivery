@@ -101,7 +101,7 @@ export function LoginForm({ next }: { next: string | null }) {
       <button
         type="submit"
         disabled={loading}
-        className="rounded-full bg-zinc-900 px-6 py-3 text-white transition hover:bg-zinc-700 disabled:opacity-50 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+        className="rounded-full bg-primary px-6 py-3 text-white transition hover:bg-primary-dark disabled:opacity-50"
       >
         {loading ? "Se procesează..." : mode === "sign-up" ? "Creează cont" : "Autentificare"}
       </button>
