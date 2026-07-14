@@ -1,17 +1,19 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { fetchRole, redirectWithSessionCookies, updateSession } from "@/lib/supabase/middleware";
 
 // Next.js 16 renamed the `middleware.ts` file convention to `proxy.ts` (the
-// exported function is `proxy`, not `middleware`). This is our role-gate
-// checkpoint for the courier/admin surfaces — a UX convenience, NOT the
-// security boundary — Postgres RLS (has_role/has_any_role/has_restaurant_access)
-// is what actually enforces access on every table.
+// exported function is `proxy`, not `middleware`).
 //
-// The matcher below only targets gated paths, so public pages (marketing,
-// login, customer browsing) never depend on Supabase being reachable —
-// their own Server/Client Components create their own Supabase client
-// on demand and degrade gracefully if it's unavailable.
+// This runs on EVERY non-static route — not just the gated ones — because
+// updateSession() is what persists rotated refresh tokens back into cookies.
+// Server Components can't write cookies, so if a customer page's getUser()
+// triggers a token rotation and the proxy didn't cover that route, the new
+// token would be silently discarded and GoTrue's reuse detection would
+// revoke the whole session family on the next navigation (forced logout).
+//
+// Role gating below is UX only — Postgres RLS is the real security boundary.
 export async function proxy(request: NextRequest) {
+  const { response, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
   const requiredRoles = pathname.startsWith("/deliveries")
@@ -22,9 +24,7 @@ export async function proxy(request: NextRequest) {
         ? ["platform_admin"]
         : null;
 
-  if (!requiredRoles) return NextResponse.next();
-
-  const { response, user, supabase } = await updateSession(request);
+  if (!requiredRoles) return response;
 
   if (!user) {
     const loginUrl = new URL("/login", request.url);
@@ -41,5 +41,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/deliveries/:path*", "/restaurant/:path*", "/platform/:path*"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+  ],
 };

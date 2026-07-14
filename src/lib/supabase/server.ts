@@ -21,7 +21,8 @@ export async function createClient() {
             );
           } catch {
             // Called from a Server Component — cookies can't be set here.
-            // Session refresh is instead handled by proxy.ts on every request.
+            // proxy.ts runs updateSession() on every non-static route and is
+            // the layer that actually persists rotated tokens to cookies.
           }
         },
       },
