@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export default function CourierLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,10 +8,11 @@ export default function CourierLayout({ children }: { children: React.ReactNode 
         <Link href="/" className="font-semibold">
           <span className="text-gold">Dragons</span> Delivery — Curier
         </Link>
-        <nav className="flex gap-4 text-sm text-white/70">
+        <nav className="flex items-center gap-4 text-sm text-white/70">
           <Link href="/deliveries" className="transition hover:text-white">
             Livrările mele
           </Link>
+          <SignOutButton />
         </nav>
       </header>
       {children}

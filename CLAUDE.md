@@ -8,6 +8,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Chișinău Delivery — food-delivery platform (sushi/fine-dining + catering) for Chișinău, Moldova. Currency MDL, UI in Romanian. Next.js 16 App Router + Supabase (Postgres/RLS/Realtime/Auth/Storage).
 
+## LOOP RULE (mandatory working mode)
+
+Every non-trivial task in this repo runs as a loop, not a one-shot: define END-STATE (verifiable) + SCOPE + STOP-RULE up front, then iterate Doer → Verifier → Improve.
+- **Verifier for this repo** = `npm run build` + `npm run lint` + smoke-test routes over the launchd server (`launchctl kickstart -k gui/501/com.chisinau-delivery.server`, then curl the touched paths) — after EVERY iteration, not at the end. For large changes, add an adversarial review workflow before declaring done.
+- **Memory** = one git commit per iteration (atomic, descriptive).
+- **Stop** = end-state verified OR 3 iterations OR explicit user stop. Deploys still require explicit user OK.
+
 ## Commands
 
 ```bash

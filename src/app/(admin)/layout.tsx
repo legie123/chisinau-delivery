@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { RoleGate } from "@/components/auth/RoleGate";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import type { UserRole } from "@/lib/types/domain";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -56,6 +57,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Curieri
             </Link>
           </RoleGate>
+          <RoleGate role={role} allow={["platform_admin"]}>
+            <Link href="/platform/orders" className="transition hover:text-white">
+              Toate comenzile
+            </Link>
+          </RoleGate>
+          <SignOutButton />
         </nav>
       </header>
       {children}
