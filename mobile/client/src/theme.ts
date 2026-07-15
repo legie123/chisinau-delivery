@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const COLORS = {
   background: '#0D0D1F',
   surface: '#1A1A2E',
@@ -46,3 +48,12 @@ export const SHADOWS = {
 // Backend-ul real e Supabase (vezi ../../supabase/) — la conectare, înlocuiește
 // mock-urile din screens cu @supabase/supabase-js. Pentru un API HTTP local:
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
+
+// Luxury "Dragons Alliance Premium" extensions (synced with web identity)
+export const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
+
+export const CARD_TINTS: Record<string, [string, string]> = {
+  sushi: ['#1a1023', '#58152a'],
+  fine_dining: ['#171226', '#4a350f'],
+  other: ['#141426', '#263056'],
+};

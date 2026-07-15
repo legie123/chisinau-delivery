@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../theme';
+import { COLORS, SERIF, CARD_TINTS } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Restaurant } from '../types';
 import { fetchRestaurants } from '../lib/api';
 
@@ -59,8 +60,8 @@ export default function HomeScreen({ navigation }: Props) {
           <View style={styles.logoContainer}>
             <Text style={styles.logoIcon}>🐉</Text>
             <View>
-              <Text style={styles.logoTitle}>DRAGONS</Text>
-              <Text style={styles.logoSubtitle}>COURIERS</Text>
+              <Text style={styles.logoTitle}>DRAGONS DELIVERY</Text>
+              <Text style={styles.logoSubtitle}>PREMIUM FOOD DELIVERY</Text>
             </View>
           </View>
           <TouchableOpacity style={styles.notificationBtn}>
@@ -107,30 +108,36 @@ export default function HomeScreen({ navigation }: Props) {
         {filteredRestaurants.map((restaurant, index) => (
           <TouchableOpacity
             key={restaurant.id}
-            style={styles.restaurantCard}
             activeOpacity={0.85}
-            onPress={() => navigation.navigate('Restaurant', { restaurant, imageUrl: FOOD_IMAGES[index % FOOD_IMAGES.length] })}
+            onPress={() => navigation.navigate('Restaurant', { restaurant, imageUrl: restaurant.coverUrl ?? FOOD_IMAGES[index % FOOD_IMAGES.length] })}
           >
-            <View style={styles.cardContent}>
-              <View style={styles.cardTextArea}>
-                <Text style={styles.restaurantName}>{restaurant.name}</Text>
-                <Text style={styles.restaurantCategory}>{restaurant.category}</Text>
-                <View style={styles.cardMeta}>
-                  <Text style={styles.rating}>⭐ {restaurant.rating}</Text>
-                  <Text style={styles.metaSeparator}>·</Text>
-                  <Text style={styles.deliveryTime}>{restaurant.deliveryTime}</Text>
-                </View>
-                {restaurant.deliveryFee === '0' && (
-                  <View style={styles.freeDeliveryBadge}>
-                    <Text style={styles.freeDeliveryText}>FREE DELIVERY</Text>
+            <LinearGradient
+              colors={CARD_TINTS[restaurant.cuisine] ?? CARD_TINTS.other}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.luxCard}
+            >
+              <View style={styles.cardContent}>
+                <View style={styles.cardTextArea}>
+                  <Text style={styles.luxName}>{restaurant.name}</Text>
+                  <Text style={styles.restaurantCategory}>{restaurant.category}</Text>
+                  <View style={styles.cardMeta}>
+                    <Text style={styles.rating}>★ {restaurant.rating}</Text>
+                    <Text style={styles.metaSeparator}>·</Text>
+                    <Text style={styles.deliveryTime}>{restaurant.deliveryTime}</Text>
                   </View>
-                )}
+                  <View style={[styles.feePill, restaurant.deliveryFee === '0' && styles.feePillGold]}>
+                    <Text style={[styles.feePillText, restaurant.deliveryFee === '0' && styles.feePillTextGold]}>
+                      {restaurant.deliveryFee === '0' ? 'LIVRARE GRATUITĂ' : `LIVRARE ${restaurant.deliveryFee} MDL`}
+                    </Text>
+                  </View>
+                </View>
+                <Image
+                  source={{ uri: restaurant.coverUrl ?? FOOD_IMAGES[index % FOOD_IMAGES.length] }}
+                  style={styles.cardImage}
+                />
               </View>
-              <Image
-                source={{ uri: FOOD_IMAGES[index % FOOD_IMAGES.length] }}
-                style={styles.cardImage}
-              />
-            </View>
+            </LinearGradient>
           </TouchableOpacity>
         ))}
 
@@ -141,6 +148,40 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  luxCard: {
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245,166,35,0.18)',
+  },
+  luxName: {
+    fontSize: 22,
+    fontFamily: SERIF,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  feePill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 10,
+  },
+  feePillGold: {
+    borderColor: 'rgba(245,166,35,0.6)',
+  },
+  feePillText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  feePillTextGold: {
+    color: COLORS.gold,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -164,17 +205,18 @@ const styles = StyleSheet.create({
     fontSize: 36,
   },
   logoTitle: {
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
+    fontFamily: SERIF,
+    fontWeight: '700',
     color: COLORS.gold,
     letterSpacing: 1,
   },
   logoSubtitle: {
-    fontSize: 14,
+    fontSize: 9,
     fontWeight: '700',
-    color: COLORS.primary,
-    letterSpacing: 2,
-    marginTop: -2,
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 3,
+    marginTop: 1,
   },
   notificationBtn: {
     width: 42,

@@ -127,3 +127,48 @@ export async function setOnline(online: boolean): Promise<string | null> {
   const { error } = await supabase.rpc("set_courier_online_status", { p_status: online ? "online" : "offline" });
   return error ? error.message : null;
 }
+
+// ---------- History & earnings (video reference: Istoric Livrări) ----------
+
+export interface DeliveredRow {
+  id: string;
+  orderNumber: string;
+  restaurant: string;
+  time: string;
+  feeMdl: number;
+  isToday: boolean;
+}
+
+export async function fetchDeliveryHistory(): Promise<{
+  rows: DeliveredRow[];
+  todayCount: number;
+  todayEarnings: number;
+}> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id, order_number, updated_at, delivery_fee_mdl, restaurants(name)")
+    .eq("status", "delivered")
+    .not("courier_id", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+
+  const todayStr = new Date().toLocaleDateString("ro-RO");
+  const rows: DeliveredRow[] = (data ?? []).map((o) => {
+    const d = new Date(o.updated_at as string);
+    return {
+      id: o.id as string,
+      orderNumber: o.order_number as string,
+      restaurant: ((o.restaurants as unknown as { name: string } | null)?.name) ?? "Restaurant",
+      time: d.toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" }),
+      feeMdl: Number(o.delivery_fee_mdl),
+      isToday: d.toLocaleDateString("ro-RO") === todayStr,
+    };
+  });
+  const today = rows.filter((r) => r.isToday);
+  return {
+    rows,
+    todayCount: today.length,
+    todayEarnings: today.reduce((sum, r) => sum + r.feeMdl, 0),
+  };
+}

@@ -19,6 +19,7 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
 
   return (data ?? []).map((r) => ({
     id: r.id,
+    cuisine: r.cuisine_type as string,
     name: r.name,
     address: r.address,
     lat: "0",

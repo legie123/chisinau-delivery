@@ -29,8 +29,8 @@ FIECARE val (build+lint+smoke+screenshot; workflow adversarial la 2-3 valuri).
       courier feed realtime, AuthListener nu mai dă refresh pe refocus,
       erori RO peste tot, imgs lazy
 - [x] W11: graphify update src/ → 173 noduri/61 comunități, graf interogabil (rulat devreme, independent)
-- [ ] W12: mobile client Expo → luxury theme sync (serif/gold/tints din web)
-- [ ] W13: mobile driver Expo → progress+istoric ca în video
+- [x] W12: mobile client → luxury (serif Georgia, LinearGradient tints per bucătărie, feePill outlined, brand header, cover-uri reale)
+- [x] W13: mobile driver → Istoric Livrări live (azi N + MDL gold, pull-to-refresh); progress/swipe exista deja din 4.2
 - [ ] W14: verify adversarial final pe tot + fix + bilanț & vault/ruflo sync
 
 ## Cerință user (01:10): hub 3 sectoare, fără login

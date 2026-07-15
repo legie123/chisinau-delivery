@@ -1,27 +1,54 @@
-import React from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar, ScrollView, RefreshControl } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-
-const MOCK_HISTORY = [
-  { id: 1, restaurant: "Dragon's Wok", customer: "Alexandru P.", earnings: "12 RON", time: "14:30", distance: "2.3 km", status: "Livrat" },
-  { id: 2, restaurant: "Casa Românească", customer: "Maria I.", earnings: "15 RON", time: "13:15", distance: "3.1 km", status: "Livrat" },
-  { id: 3, restaurant: "Sushi Dragon", customer: "Andrei V.", earnings: "10 RON", time: "12:00", distance: "1.8 km", status: "Livrat" },
-  { id: 4, restaurant: "Pizza Inferno", customer: "Elena M.", earnings: "18 RON", time: "11:20", distance: "4.2 km", status: "Livrat" },
-  { id: 5, restaurant: "Burger Palace", customer: "Ion C.", earnings: "9 RON", time: "10:45", distance: "1.5 km", status: "Livrat" },
-];
+import { fetchDeliveryHistory, DeliveredRow } from '../lib/api';
 
 export default function OrdersHistoryScreen() {
+  const [rows, setRows] = useState<DeliveredRow[]>([]);
+  const [todayCount, setTodayCount] = useState(0);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const h = await fetchDeliveryHistory();
+      setRows(h.rows);
+      setTodayCount(h.todayCount);
+      setTodayEarnings(h.todayEarnings);
+    } catch {}
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <View style={styles.header}>
         <Text style={styles.title}>Istoric Livrări</Text>
-        <Text style={styles.subtitle}>Azi · 5 livrări completate</Text>
+        <Text style={styles.subtitle}>
+          Azi · {todayCount} {todayCount === 1 ? 'livrare completată' : 'livrări completate'} ·{' '}
+          <Text style={{ color: COLORS.gold, fontWeight: '700' }}>{todayEarnings} MDL</Text>
+        </Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {MOCK_HISTORY.map(order => (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      >
+        {rows.length === 0 && (
+          <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginTop: 48 }}>
+            Nicio livrare finalizată încă.
+          </Text>
+        )}
+        {rows.map(order => (
           <View key={order.id} style={styles.orderCard}>
             <View style={styles.orderLeft}>
               <View style={styles.iconBox}>
@@ -29,15 +56,13 @@ export default function OrdersHistoryScreen() {
               </View>
               <View>
                 <Text style={styles.orderRestaurant}>{order.restaurant}</Text>
-                <Text style={styles.orderCustomer}>→ {order.customer}</Text>
+                <Text style={styles.orderCustomer}>{order.orderNumber}</Text>
                 <View style={styles.orderMeta}>
                   <Text style={styles.orderTime}>{order.time}</Text>
-                  <Text style={styles.orderDot}>·</Text>
-                  <Text style={styles.orderDistance}>{order.distance}</Text>
                 </View>
               </View>
             </View>
-            <Text style={styles.orderEarnings}>{order.earnings}</Text>
+            <Text style={styles.orderEarnings}>{order.feeMdl} MDL</Text>
           </View>
         ))}
       </ScrollView>
