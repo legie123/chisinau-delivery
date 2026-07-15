@@ -33,12 +33,15 @@ export function CateringQuoteCard({
     });
   }
 
+  const [declining, setDeclining] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+
   function handleDecline() {
-    const reason = window.prompt("Motivul refuzului:");
-    if (reason === null || !reason.trim()) return;
+    if (!declineReason.trim()) return;
     startTransition(async () => {
-      const result = await declineCateringQuote(order.id, reason);
+      const result = await declineCateringQuote(order.id, declineReason.trim());
       setError(result.error);
+      if (!result.error) setDeclining(false);
     });
   }
 
@@ -111,13 +114,32 @@ export function CateringQuoteCard({
           </button>
           <button
             type="button"
-            onClick={handleDecline}
+            onClick={() => setDeclining((v) => !v)}
             disabled={pending}
             className="rounded-full border border-white/15 px-5 py-2 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-50"
           >
             Refuză
           </button>
         </form>
+      )}
+
+      {declining && !isTerminal && details.quote_status === "requested" && (
+        <div className="flex items-center gap-2">
+          <input
+            value={declineReason}
+            onChange={(e) => setDeclineReason(e.target.value)}
+            placeholder="Motivul refuzului (obligatoriu)"
+            className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
+          />
+          <button
+            type="button"
+            onClick={handleDecline}
+            disabled={pending || !declineReason.trim()}
+            className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            Trimite refuzul
+          </button>
+        </div>
       )}
 
       {!isTerminal && details.quote_status === "quoted" && (

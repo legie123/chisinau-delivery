@@ -7,14 +7,17 @@ export function CourierActiveToggle({ courierId, initialActive }: { courierId: s
   const [active, setActive] = useState(initialActive);
   const [pending, startTransition] = useTransition();
 
+  const [failed, setFailed] = useState(false);
+
   function handleToggle() {
     const next = !active;
     setActive(next);
+    setFailed(false);
     startTransition(async () => {
-      try {
-        await setCourierActive(courierId, next);
-      } catch {
+      const result = await setCourierActive(courierId, next);
+      if (result.error) {
         setActive(!next);
+        setFailed(true);
       }
     });
   }
@@ -30,7 +33,7 @@ export function CourierActiveToggle({ courierId, initialActive }: { courierId: s
           : "bg-white/10 text-white/50"
       }`}
     >
-      {active ? "Activ" : "Dezactivat"}
+      {failed ? "Eroare" : active ? "Activ" : "Dezactivat"}
     </button>
   );
 }

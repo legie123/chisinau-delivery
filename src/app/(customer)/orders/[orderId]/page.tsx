@@ -7,13 +7,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   const { orderId } = await params;
   const supabase = await createClient();
 
-  const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).single();
-  if (!order) notFound();
-
-  const [{ data: items }, { data: events }] = await Promise.all([
+  const [{ data: order }, { data: items }, { data: events }] = await Promise.all([
+    supabase.from("orders").select("*").eq("id", orderId).single(),
     supabase.from("order_items").select("*").eq("order_id", orderId),
     supabase.from("delivery_status_events").select("*").eq("order_id", orderId).order("created_at"),
   ]);
+  if (!order) notFound();
 
   const typedOrder = order as Order;
 

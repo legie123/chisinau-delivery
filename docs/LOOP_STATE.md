@@ -20,10 +20,14 @@ FIECARE val (build+lint+smoke+screenshot; workflow adversarial la 2-3 valuri).
 ## Roadmap 12h (rămase)
 - [x] W8: curier web = video ref: progress 4 pași verzi pe detaliu +
       /deliveries/history (azi: N livrări + total gold, carduri check verde)
-- [ ] W9: workflow ANALYSIS (multi-agent): audit calitate cod + performanță
-      (queries N+1, indexuri, bundle, re-renders) → findings → fix confirmate
-- [ ] W10: workflow OPTIMIZATION: aplicare recomandări perf (paralel queries,
-      select coloane specifice, memo, imagini sizes)
+- [x] W9: workflow ANALYSIS (32 agenți, 3 lentile) → 29/29 findings confirmate
+- [x] W10: toate cele 27 aplicate (2 opționale sărite conform verifier):
+      indexuri (order_items.order_id + partial ready_for_pickup feed, aplicate
+      și remote), query-uri mărginite/narrow/embed, meniu = 1 call PostgREST,
+      window.confirm/prompt → UI inline (PWA-safe), toate toggle-urile cu
+      eroare vizibilă, checkout tri-state (total nu mai minte la load),
+      courier feed realtime, AuthListener nu mai dă refresh pe refocus,
+      erori RO peste tot, imgs lazy
 - [x] W11: graphify update src/ → 173 noduri/61 comunități, graf interogabil (rulat devreme, independent)
 - [ ] W12: mobile client Expo → luxury theme sync (serif/gold/tints din web)
 - [ ] W13: mobile driver Expo → progress+istoric ca în video

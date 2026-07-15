@@ -74,12 +74,14 @@ export function CateringTracking({
     });
   }
 
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+
   function handleCancel() {
-    const reason = window.prompt("Motivul anulării (opțional):");
-    if (reason === null) return; // user dismissed the prompt — don't cancel
     startTransition(async () => {
-      const result = await cancelCateringOrder(order.id, reason);
+      const result = await cancelCateringOrder(order.id, cancelReason.trim());
       setError(result.error);
+      if (!result.error) setCancelling(false);
     });
   }
 
@@ -155,16 +157,44 @@ export function CateringTracking({
               {pending ? "..." : `Confirmă oferta — ${details.quoted_total_mdl} MDL`}
             </button>
           )}
-          {order.status === "pending_restaurant" && (
+          {order.status === "pending_restaurant" && !cancelling && (
             <button
               type="button"
-              onClick={handleCancel}
+              onClick={() => setCancelling(true)}
               disabled={pending}
               className="rounded-full border border-white/15 px-6 py-3 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-50"
             >
               Anulează cererea
             </button>
           )}
+        </div>
+      )}
+
+      {cancelling && !isTerminal && (
+        <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
+          <input
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Motivul anulării (opțional)"
+            className="rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={pending}
+              className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Confirmă anularea
+            </button>
+            <button
+              type="button"
+              onClick={() => setCancelling(false)}
+              className="rounded-full px-5 py-2 text-sm text-white/60 underline underline-offset-4"
+            >
+              Renunță
+            </button>
+          </div>
         </div>
       )}
     </div>

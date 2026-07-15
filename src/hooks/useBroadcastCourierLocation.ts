@@ -28,7 +28,16 @@ export function useBroadcastCourierLocation(orderId: string, courierId: string |
         const now = Date.now();
         if (now - lastUpsertRef.current > UPSERT_INTERVAL_MS) {
           lastUpsertRef.current = now;
-          supabase.from("courier_locations").upsert({ courier_id: courierId, ...point }).then();
+          supabase
+            .from("courier_locations")
+            .upsert({ courier_id: courierId, ...point })
+            .then(({ error: upsertError }) => {
+              if (upsertError) {
+                // Retry on the next GPS tick instead of going stale for 45s.
+                lastUpsertRef.current = 0;
+                console.warn("[courier] last-known position upsert failed", upsertError.message);
+              }
+            });
         }
       },
       (err) => setError(err.message),

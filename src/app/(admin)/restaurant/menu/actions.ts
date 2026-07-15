@@ -85,11 +85,16 @@ export async function createMenuItem(_prev: ActionState, formData: FormData): Pr
   }
 }
 
-export async function toggleItemAvailability(itemId: string, isAvailable: boolean) {
-  const { supabase } = await requireOwnRestaurant();
-  const { error } = await supabase.from("menu_items").update({ is_available: isAvailable }).eq("id", itemId);
-  if (error) throw new Error(error.message);
-  revalidatePath("/restaurant/menu");
+export async function toggleItemAvailability(itemId: string, isAvailable: boolean): Promise<ActionState> {
+  try {
+    const { supabase } = await requireOwnRestaurant();
+    const { error } = await supabase.from("menu_items").update({ is_available: isAvailable }).eq("id", itemId);
+    if (error) return { error: error.message };
+    revalidatePath("/restaurant/menu");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
 }
 
 export async function deleteMenuItem(_prev: ActionState, formData: FormData): Promise<ActionState> {

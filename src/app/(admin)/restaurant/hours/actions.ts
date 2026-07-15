@@ -49,12 +49,17 @@ export async function updateHours(_prev: ActionState, formData: FormData): Promi
   }
 }
 
-export async function toggleAcceptingOrders(accepting: boolean) {
-  const { supabase, restaurantId } = await requireOwnRestaurant();
-  const { error } = await supabase
-    .from("restaurants")
-    .update({ accepting_orders: accepting })
-    .eq("id", restaurantId);
-  if (error) throw new Error(error.message);
-  revalidatePath("/restaurant/hours");
+export async function toggleAcceptingOrders(accepting: boolean): Promise<ActionState> {
+  try {
+    const { supabase, restaurantId } = await requireOwnRestaurant();
+    const { error } = await supabase
+      .from("restaurants")
+      .update({ accepting_orders: accepting })
+      .eq("id", restaurantId);
+    if (error) return { error: error.message };
+    revalidatePath("/restaurant/hours");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
 }

@@ -91,7 +91,7 @@ export function MenuBrowser({
               </div>
               {item.photo_url && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.photo_url} alt={item.name} className="h-24 w-24 shrink-0 rounded-xl object-cover sm:h-28 sm:w-28" />
+                <img loading="lazy" decoding="async" src={item.photo_url} alt={item.name} className="h-24 w-24 shrink-0 rounded-xl object-cover sm:h-28 sm:w-28" />
               )}
             </div>
           );

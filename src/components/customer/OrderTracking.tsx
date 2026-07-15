@@ -2,7 +2,13 @@
 
 import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 import { useCourierLocation } from "@/hooks/useCourierLocation";
-import { ORDER_STATUS_LABEL, type DeliveryStatusEvent, type Order, type OrderItem } from "@/lib/types/domain";
+import {
+  ORDER_STATUS_LABEL,
+  PAYMENT_METHOD_LABEL,
+  type DeliveryStatusEvent,
+  type Order,
+  type OrderItem,
+} from "@/lib/types/domain";
 
 // Bolt-style 4-step progress. Maps our 7 active statuses onto customer-facing steps.
 const STEPS = [
@@ -147,7 +153,7 @@ export function OrderTracking({
             <span>{Number(order.delivery_fee_mdl) === 0 ? "Gratuită" : `${order.delivery_fee_mdl} MDL`}</span>
           </div>
           <div className="flex justify-between text-lg font-bold text-white">
-            <span>Total ({order.payment_method === "cash" ? "cash" : "card la livrare"})</span>
+            <span>Total ({PAYMENT_METHOD_LABEL[order.payment_method]})</span>
             <span>{order.total_mdl} MDL</span>
           </div>
         </div>

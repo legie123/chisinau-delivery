@@ -29,11 +29,12 @@ export default async function OrdersPage() {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("*")
+    .select("id, order_number, order_type, created_at, status, total_mdl")
     .eq("customer_id", user.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(30);
 
-  const orderList = (orders ?? []) as Order[];
+  const orderList = (orders ?? []) as Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl">[];
   const formatDate = new Intl.DateTimeFormat("ro-RO", {
     dateStyle: "medium",
     timeStyle: "short",

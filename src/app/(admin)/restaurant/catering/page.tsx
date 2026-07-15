@@ -20,7 +20,8 @@ export default async function RestaurantCateringPage() {
     .from("orders")
     .select("*")
     .eq("order_type", "catering")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(50);
 
   const orderList = (orders ?? []) as Order[];
   const orderIds = orderList.map((o) => o.id);

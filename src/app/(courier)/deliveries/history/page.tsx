@@ -23,19 +23,18 @@ export default async function DeliveryHistoryPage() {
     );
   }
 
-  const [{ data: delivered }, { data: restaurants }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("*")
-      .eq("courier_id", courier.id)
-      .eq("status", "delivered")
-      .order("updated_at", { ascending: false })
-      .limit(50),
-    supabase.from("restaurants").select("id, name"),
-  ]);
+  const { data: delivered } = await supabase
+    .from("orders")
+    .select("id, order_number, updated_at, delivery_fee_mdl, restaurant_id, restaurants(name)")
+    .eq("courier_id", courier.id)
+    .eq("status", "delivered")
+    .order("updated_at", { ascending: false })
+    .limit(50);
 
-  const orders = (delivered ?? []) as Order[];
-  const restaurantName = new Map((restaurants ?? []).map((r) => [r.id, r.name]));
+  type HistoryRow = Pick<Order, "id" | "order_number" | "updated_at" | "delivery_fee_mdl" | "restaurant_id"> & {
+    restaurants: { name: string } | null;
+  };
+  const orders = (delivered ?? []) as unknown as HistoryRow[];
 
   const todayStr = new Date().toLocaleDateString("ro-RO", { timeZone: "Europe/Chisinau" });
   const isToday = (iso: string) =>
@@ -76,7 +75,7 @@ export default async function DeliveryHistoryPage() {
                   </svg>
                 </span>
                 <div>
-                  <p className="font-semibold text-white">{restaurantName.get(order.restaurant_id) ?? "Restaurant"}</p>
+                  <p className="font-semibold text-white">{order.restaurants?.name ?? "Restaurant"}</p>
                   <p className="mt-0.5 text-sm text-white/50">
                     {formatTime.format(new Date(order.updated_at))} · {order.order_number}
                   </p>

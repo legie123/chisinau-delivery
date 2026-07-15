@@ -24,12 +24,15 @@ export function OrderQueueRow({ order }: { order: Order }) {
     });
   }
 
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
   function handleReject() {
-    const reason = window.prompt("Motiv refuz:");
-    if (reason === null) return; // dismissed — don't reject
+    if (!rejectReason.trim()) return;
     startTransition(async () => {
-      const result = await rejectOrder(order.id, reason);
+      const result = await rejectOrder(order.id, rejectReason.trim());
       setError(result.error);
+      if (!result.error) setRejecting(false);
     });
   }
 
@@ -44,10 +47,11 @@ export function OrderQueueRow({ order }: { order: Order }) {
 
   return (
     <li
-      className={`flex items-center justify-between gap-4 rounded-2xl p-5 ring-1 ${
+      className={`flex flex-col gap-3 rounded-2xl p-5 ring-1 ${
         isNew ? "bg-primary/10 ring-primary/40" : "bg-white/[0.04] ring-white/[0.06]"
       }`}
     >
+      <div className="flex w-full items-center justify-between gap-4">
       <div className="flex items-center gap-4">
         <span
           className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${
@@ -78,7 +82,7 @@ export function OrderQueueRow({ order }: { order: Order }) {
             </button>
             <button
               type="button"
-              onClick={handleReject}
+              onClick={() => setRejecting((v) => !v)}
               disabled={pending}
               className="rounded-full bg-white/5 px-5 py-2.5 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
             >
@@ -97,6 +101,25 @@ export function OrderQueueRow({ order }: { order: Order }) {
           </button>
         )}
       </div>
+      </div>
+      {rejecting && order.status === "pending_restaurant" && (
+        <div className="mt-1 flex w-full items-center gap-2">
+          <input
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Motivul refuzului (obligatoriu)"
+            className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
+          />
+          <button
+            type="button"
+            onClick={handleReject}
+            disabled={pending || !rejectReason.trim()}
+            className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            Trimite refuzul
+          </button>
+        </div>
+      )}
     </li>
   );
 }

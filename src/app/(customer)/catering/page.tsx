@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { CateringRequestForm } from "@/components/customer/CateringRequestForm";
-import type { Restaurant } from "@/lib/types/domain";
+import { CateringRequestForm, type CateringRestaurant } from "@/components/customer/CateringRequestForm";
 
 export default async function CateringPage() {
   const supabase = await createClient();
@@ -8,7 +7,7 @@ export default async function CateringPage() {
   // so listing such a restaurant would only produce a failing form.
   const { data: restaurants } = await supabase
     .from("restaurants")
-    .select("*")
+    .select("id, name, catering_min_amount_mdl")
     .eq("is_active", true)
     .eq("accepts_catering", true)
     .eq("accepting_orders", true)
@@ -21,7 +20,7 @@ export default async function CateringPage() {
         Platouri și meniuri pentru evenimente, livrate de restaurantele partenere. Trimiți cererea,
         primești oferta, confirmi — noi livrăm.
       </p>
-      <CateringRequestForm restaurants={(restaurants ?? []) as Restaurant[]} />
+      <CateringRequestForm restaurants={(restaurants ?? []) as CateringRestaurant[]} />
     </main>
   );
 }

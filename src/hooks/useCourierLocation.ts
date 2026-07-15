@@ -13,6 +13,7 @@ export function useCourierLocation(orderId: string, courierId: string | null, ac
   useEffect(() => {
     if (!active || !courierId) return;
     const supabase = createClient();
+    let cancelled = false;
 
     supabase
       .from("courier_locations")
@@ -20,10 +21,16 @@ export function useCourierLocation(orderId: string, courierId: string | null, ac
       .eq("courier_id", courierId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data) setPosition({ lat: data.lat, lng: data.lng });
+        // Seed only fills the blank-map gap — never overwrite a fresher
+        // broadcast position that may have arrived first.
+        if (!cancelled && data) setPosition((p) => p ?? { lat: data.lat, lng: data.lng });
       });
 
-    return subscribeCourierLocation(supabase, orderId, setPosition);
+    const unsubscribe = subscribeCourierLocation(supabase, orderId, setPosition);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [orderId, courierId, active]);
 
   return position;

@@ -13,6 +13,7 @@ export function subscribeTable<T extends { [key: string]: any }>(
   table: string,
   filter: string,
   onChange: (payload: RealtimePostgresChangesPayload<T>) => void,
+  onDegraded?: () => void,
 ) {
   const channelName = `${purpose}:${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const channel = supabase
@@ -22,7 +23,14 @@ export function subscribeTable<T extends { [key: string]: any }>(
       { event: "*", schema: "public", table, filter },
       (payload: RealtimePostgresChangesPayload<T>) => onChange(payload),
     )
-    .subscribe();
+    .subscribe((status, err) => {
+      // Without this callback CHANNEL_ERROR/TIMED_OUT are swallowed and a
+      // "live" page silently freezes on stale data.
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        console.error(`[realtime] ${purpose} ${status}`, err ?? "");
+        onDegraded?.();
+      }
+    });
 
   return () => {
     supabase.removeChannel(channel);

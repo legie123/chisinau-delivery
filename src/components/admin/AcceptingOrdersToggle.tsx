@@ -7,14 +7,17 @@ export function AcceptingOrdersToggle({ initialValue }: { initialValue: boolean 
   const [accepting, setAccepting] = useState(initialValue);
   const [pending, startTransition] = useTransition();
 
+  const [failed, setFailed] = useState(false);
+
   function handleToggle() {
     const next = !accepting;
     setAccepting(next);
+    setFailed(false);
     startTransition(async () => {
-      try {
-        await toggleAcceptingOrders(next);
-      } catch {
+      const result = await toggleAcceptingOrders(next);
+      if (result.error) {
         setAccepting(!next);
+        setFailed(true);
       }
     });
   }
@@ -30,7 +33,7 @@ export function AcceptingOrdersToggle({ initialValue }: { initialValue: boolean 
           : "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30"
       }`}
     >
-      {accepting ? "Acceptăm comenzi acum" : "Comenzi oprite temporar"}
+      {failed ? "Nu s-a salvat — reîncearcă" : accepting ? "Acceptăm comenzi acum" : "Comenzi oprite temporar"}
     </button>
   );
 }

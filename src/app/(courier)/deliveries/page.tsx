@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { OnlineToggle } from "@/components/courier/OnlineToggle";
 import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
+import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 
 export default async function DeliveriesPage() {
@@ -39,6 +40,7 @@ export default async function DeliveriesPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
+      <AvailableOrdersLive />
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Salut, {courier.full_name.split(" ")[0]} 👋</h1>

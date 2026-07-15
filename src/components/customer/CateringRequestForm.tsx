@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { MenuItem, Restaurant } from "@/lib/types/domain";
 
+export type CateringRestaurant = Pick<Restaurant, "id" | "name" | "catering_min_amount_mdl">;
+
 type Quantities = Record<string, number>;
 
-export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[] }) {
+export function CateringRequestForm({ restaurants }: { restaurants: CateringRestaurant[] }) {
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState(restaurants[0]?.id ?? "");
   const [items, setItems] = useState<MenuItem[]>([]);
@@ -24,8 +26,20 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
 
   const restaurant = restaurants.find((r) => r.id === restaurantId) ?? null;
 
+  // Loading is derived from "which restaurant the last fetch answered for",
+  // so the effect never needs a synchronous setState to reset it.
+  const [menuResult, setMenuResult] = useState<{ forId: string; reload: number; failed: boolean } | null>(null);
+  const [menuReload, setMenuReload] = useState(0);
+  const menuState: "loading" | "error" | "ready" =
+    menuResult?.forId === restaurantId && menuResult.reload === menuReload
+      ? menuResult.failed
+        ? "error"
+        : "ready"
+      : "loading";
+
   useEffect(() => {
     if (!restaurantId) return;
+    let stale = false;
     const supabase = createClient();
     supabase
       .from("menu_items")
@@ -34,11 +48,20 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
       .eq("is_available", true)
       .order("is_catering_only", { ascending: false })
       .order("sort_order")
-      .then(({ data }) => {
+      .then(({ data, error: fetchError }) => {
+        if (stale) return;
+        if (fetchError) {
+          setMenuResult({ forId: restaurantId, reload: menuReload, failed: true });
+          return;
+        }
         setItems((data ?? []) as MenuItem[]);
         setQuantities({});
+        setMenuResult({ forId: restaurantId, reload: menuReload, failed: false });
       });
-  }, [restaurantId]);
+    return () => {
+      stale = true;
+    };
+  }, [restaurantId, menuReload]);
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + (quantities[item.id] ?? 0) * item.price_mdl, 0),
@@ -222,8 +245,17 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
 
       <section>
         <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">Articole</h2>
-        {items.length === 0 ? (
+        {menuState === "loading" ? (
           <p className="text-sm text-white/50">Se încarcă meniul...</p>
+        ) : menuState === "error" ? (
+          <p className="text-sm text-red-400">
+            Nu am putut încărca meniul.{" "}
+            <button type="button" onClick={() => setMenuReload((n) => n + 1)} className="underline underline-offset-4">
+              Reîncearcă
+            </button>
+          </p>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-white/50">Acest restaurant nu are articole disponibile.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {items.map((item) => (
@@ -282,7 +314,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
           </p>
         )}
         <p className="text-xs text-white/50">
-          Trimiti o cerere de ofertă — restaurantul revine cu prețul final, pe care îl confirmi înainte ca
+          Trimiți o cerere de ofertă — restaurantul revine cu prețul final, pe care îl confirmi înainte ca
           comanda să intre în lucru.
         </p>
         {error && <p className="text-sm text-red-400">{error}</p>}

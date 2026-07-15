@@ -55,7 +55,17 @@ export function LoginForm({ next }: { next: string | null }) {
       router.push(next ?? ROLE_HOME[role]);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "A apărut o eroare.");
+      const raw = err instanceof Error ? err.message : "";
+      const friendly = raw.includes("Invalid login credentials")
+        ? "Email sau parolă greșite."
+        : raw.includes("already registered")
+          ? "Există deja un cont cu acest email."
+          : raw.includes("at least 6 characters") || raw.includes("Password should")
+            ? "Parola trebuie să aibă minim 6 caractere."
+            : raw.includes("valid email")
+              ? "Emailul nu pare valid."
+              : "A apărut o eroare. Încearcă din nou.";
+      setError(friendly);
     } finally {
       setLoading(false);
     }

@@ -20,17 +20,26 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
   const { error: geoError } = useBroadcastCourierLocation(order.id, courierId, broadcasting);
 
   const step = NEXT_STEP[order.status];
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
-  function handleAdvance() {
+  function advance(paymentConfirmed?: boolean) {
     if (!step) return;
-    let paymentConfirmed: boolean | undefined;
-    if (step.next === "delivered" && order.payment_method !== "online_gateway") {
-      paymentConfirmed = window.confirm("Ai încasat plata (cash/POS)?");
-    }
+    setConfirmingPayment(false);
     startTransition(async () => {
       const result = await advanceStatus(order.id, step.next, paymentConfirmed);
       setError(result.error);
     });
+  }
+
+  function handleAdvance() {
+    if (!step) return;
+    // window.confirm can be suppressed in installed PWAs — collect the cash
+    // confirmation with an in-app step instead.
+    if (step.next === "delivered" && order.payment_method !== "online_gateway") {
+      setConfirmingPayment(true);
+      return;
+    }
+    advance();
   }
 
   return (
@@ -47,7 +56,7 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
           {geoError ? `GPS indisponibil: ${geoError}` : "Locația ta se transmite live clientului"}
         </p>
       )}
-      {step && (
+      {step && !confirmingPayment && (
         <button
           type="button"
           onClick={handleAdvance}
@@ -57,6 +66,29 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
           <span aria-hidden>{step.emoji}</span>
           {pending ? "Se actualizează..." : step.label}
         </button>
+      )}
+      {confirmingPayment && (
+        <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-gold/30">
+          <p className="text-sm font-semibold text-white">Ai încasat plata ({order.total_mdl} MDL, cash/POS)?</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => advance(true)}
+              disabled={pending}
+              className="flex-1 rounded-full bg-emerald-500/90 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50"
+            >
+              💰 Da, am încasat
+            </button>
+            <button
+              type="button"
+              onClick={() => advance(false)}
+              disabled={pending}
+              className="flex-1 rounded-full bg-white/10 py-3 text-sm text-white/80 ring-1 ring-white/15 transition hover:bg-white/15 disabled:opacity-50"
+            >
+              Nu încă
+            </button>
+          </div>
+        </div>
       )}
       {error && (
         <p className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">{error}</p>

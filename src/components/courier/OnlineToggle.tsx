@@ -6,14 +6,19 @@ import { setOnlineStatus } from "@/app/(courier)/deliveries/actions";
 export function OnlineToggle({ initialStatus }: { initialStatus: string }) {
   const [online, setOnline] = useState(initialStatus === "online");
   const [pending, startTransition] = useTransition();
+  const [failed, setFailed] = useState(false);
   const isOnDelivery = initialStatus === "on_delivery";
 
   function handleToggle() {
     const next = !online;
     setOnline(next);
+    setFailed(false);
     startTransition(async () => {
       const result = await setOnlineStatus(next);
-      if (result.error) setOnline(!next);
+      if (result.error) {
+        setOnline(!next);
+        setFailed(true);
+      }
     });
   }
 
@@ -38,7 +43,7 @@ export function OnlineToggle({ initialStatus }: { initialStatus: string }) {
       }`}
     >
       <span className={`h-2 w-2 rounded-full ${online ? "animate-pulse bg-emerald-400" : "bg-white/30"}`} aria-hidden />
-      {online ? "Online" : "Offline"}
+      {failed ? "Reîncearcă" : online ? "Online" : "Offline"}
     </button>
   );
 }

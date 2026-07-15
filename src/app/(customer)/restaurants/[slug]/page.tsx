@@ -8,27 +8,24 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   const { slug } = await params;
   const supabase = await createClient();
 
+  // One PostgREST call via embedded resources instead of 2 sequential trips —
+  // this is the hottest customer path.
   const { data: restaurant } = await supabase
     .from("restaurants")
-    .select("*")
+    .select("*, menu_categories(*), menu_items(*)")
     .eq("slug", slug)
     .eq("is_active", true)
+    .eq("menu_items.is_available", true)
+    .eq("menu_items.is_catering_only", false)
+    .order("sort_order", { referencedTable: "menu_categories" })
+    .order("sort_order", { referencedTable: "menu_items" })
     .single();
 
   if (!restaurant) notFound();
 
-  const [{ data: categories }, { data: items }] = await Promise.all([
-    supabase.from("menu_categories").select("*").eq("restaurant_id", restaurant.id).order("sort_order"),
-    supabase
-      .from("menu_items")
-      .select("*")
-      .eq("restaurant_id", restaurant.id)
-      .eq("is_available", true)
-      .eq("is_catering_only", false)
-      .order("sort_order"),
-  ]);
-
-  const typedRestaurant = restaurant as Restaurant;
+  const typedRestaurant = restaurant as Restaurant & { menu_categories: MenuCategory[]; menu_items: MenuItem[] };
+  const categories = typedRestaurant.menu_categories;
+  const items = typedRestaurant.menu_items;
 
   return (
     <main className="flex-1 px-5 pb-24 pt-6">
@@ -68,11 +65,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
       )}
 
       <div className="mt-5">
-        <MenuBrowser
-          restaurant={typedRestaurant}
-          categories={(categories ?? []) as MenuCategory[]}
-          items={(items ?? []) as MenuItem[]}
-        />
+        <MenuBrowser restaurant={typedRestaurant} categories={categories} items={items} />
       </div>
     </main>
   );

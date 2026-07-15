@@ -163,6 +163,12 @@ export interface DeliveryStatusEvent {
   created_at: string;
 }
 
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash: "cash",
+  card_on_delivery: "card la livrare",
+  online_gateway: "plătit online",
+};
+
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   pending_restaurant: "În așteptare",
   accepted: "Acceptată",

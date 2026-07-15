@@ -123,6 +123,8 @@ export function RestaurantBrowser({ restaurants }: { restaurants: Restaurant[] }
                 {r.cover_photo_url && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={r.cover_photo_url}
                     alt={r.name}
                     className="h-28 w-28 shrink-0 rounded-xl object-cover shadow-lg shadow-black/40 sm:h-32 sm:w-40"

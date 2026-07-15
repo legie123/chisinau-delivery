@@ -14,7 +14,10 @@ const inputClass =
 export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const router = useRouter();
   const { restaurantId, restaurantName, lines, clear } = useCartStore();
-  const [restaurant, setRestaurant] = useState<RestaurantSummary | null>(null);
+  const [summary, setSummary] = useState<{ forId: string; data: RestaurantSummary | null } | null>(null);
+  const restaurant = summary?.forId === restaurantId ? summary.data : null;
+  const restaurantState: "loading" | "error" | "ready" =
+    summary?.forId === restaurantId ? (summary.data ? "ready" : "error") : "loading";
   const [selectedAddressId, setSelectedAddressId] = useState<string>(addresses[0]?.id ?? "new");
   const [newAddress, setNewAddress] = useState({ street_address: "", sector: "", building: "", apartment: "", notes: "" });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
@@ -29,7 +32,9 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       .select("name, delivery_fee_mdl, min_order_amount_mdl")
       .eq("id", restaurantId)
       .single()
-      .then(({ data }) => setRestaurant(data));
+      .then(({ data, error: fetchError }) => {
+        setSummary({ forId: restaurantId, data: fetchError ? null : data });
+      });
   }, [restaurantId]);
 
   if (!restaurantId || lines.length === 0) {
@@ -78,7 +83,17 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       clear();
       router.push(`/orders/${orderId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "A apărut o eroare.");
+      const raw = err instanceof Error ? err.message : "";
+      const friendly = raw.includes("below minimum")
+        ? "Comanda nu atinge minimul restaurantului."
+        : raw.includes("not currently accepting")
+          ? "Restaurantul nu acceptă comenzi momentan."
+          : raw.includes("menu item unavailable")
+            ? "Un articol din coș nu mai este disponibil — reîncarcă meniul."
+            : raw.includes("obligatorie") || raw.includes("autentificat")
+              ? raw
+              : "Nu am putut trimite comanda. Încearcă din nou.";
+      setError(friendly);
     } finally {
       setPending(false);
     }
@@ -108,11 +123,11 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
           </div>
           <div className="flex justify-between text-white/70">
             <span>Livrare</span>
-            <span>{deliveryFee === 0 ? "Gratuită" : `${deliveryFee} MDL`}</span>
+            <span>{restaurantState !== "ready" ? "..." : deliveryFee === 0 ? "Gratuită" : `${deliveryFee} MDL`}</span>
           </div>
           <div className="flex justify-between text-lg font-bold text-white">
             <span>Total</span>
-            <span>{total} MDL</span>
+            <span>{restaurantState !== "ready" ? "..." : `${total} MDL`}</span>
           </div>
         </div>
         {belowMinimum && restaurant && (
@@ -208,12 +223,22 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         <p className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">{error}</p>
       )}
 
+      {restaurantState === "error" && (
+        <p className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">
+          Nu am putut încărca datele restaurantului — reîncarcă pagina.
+        </p>
+      )}
+
       <button
         type="submit"
-        disabled={pending || belowMinimum}
+        disabled={pending || belowMinimum || restaurantState !== "ready"}
         className="rounded-full bg-primary py-4 text-[15px] font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {pending ? "Se trimite..." : `Plasează comanda · ${total} MDL`}
+        {pending
+          ? "Se trimite..."
+          : restaurantState !== "ready"
+            ? "Se calculează totalul..."
+            : `Plasează comanda · ${total} MDL`}
       </button>
     </form>
   );

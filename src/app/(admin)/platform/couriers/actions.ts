@@ -56,10 +56,15 @@ export async function inviteCourier(_prev: ActionState, formData: FormData): Pro
   }
 }
 
-export async function setCourierActive(courierId: string, isActive: boolean) {
-  await requirePlatformAdmin();
-  const supabase = await createClient();
-  const { error } = await supabase.from("couriers").update({ is_active: isActive }).eq("id", courierId);
-  if (error) throw new Error(error.message);
-  revalidatePath("/platform/couriers");
+export async function setCourierActive(courierId: string, isActive: boolean): Promise<ActionState> {
+  try {
+    await requirePlatformAdmin();
+    const supabase = await createClient();
+    const { error } = await supabase.from("couriers").update({ is_active: isActive }).eq("id", courierId);
+    if (error) return { error: error.message };
+    revalidatePath("/platform/couriers");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
 }

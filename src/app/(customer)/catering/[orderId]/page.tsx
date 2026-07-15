@@ -7,14 +7,12 @@ export default async function CateringOrderPage({ params }: { params: Promise<{ 
   const { orderId } = await params;
   const supabase = await createClient();
 
-  const { data: order } = await supabase.from("orders").select("*").eq("id", orderId).single();
-  if (!order || order.order_type !== "catering") notFound();
-
-  const [{ data: details }, { data: items }] = await Promise.all([
-    supabase.from("catering_details").select("*").eq("order_id", orderId).single(),
+  const [{ data: order }, { data: details }, { data: items }] = await Promise.all([
+    supabase.from("orders").select("*").eq("id", orderId).single(),
+    supabase.from("catering_details").select("*").eq("order_id", orderId).maybeSingle(),
     supabase.from("order_items").select("*").eq("order_id", orderId),
   ]);
-  if (!details) notFound();
+  if (!order || order.order_type !== "catering" || !details) notFound();
 
   return (
     <main className="flex-1 px-6 py-10">
