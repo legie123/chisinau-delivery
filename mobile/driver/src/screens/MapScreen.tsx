@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,42 +11,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { COLORS } from '../theme';
+import { fetchAvailableOrders, fetchActiveOrder, acceptOrder as apiAcceptOrder, setOnline, DriverOrder } from '../lib/api';
+import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-interface Order {
-  id: number;
-  restaurant: string;
-  pickupAddress: string;
-  deliveryAddress: string;
-  distance: string;
-  earnings: string;
-  items: string;
-  customerName: string;
-  lat: number;
-  lng: number;
-}
-
-const MOCK_ORDERS: Order[] = [
-  {
-    id: 1, restaurant: "Dragon's Wok", pickupAddress: "Str. Calea Victoriei 25",
-    deliveryAddress: "Bd. Magheru 12, Ap. 5", distance: "2.3 km",
-    earnings: "12 RON", items: "2x Pad Thai, 1x Spring Rolls",
-    customerName: "Alexandru P.", lat: 44.4396, lng: 26.0963,
-  },
-  {
-    id: 2, restaurant: "Casa Românească", pickupAddress: "Str. Lipscani 12",
-    deliveryAddress: "Str. Dorobanți 88, Et. 3", distance: "3.1 km",
-    earnings: "15 RON", items: "1x Ciorbă, 2x Mici, 1x Papanași",
-    customerName: "Maria I.", lat: 44.4312, lng: 26.0979,
-  },
-  {
-    id: 3, restaurant: "Sushi Dragon", pickupAddress: "Bd. Unirii 45",
-    deliveryAddress: "Calea Moșilor 84, Ap. 12", distance: "1.8 km",
-    earnings: "10 RON", items: "1x Dragon Roll, 1x Miso Soup",
-    customerName: "Andrei V.", lat: 44.4268, lng: 26.1025,
-  },
-];
+type Order = DriverOrder;
 
 interface Props {
   navigation: any;
@@ -54,9 +24,24 @@ interface Props {
 
 export default function MapScreen({ navigation }: Props) {
   const [isOnline, setIsOnline] = useState(true);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
-  const [todayEarnings] = useState(142);
+  const [todayEarnings] = useState(0);
   const slideAnim = useRef(new Animated.Value(0)).current;
+
+  const refreshOrders = useCallback(() => {
+    fetchAvailableOrders().then(setOrders).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshOrders();
+    const interval = setInterval(refreshOrders, 15000);
+    return () => clearInterval(interval);
+  }, [refreshOrders]);
+
+  useEffect(() => {
+    setOnline(isOnline).catch(() => {});
+  }, [isOnline]);
 
   const showOrderCard = (order: Order) => {
     setCurrentOrder(order);
@@ -76,11 +61,18 @@ export default function MapScreen({ navigation }: Props) {
     }).start(() => setCurrentOrder(null));
   };
 
-  const acceptOrder = () => {
-    if (currentOrder) {
-      navigation.navigate('ActiveDelivery', { order: currentOrder });
+  const acceptOrder = async () => {
+    if (!currentOrder) return;
+    const error = await apiAcceptOrder(currentOrder.id);
+    if (error) {
+      Alert.alert('Nu s-a putut accepta', 'Comanda a fost preluată de alt curier sau ai deja o livrare activă.');
       hideOrderCard();
+      refreshOrders();
+      return;
     }
+    navigation.navigate('ActiveDelivery', { order: currentOrder });
+    hideOrderCard();
+    refreshOrders();
   };
 
   const cardTranslateY = slideAnim.interpolate({
@@ -96,22 +88,22 @@ export default function MapScreen({ navigation }: Props) {
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: 44.4312,
-          longitude: 26.0979,
+          latitude: 47.0105,
+          longitude: 28.8638,
           latitudeDelta: 0.035,
           longitudeDelta: 0.035,
         }}
         customMapStyle={darkMapStyle}
       >
         {/* Courier position */}
-        <Marker coordinate={{ latitude: 44.4340, longitude: 26.0990 }} tappable>
+        <Marker coordinate={{ latitude: 47.0105, longitude: 28.8638 }} tappable>
           <View style={styles.courierMarker}>
             <Text style={styles.courierEmoji}>🛵</Text>
           </View>
         </Marker>
 
         {/* Order markers */}
-        {MOCK_ORDERS.map(order => (
+        {orders.map(order => (
           <Marker
             key={order.id}
             coordinate={{ latitude: order.lat, longitude: order.lng }}
@@ -162,10 +154,10 @@ export default function MapScreen({ navigation }: Props) {
             </View>
             <View>
               <Text style={styles.waitingTitle}>
-                {isOnline ? 'Waiting for orders...' : 'You are offline'}
+                {isOnline ? 'Așteptăm comenzi...' : 'Ești offline'}
               </Text>
               <Text style={styles.waitingSubtitle}>
-                {isOnline ? `${MOCK_ORDERS.length} orders nearby` : 'Go online to start earning'}
+                {isOnline ? `${orders.length} comenzi disponibile` : 'Intră online ca să primești comenzi'}
               </Text>
             </View>
           </View>

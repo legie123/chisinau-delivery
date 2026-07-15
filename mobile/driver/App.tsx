@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -10,6 +10,8 @@ import OrdersHistoryScreen from './src/screens/OrdersHistoryScreen';
 import EarningsScreen from './src/screens/EarningsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ActiveDeliveryScreen from './src/screens/ActiveDeliveryScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import { supabase } from './src/lib/supabase';
 
 const COLORS = {
   surface: '#1A1A2E',
@@ -65,6 +67,30 @@ function MainTabs() {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function App() {
+  const [checking, setChecking] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSignedIn(!!session);
+      setChecking(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (checking) return <View style={{ flex: 1, backgroundColor: '#0D0D1F' }} />;
+
+  if (!signedIn) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <LoginScreen onSignedIn={() => setSignedIn(true)} />
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>

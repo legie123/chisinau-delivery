@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
+import { advanceStatus } from '../lib/api';
 
 const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.55;
@@ -39,17 +40,35 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
     },
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dx > SWIPE_THRESHOLD) {
-        Animated.spring(swipeX, { toValue: SWIPE_THRESHOLD, useNativeDriver: true }).start(() => {
+        Animated.spring(swipeX, { toValue: SWIPE_THRESHOLD, useNativeDriver: true }).start(async () => {
           if (status === 'pickup') {
+            const err1 = await advanceStatus(order.id, 'picked_up');
+            const err2 = err1 ? err1 : await advanceStatus(order.id, 'en_route');
+            if (err2) {
+              Alert.alert('Eroare', 'Nu am putut actualiza statusul. Încearcă din nou.');
+              swipeX.setValue(0);
+              return;
+            }
             setStatus('delivering');
             swipeX.setValue(0);
           } else if (status === 'delivering') {
-            setStatus('delivered');
-            Alert.alert(
-              '✅ Delivery Confirmed!',
-              `You have successfully completed the delivery. Earnings: ${order.earnings}`,
-              [{ text: 'OK', onPress: () => navigation.goBack() }]
-            );
+            Alert.alert('Încasare', 'Ai încasat plata (cash/POS)?', [
+              {
+                text: 'Da, încasat',
+                onPress: async () => {
+                  const err = await advanceStatus(order.id, 'delivered', true);
+                  if (err) { Alert.alert('Eroare', 'Nu am putut finaliza livrarea.'); swipeX.setValue(0); return; }
+                  setStatus('delivered');
+                  Alert.alert('✅ Livrare finalizată!', `Comanda a ajuns la client. Câștig: ${order.earnings}`,
+                    [{ text: 'OK', onPress: () => navigation.goBack() }]);
+                },
+              },
+              {
+                text: 'Nu încă',
+                style: 'cancel',
+                onPress: () => swipeX.setValue(0),
+              },
+            ]);
           }
         });
       } else {
