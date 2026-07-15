@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,25 +8,15 @@ import {
   Image,
   StatusBar,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { MenuItem, CartItem } from '../types';
+import { fetchMenu } from '../lib/api';
 
 const { width } = Dimensions.get('window');
 
-const CATEGORIES = ['Popular', 'Starters', 'Main Course', 'Desserts', 'Drinks'];
-
-const MENU_ITEMS: MenuItem[] = [
-  { id: 1, restaurantId: 1, name: "Pad Thai", description: "Stir-fried rice noodles with shrimp, egg, tofu, bean sprouts, and peanuts.", price: "32", imageUrl: "https://images.unsplash.com/photo-1559314809-0d155014e29e?w=200&h=200&fit=crop", category: "Popular", isAvailable: 1, createdAt: Date.now() },
-  { id: 2, restaurantId: 1, name: "Spring Rolls", description: "Crispy vegetable spring rolls served with sweet chili sauce.", price: "18", imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=200&h=200&fit=crop", category: "Starters", isAvailable: 1, createdAt: Date.now() },
-  { id: 3, restaurantId: 1, name: "Kung Pao Chicken 🌶️", description: "Wok-tossed chicken with peanuts, vegetables, and spicy Kung Pao sauce.", price: "38", imageUrl: "https://images.unsplash.com/photo-1525755662778-989d0524087e?w=200&h=200&fit=crop", category: "Main Course", isAvailable: 1, createdAt: Date.now() },
-  { id: 4, restaurantId: 1, name: "Teriyaki Beef", description: "Sliced beef wok-seared in teriyaki sauce with vegetables.", price: "42", imageUrl: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&h=200&fit=crop", category: "Main Course", isAvailable: 1, createdAt: Date.now() },
-  { id: 5, restaurantId: 1, name: "Drunken Noodles 🌶️", description: "Wide rice noodles stir-fried with chicken, basil, chili, and vegetables.", price: "36", imageUrl: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=200&h=200&fit=crop", category: "Popular", isAvailable: 1, createdAt: Date.now() },
-  { id: 6, restaurantId: 1, name: "Mango Sticky Rice", description: "Sweet coconut sticky rice with fresh mango slices.", price: "22", imageUrl: "https://images.unsplash.com/photo-1563805042-7684c019e1cb?w=200&h=200&fit=crop", category: "Desserts", isAvailable: 1, createdAt: Date.now() },
-  { id: 7, restaurantId: 1, name: "Thai Iced Tea", description: "Creamy orange Thai tea served over ice.", price: "14", imageUrl: "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=200&h=200&fit=crop", category: "Drinks", isAvailable: 1, createdAt: Date.now() },
-  { id: 8, restaurantId: 1, name: "Tom Yum Soup", description: "Spicy and sour Thai soup with shrimp and mushrooms.", price: "28", imageUrl: "https://images.unsplash.com/photo-1548943487-a2e4e43b4853?w=200&h=200&fit=crop", category: "Starters", isAvailable: 1, createdAt: Date.now() },
-];
 
 interface Props {
   route: any;
@@ -35,12 +25,29 @@ interface Props {
 
 export default function RestaurantScreen({ route, navigation }: Props) {
   const { restaurant, imageUrl } = route.params;
-  const [selectedCategory, setSelectedCategory] = useState('Popular');
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  const filteredItems = selectedCategory === 'Popular'
-    ? MENU_ITEMS.filter(i => i.category === 'Popular' || i.category === 'Main Course')
-    : MENU_ITEMS.filter(i => i.category === selectedCategory);
+  useEffect(() => {
+    let cancelled = false;
+    fetchMenu(restaurant.id)
+      .then(({ items, categories: cats }) => {
+        if (cancelled) return;
+        setMenuItems(items);
+        setCategories(cats);
+        setSelectedCategory(cats[0] ?? null);
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [restaurant.id]);
+
+  const filteredItems = selectedCategory
+    ? menuItems.filter(i => i.category === selectedCategory)
+    : menuItems;
 
   const addToCart = (item: MenuItem) => {
     setCart(prev => {
@@ -96,7 +103,9 @@ export default function RestaurantScreen({ route, navigation }: Props) {
                 </View>
                 <Text style={styles.bannerSep}>•</Text>
                 <View style={[styles.metaBadge, styles.freeDeliveryBadge]}>
-                  <Text style={styles.bannerFree}>FREE DELIVERY</Text>
+                  <Text style={styles.bannerFree}>
+                    {restaurant.deliveryFee === '0' ? 'LIVRARE GRATUITĂ' : `Livrare ${restaurant.deliveryFee} MDL`}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -109,13 +118,12 @@ export default function RestaurantScreen({ route, navigation }: Props) {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoriesRow}
         >
-          {CATEGORIES.map(cat => (
+          {categories.map(cat => (
             <TouchableOpacity
               key={cat}
               style={[styles.categoryPill, selectedCategory === cat && styles.categoryPillActive]}
               onPress={() => setSelectedCategory(cat)}
             >
-              {cat === 'Popular' && <Text style={styles.categoryEmoji}>🔥</Text>}
               <Text style={[styles.categoryText, selectedCategory === cat && styles.categoryTextActive]}>
                 {cat}
               </Text>
@@ -125,19 +133,20 @@ export default function RestaurantScreen({ route, navigation }: Props) {
 
         {/* Menu Items Cards */}
         <View style={styles.menuList}>
+          {loading && <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 24 }} />}
           {filteredItems.map(item => (
             <View key={item.id} style={styles.menuItem}>
               <View style={styles.menuItemText}>
                 <Text style={styles.menuItemName}>{item.name}</Text>
                 <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>
                 <View style={styles.menuItemBottom}>
-                  <Text style={styles.menuItemPrice}>{item.price} RON</Text>
+                  <Text style={styles.menuItemPrice}>{item.price} MDL</Text>
                   <TouchableOpacity style={styles.addBtn} onPress={() => addToCart(item)}>
                     <Text style={styles.addBtnText}>Add +</Text>
                   </TouchableOpacity>
                 </View>
               </View>
-              <Image source={{ uri: item.imageUrl! }} style={styles.menuItemImage} />
+              <Image source={{ uri: item.imageUrl ?? imageUrl }} style={styles.menuItemImage} />
             </View>
           ))}
         </View>
@@ -161,7 +170,7 @@ export default function RestaurantScreen({ route, navigation }: Props) {
                 <Text style={styles.cartCountText}>{totalItems}</Text>
               </View>
             </View>
-            <Text style={styles.cartText}>{totalItems} items · {totalPrice} RON</Text>
+            <Text style={styles.cartText}>{totalItems} items · {totalPrice} MDL</Text>
           </View>
           <View style={styles.cartRight}>
             <Text style={styles.cartAction}>View Cart</Text>

@@ -24,7 +24,7 @@ export default function CartScreen({ route, navigation }: Props) {
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
 
-  const updateQuantity = (itemId: number, delta: number) => {
+  const updateQuantity = (itemId: string, delta: number) => {
     setCart(prev => prev.map(c => {
       if (c.menuItem.id === itemId) {
         const newQty = c.quantity + delta;
@@ -34,7 +34,7 @@ export default function CartScreen({ route, navigation }: Props) {
     }).filter(c => c.quantity > 0));
   };
 
-  const removeItem = (itemId: number) => {
+  const removeItem = (itemId: string) => {
     setCart(prev => prev.filter(c => c.menuItem.id !== itemId));
   };
 
@@ -49,7 +49,7 @@ export default function CartScreen({ route, navigation }: Props) {
     }
     Alert.alert(
       '✅ Comandă plasată!',
-      `Comanda ta de ${total.toFixed(2)} RON de la ${restaurant.name} a fost trimisă. Vei primi o notificare când restaurantul o acceptă.`,
+      `Comanda ta de ${total.toFixed(2)} MDL de la ${restaurant.name} a fost trimisă. Vei primi o notificare când restaurantul o acceptă.`,
       [{ text: 'OK', onPress: () => navigation.popToTop() }]
     );
   };
@@ -97,7 +97,7 @@ export default function CartScreen({ route, navigation }: Props) {
             <View key={item.menuItem.id} style={styles.cartItem}>
               <View style={styles.cartItemInfo}>
                 <Text style={styles.cartItemName}>{item.menuItem.name}</Text>
-                <Text style={styles.cartItemPrice}>{parseFloat(item.menuItem.price) * item.quantity} RON</Text>
+                <Text style={styles.cartItemPrice}>{parseFloat(item.menuItem.price) * item.quantity} MDL</Text>
               </View>
               <View style={styles.quantityRow}>
                 <TouchableOpacity style={styles.qtyBtn} onPress={() => updateQuantity(item.menuItem.id, -1)}>
@@ -148,17 +148,17 @@ export default function CartScreen({ route, navigation }: Props) {
           <Text style={styles.sectionTitle}>Sumar comandă</Text>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Subtotal</Text>
-            <Text style={styles.priceValue}>{subtotal.toFixed(2)} RON</Text>
+            <Text style={styles.priceValue}>{subtotal.toFixed(2)} MDL</Text>
           </View>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Livrare</Text>
             <Text style={[styles.priceValue, deliveryFee === 0 && { color: COLORS.success }]}>
-              {deliveryFee === 0 ? 'GRATIS' : `${deliveryFee.toFixed(2)} RON`}
+              {deliveryFee === 0 ? 'GRATIS' : `${deliveryFee.toFixed(2)} MDL`}
             </Text>
           </View>
           <View style={[styles.priceRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{total.toFixed(2)} RON</Text>
+            <Text style={styles.totalValue}>{total.toFixed(2)} MDL</Text>
           </View>
         </View>
 
@@ -168,7 +168,7 @@ export default function CartScreen({ route, navigation }: Props) {
       {/* Place Order Button */}
       <TouchableOpacity style={styles.orderBtn} activeOpacity={0.9} onPress={placeOrder}>
         <Ionicons name="bag-check" size={20} color={COLORS.white} />
-        <Text style={styles.orderBtnText}>Plasează comanda · {total.toFixed(2)} RON</Text>
+        <Text style={styles.orderBtnText}>Plasează comanda · {total.toFixed(2)} MDL</Text>
       </TouchableOpacity>
     </View>
   );

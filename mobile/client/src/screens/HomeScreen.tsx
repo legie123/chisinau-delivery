@@ -14,42 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { Restaurant } from '../types';
+import { fetchRestaurants } from '../lib/api';
 
 const { width } = Dimensions.get('window');
-
-// Mock data for restaurants (same as backend seed)
-const MOCK_RESTAURANTS: Restaurant[] = [
-  {
-    id: 1, name: "Dragon's Wok", address: "Str. Calea Victoriei 25, București",
-    lat: "44.4396", lng: "26.0963", phone: "+40721000001", logoUrl: null,
-    coverUrl: null, category: "Pan-Asian Cuisine", rating: "4.8",
-    deliveryTime: "30-40 min", deliveryFee: "0", isOpen: 1, createdAt: Date.now(),
-  },
-  {
-    id: 2, name: "Casa Românească", address: "Str. Lipscani 12, București",
-    lat: "44.4312", lng: "26.0979", phone: "+40721000002", logoUrl: null,
-    coverUrl: null, category: "Traditional Romanian", rating: "4.7",
-    deliveryTime: "35-45 min", deliveryFee: "5.99", isOpen: 1, createdAt: Date.now(),
-  },
-  {
-    id: 3, name: "Sushi Dragon", address: "Bd. Unirii 45, București",
-    lat: "44.4268", lng: "26.1025", phone: "+40721000003", logoUrl: null,
-    coverUrl: null, category: "Sushi · Japanese", rating: "4.9",
-    deliveryTime: "25-35 min", deliveryFee: "0", isOpen: 1, createdAt: Date.now(),
-  },
-  {
-    id: 4, name: "Pizza Inferno", address: "Str. Dorobanți 88, București",
-    lat: "44.4520", lng: "26.0850", phone: "+40721000004", logoUrl: null,
-    coverUrl: null, category: "Pizza · Italian", rating: "4.6",
-    deliveryTime: "20-30 min", deliveryFee: "7.99", isOpen: 1, createdAt: Date.now(),
-  },
-  {
-    id: 5, name: "Burger Palace", address: "Calea Moșilor 84, București",
-    lat: "44.4380", lng: "26.1100", phone: "+40721000005", logoUrl: null,
-    coverUrl: null, category: "Burgers · American", rating: "4.5",
-    deliveryTime: "15-25 min", deliveryFee: "4.99", isOpen: 1, createdAt: Date.now(),
-  },
-];
 
 const FOOD_IMAGES = [
   'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&h=300&fit=crop',
@@ -65,7 +32,18 @@ interface Props {
 
 export default function HomeScreen({ navigation }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [restaurants, setRestaurants] = useState<Restaurant[]>(MOCK_RESTAURANTS);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRestaurants()
+      .then(data => { if (!cancelled) { setRestaurants(data); setLoadError(null); } })
+      .catch(() => { if (!cancelled) setLoadError('Nu am putut încărca restaurantele. Verifică conexiunea.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   const filteredRestaurants = restaurants.filter(r =>
     r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -121,6 +99,11 @@ export default function HomeScreen({ navigation }: Props) {
         </View>
 
         {/* Restaurant Cards */}
+        {loading && <ActivityIndicator color={COLORS.primary} style={{ marginTop: 32 }} />}
+        {loadError && <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginTop: 32 }}>{loadError}</Text>}
+        {!loading && !loadError && filteredRestaurants.length === 0 && (
+          <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginTop: 32 }}>Niciun restaurant disponibil.</Text>
+        )}
         {filteredRestaurants.map((restaurant, index) => (
           <TouchableOpacity
             key={restaurant.id}

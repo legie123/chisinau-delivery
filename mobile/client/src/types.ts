@@ -1,5 +1,8 @@
+// UI types for the client app. IDs are Supabase UUIDs (strings) — the data
+// layer in src/lib/api.ts maps backend rows into these shapes.
+
 export interface Restaurant {
-  id: number;
+  id: string;
   name: string;
   address: string;
   lat: string;
@@ -16,8 +19,8 @@ export interface Restaurant {
 }
 
 export interface MenuItem {
-  id: number;
-  restaurantId: number;
+  id: string;
+  restaurantId: string;
   name: string;
   description: string;
   price: string;
@@ -33,12 +36,12 @@ export interface CartItem {
 }
 
 export interface Order {
-  id: number;
+  id: string;
   customerName: string;
   customerPhone: string | null;
-  restaurantId: number;
+  restaurantId: string;
   restaurantName: string;
-  courierId: number | null;
+  courierId: string | null;
   status: string;
   pickupAddress: string;
   deliveryAddress: string;
