@@ -24,7 +24,7 @@ FIECARE val (build+lint+smoke+screenshot; workflow adversarial la 2-3 valuri).
       (queries N+1, indexuri, bundle, re-renders) → findings → fix confirmate
 - [ ] W10: workflow OPTIMIZATION: aplicare recomandări perf (paralel queries,
       select coloane specifice, memo, imagini sizes)
-- [ ] W11: graphify run pe src/ → digest în vault + citire comunități
+- [x] W11: graphify update src/ → 173 noduri/61 comunități, graf interogabil (rulat devreme, independent)
 - [ ] W12: mobile client Expo → luxury theme sync (serif/gold/tints din web)
 - [ ] W13: mobile driver Expo → progress+istoric ca în video
 - [ ] W14: verify adversarial final pe tot + fix + bilanț & vault/ruflo sync
