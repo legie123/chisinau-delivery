@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
+import { signOut } from '../lib/api';
 
 const MENU_ITEMS = [
   { icon: 'person-outline', label: 'Editează profilul', color: COLORS.primary },
@@ -51,7 +52,12 @@ export default function ProfileScreen() {
         {/* Menu */}
         <View style={styles.menuSection}>
           {MENU_ITEMS.map((item, i) => (
-            <TouchableOpacity key={i} style={styles.menuItem} activeOpacity={0.7}>
+            <TouchableOpacity
+              key={i}
+              style={styles.menuItem}
+              activeOpacity={0.7}
+              onPress={item.label === 'Deconectare' ? () => signOut() : undefined}
+            >
               <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
                 <Ionicons name={item.icon as any} size={20} color={item.color} />
               </View>

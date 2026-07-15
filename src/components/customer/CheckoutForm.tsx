@@ -27,14 +27,18 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   useEffect(() => {
     if (!restaurantId) return;
     const supabase = createClient();
+    let stale = false;
     supabase
       .from("restaurants")
       .select("name, delivery_fee_mdl, min_order_amount_mdl")
       .eq("id", restaurantId)
       .single()
       .then(({ data, error: fetchError }) => {
-        setSummary({ forId: restaurantId, data: fetchError ? null : data });
+        if (!stale) setSummary({ forId: restaurantId, data: fetchError ? null : data });
       });
+    return () => {
+      stale = true;
+    };
   }, [restaurantId]);
 
   if (!restaurantId || lines.length === 0) {

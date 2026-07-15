@@ -30,6 +30,12 @@ export async function signOut(): Promise<void> {
   await supabase.auth.signOut({ scope: "local" });
 }
 
+// couriers RLS (couriers_self_read) only returns the caller's own row.
+export async function getMyCourierId(): Promise<string | null> {
+  const { data } = await supabase.from("couriers").select("id").maybeSingle();
+  return data?.id ?? null;
+}
+
 function formatAddress(a: {
   street_address: string;
   building: string | null;
@@ -97,11 +103,13 @@ export async function fetchAvailableOrders(): Promise<DriverOrder[]> {
 }
 
 export async function fetchActiveOrder(): Promise<{ order: DriverOrder; status: string } | null> {
+  const courierId = await getMyCourierId();
+  if (!courierId) return null;
   const { data, error } = await supabase
     .from("orders")
     .select("*")
     .in("status", ["courier_assigned", "picked_up", "en_route"])
-    .not("courier_id", "is", null)
+    .eq("courier_id", courierId)
     .limit(1);
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) return null;
@@ -144,11 +152,13 @@ export async function fetchDeliveryHistory(): Promise<{
   todayCount: number;
   todayEarnings: number;
 }> {
+  const courierId = await getMyCourierId();
+  if (!courierId) return { rows: [], todayCount: 0, todayEarnings: 0 };
   const { data, error } = await supabase
     .from("orders")
     .select("id, order_number, updated_at, delivery_fee_mdl, restaurants(name)")
     .eq("status", "delivered")
-    .not("courier_id", "is", null)
+    .eq("courier_id", courierId)
     .order("updated_at", { ascending: false })
     .limit(50);
   if (error) throw new Error(error.message);

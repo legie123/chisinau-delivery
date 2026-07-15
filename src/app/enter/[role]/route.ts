@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-// DEV/DEMO doorway: the hub's three sectors enter the app WITHOUT a login
+// DEV/DEMO doorway (POST-only: GET would be executed by Link prefetch in
+// production and is trivially CSRF-able). The hub's three sectors enter WITHOUT a login
 // form by signing in server-side with the seeded test accounts. RLS and all
 // flows behave exactly as with a real login. Remove before public launch
 // (tracked in docs/LOOP_STATE.md).
@@ -13,14 +14,14 @@ const SECTOR: Record<string, { email: string; to: string }> = {
 
 const DEMO_PASSWORD = "parola123";
 
-export async function GET(request: NextRequest, { params }: { params: Promise<{ role: string }> }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ role: string }> }) {
   const { role } = await params;
   const sector = SECTOR[role];
   if (!sector) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/", request.url), 303);
   }
 
-  const response = NextResponse.redirect(new URL(sector.to, request.url));
+  const response = NextResponse.redirect(new URL(sector.to, request.url), 303);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -45,7 +46,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   });
 
   if (error) {
-    return NextResponse.redirect(new URL(`/login?next=${encodeURIComponent(sector.to)}`, request.url));
+    // Keep the signOut cookie deletions — they were written onto `response`;
+    // without copying them the browser retains cookies for a token that was
+    // just revoked server-side.
+    const errorResponse = NextResponse.redirect(
+      new URL(`/login?next=${encodeURIComponent(sector.to)}`, request.url),
+      303,
+    );
+    response.cookies.getAll().forEach((cookie) => errorResponse.cookies.set(cookie));
+    return errorResponse;
   }
 
   return response;

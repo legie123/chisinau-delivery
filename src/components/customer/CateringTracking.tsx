@@ -80,7 +80,13 @@ export function CateringTracking({
   function handleCancel() {
     startTransition(async () => {
       const result = await cancelCateringOrder(order.id, cancelReason.trim());
-      setError(result.error);
+      setError(
+        result.error
+          ? result.error.includes("too late")
+            ? "Comanda a fost deja confirmată de restaurant — nu mai poate fi anulată."
+            : "Anularea a eșuat. Încearcă din nou."
+          : null,
+      );
       if (!result.error) setCancelling(false);
     });
   }
@@ -170,7 +176,7 @@ export function CateringTracking({
         </div>
       )}
 
-      {cancelling && !isTerminal && (
+      {cancelling && order.status === "pending_restaurant" && (
         <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
           <input
             value={cancelReason}

@@ -46,10 +46,10 @@ export default function HubPage() {
       {/* Three sectors */}
       <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-3">
         {SECTORS.map((s) => (
-          <Link
-            key={s.href}
-            href={s.href}
-            className="group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-3xl ring-1 ring-gold/15 transition duration-300 hover:ring-gold/60 sm:min-h-[480px]"
+          <form key={s.href} method="POST" action={s.href} className="contents">
+          <button
+            type="submit"
+            className="group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-3xl text-left ring-1 ring-gold/15 transition duration-300 hover:ring-gold/60 sm:min-h-[480px]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -71,7 +71,8 @@ export default function HubPage() {
                 </svg>
               </span>
             </div>
-          </Link>
+          </button>
+          </form>
         ))}
       </div>
 

@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { COLORS } from '../theme';
-import { fetchAvailableOrders, fetchActiveOrder, acceptOrder as apiAcceptOrder, setOnline, DriverOrder } from '../lib/api';
+import { fetchAvailableOrders, fetchActiveOrder, fetchDeliveryHistory, acceptOrder as apiAcceptOrder, setOnline, DriverOrder } from '../lib/api';
 import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -26,7 +26,8 @@ export default function MapScreen({ navigation }: Props) {
   const [isOnline, setIsOnline] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
-  const [todayEarnings] = useState(0);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [activeDelivery, setActiveDelivery] = useState<{ order: DriverOrder; status: string } | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const refreshOrders = useCallback(() => {
@@ -35,6 +36,8 @@ export default function MapScreen({ navigation }: Props) {
 
   useEffect(() => {
     refreshOrders();
+    fetchDeliveryHistory().then((h) => setTodayEarnings(h.todayEarnings)).catch(() => {});
+    fetchActiveOrder().then(setActiveDelivery).catch(() => {});
     const interval = setInterval(refreshOrders, 15000);
     return () => clearInterval(interval);
   }, [refreshOrders]);
@@ -141,26 +144,32 @@ export default function MapScreen({ navigation }: Props) {
         {/* Right: Today's Earnings */}
         <View style={styles.earningsBox}>
           <Text style={styles.earningsLabel}>Earnings Today</Text>
-          <Text style={styles.earningsText}>{todayEarnings} RON</Text>
+          <Text style={styles.earningsText}>{todayEarnings} MDL</Text>
         </View>
       </View>
 
       {/* Bottom info */}
       {!currentOrder && (
         <View style={styles.bottomInfo}>
-          <View style={styles.waitingCard}>
+          <TouchableOpacity
+            style={styles.waitingCard}
+            activeOpacity={activeDelivery ? 0.8 : 1}
+            disabled={!activeDelivery}
+            onPress={() => activeDelivery && navigation.navigate('ActiveDelivery', { order: activeDelivery.order })}
+          >
             <View style={styles.pulseContainer}>
               <View style={styles.pulseDot} />
             </View>
             <View>
               <Text style={styles.waitingTitle}>
-                {isOnline ? 'Așteptăm comenzi...' : 'Ești offline'}
+                {activeDelivery ? 'Ai o livrare activă' : isOnline ? 'Așteptăm comenzi...' : 'Ești offline'}
               </Text>
               <Text style={styles.waitingSubtitle}>
-                {isOnline ? `${orders.length} comenzi disponibile` : 'Intră online ca să primești comenzi'}
+                {activeDelivery ? `Comandă în curs — continuă livrarea` : isOnline ? `${orders.length} comenzi disponibile` : 'Intră online ca să primești comenzi'}
               </Text>
             </View>
-          </View>
+            {activeDelivery && <Ionicons name="arrow-forward-circle" size={26} color={COLORS.primary} style={{ marginLeft: 'auto' }} />}
+          </TouchableOpacity>
         </View>
       )}
 

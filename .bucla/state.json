@@ -2,21 +2,21 @@
   "project": "chisinau-delivery",
   "objective": "Platformă food-delivery Chișinău (sushi/fine-dining + catering): web 3 suprafețe + 2 app-uri Expo, calitate premium verificabilă, local-only până la OK explicit de deploy",
   "session": "2026-07-16-overnight",
-  "iteration": 15,
-  "iterations_this_session": 15,
+  "iteration": 16,
+  "iterations_this_session": 16,
   "max_iterations_per_session": 30,
   "scores": {
     "functionalitate": {
-      "value": 92,
-      "evidence": "E2E complet dovedit prin REST (CHD-2026-000001: plasată→acceptată→gata→asignată→livrată→plătită); 12/12 ecrane funcționale; hub+enter fără parolă verificat în Chrome"
+      "value": 93,
+      "evidence": "10/10 findings W14 reale fixate: curierul citește venue-ul catering (RLS nou, aplicat live), resume path la livrarea activă în driver, câștiguri reale MDL pe hartă, Deconectare funcțională, telefon fals eliminat"
     },
     "stabilitate": {
       "value": 88,
       "evidence": "build+lint verzi pe fiecare val; launchd auto-restart; DAR zero teste automate — verificarea e manuală+adversarială ad-hoc"
     },
     "securitate": {
-      "value": 85,
-      "evidence": "RLS totul, RPC-uri cu dublă verificare, advisors 0 findings pe tabelele noastre, funcții hardened (anon revoked); MINUS: /enter/[role] doorway demo cu parole test în repo (tracked pentru ștergere), SERVICE_ROLE_KEY absent din invite flows"
+      "value": 88,
+      "evidence": "CRITIC fixat: /enter POST-only (GET=405 verificat live) — prefetch inofensiv + CSRF-via-GET închis; error path păstrează ștergerile de cookies; rămâne doorway-ul demo în sine (tracked)"
     },
     "performanta": {
       "value": 90,
@@ -37,9 +37,9 @@
   },
   "critical_defects": [],
   "loop_active_because": [
-    "securitate<90",
     "documentatie<90",
-    "stabilitate<90"
+    "stabilitate<90",
+    "securitate<90"
   ],
   "no_progress_counter": 0
 }

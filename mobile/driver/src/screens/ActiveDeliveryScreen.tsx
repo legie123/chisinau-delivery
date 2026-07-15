@@ -78,7 +78,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   });
 
   const routeCoords = [
-    { latitude: 44.4340, longitude: 26.0990 }, // courier
+    { latitude: 47.0105, longitude: 28.8638 }, // courier
     { latitude: order.lat, longitude: order.lng }, // pickup
     { latitude: order.lat + 0.008, longitude: order.lng + 0.005 }, // delivery
   ];
@@ -190,24 +190,13 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
                 <Text style={styles.ratingText}>4.9</Text>
               </View>
             </View>
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.chatBtn}>
-                <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.white} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.phoneCallOutlineBtn}
-                onPress={() => Linking.openURL('tel:+40721000000')}
-              >
-                <Ionicons name="call" size={16} color="#4CD964" />
-                <Text style={styles.phoneCallOutlineText}>Call</Text>
-              </TouchableOpacity>
-            </View>
+
           </View>
 
           {/* Order Items with Watermark */}
           <View style={styles.itemsSection}>
             <View style={styles.itemsHeader}>
-              <Text style={styles.itemsTitle}>Order Items</Text>
+              <Text style={styles.itemsTitle}>PRODUSE COMANDATE</Text>
               <View style={styles.watermarkContainer}>
                 <Text style={styles.watermarkIcon}>🐉</Text>
               </View>
@@ -220,7 +209,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
             <Ionicons name="location" size={20} color={COLORS.primary} />
             <View style={styles.addressInfo}>
               <Text style={styles.addressLabel}>
-                {status === 'pickup' ? 'PICKUP ADDRESS' : 'DELIVERY ADDRESS'}
+                {status === 'pickup' ? 'RIDICĂ DE LA' : 'LIVREAZĂ LA'}
               </Text>
               <Text style={styles.addressText}>
                 {status === 'pickup' ? order.pickupAddress : order.deliveryAddress}
@@ -228,13 +217,6 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
             </View>
           </View>
 
-          <View style={styles.phoneSection}>
-            <Ionicons name="call" size={20} color={COLORS.gold} />
-            <View style={styles.phoneInfo}>
-              <Text style={styles.phoneLabel}>CUSTOMER PHONE</Text>
-              <Text style={styles.phoneText}>+40 721 000 000</Text>
-            </View>
-          </View>
 
           <View style={{ height: 110 }} />
         </ScrollView>
