@@ -36,3 +36,17 @@ insert into public.menu_items (restaurant_id, category_id, name, description, pr
 insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at)
 select r.id, d, '11:00', '22:00'
 from public.restaurants r, generate_series(0, 6) as d;
+
+-- Food photography (Unsplash CDN) — keeps local resets visually equivalent
+-- to the live project.
+update public.restaurants set cover_photo_url = 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800&h=400&fit=crop' where slug = 'sakura-sushi';
+update public.restaurants set cover_photo_url = 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop' where slug = 'le-jardin';
+update public.restaurants set cover_photo_url = 'https://images.unsplash.com/photo-1553621042-f6e147245754?w=800&h=400&fit=crop' where slug = 'osaka-house';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1583623025817-d180a2221d0a?w=400&h=400&fit=crop' where name = 'Set Sakura 32 piese';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=400&h=400&fit=crop' where name = 'California Roll';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1611143669185-af224c5e3252?w=400&h=400&fit=crop' where name = 'Philadelphia Roll';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1625938145312-c18b02a4a913?w=400&h=400&fit=crop' where name = 'Platou Eveniment 100 piese';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1544025162-d76694265947?w=400&h=400&fit=crop' where name = 'Magret de rață';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1470324161839-ce2bb6fa6bc3?w=400&h=400&fit=crop' where name = 'Crème brûlée';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1617196034796-73dfa7b1fd56?w=400&h=400&fit=crop' where name = 'Dragon Roll';
+update public.menu_items set photo_url = 'https://images.unsplash.com/photo-1607301405390-d831c242f59b?w=400&h=400&fit=crop' where name = 'Spicy Tuna Roll';
