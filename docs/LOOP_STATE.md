@@ -29,6 +29,11 @@ FIECARE val (build+lint+smoke+screenshot; workflow adversarial la 2-3 valuri).
 - [ ] W13: mobile driver Expo → progress+istoric ca în video
 - [ ] W14: verify adversarial final pe tot + fix + bilanț & vault/ruflo sync
 
+## Cerință user (01:10): hub 3 sectoare, fără login
+- [x] Hub central pe / : Clienți/Curieri/Restaurante cu poze sugestive, serif gold
+- [x] /enter/[role]: sign-in automat server-side cu conturile de test → redirect
+- ATENȚIE LA LANSARE: șterge /enter/[role] (doorway demo) — tracked aici
+
 ## Reguli active
 - Ruflo memory store după fiecare val (namespace vault, key cd-w<N>-2026-07-16)
 - Obsidian: nota 07_RESEARCH/Chisinau Delivery - Overnight... se actualizează

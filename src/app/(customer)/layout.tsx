@@ -42,8 +42,8 @@ export default async function CustomerLayout({ children }: { children: React.Rea
                 <SignOutButton />
               </>
             ) : (
-              <Link href="/login" className="transition hover:text-white">
-                Autentificare
+              <Link href="/" className="transition hover:text-white">
+                Intră în cont
               </Link>
             )}
           </nav>
