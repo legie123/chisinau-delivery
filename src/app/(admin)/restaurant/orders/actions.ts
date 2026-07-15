@@ -1,16 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
 
 async function callOrderRpc(rpc: string, args: Record<string, unknown>): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautentificat." };
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
 
   const { error } = await supabase.rpc(rpc, args);
   if (error) return { error: error.message };

@@ -9,7 +9,7 @@
 - [ ] subscribeTable: onDegraded există dar nefolosit de consumatori (fallback polling nefăcut)
 
 ## Mentenabilitate
-- [ ] require*-helpers duplicate în 4 fișiere actions → extract src/lib/auth/requireRole.ts
+- [x] require*-helpers unificate în src/lib/auth/require.ts (it. 15)
 - [ ] CateringRequestForm ~300 linii → split în secțiuni
 
 ## Documentație

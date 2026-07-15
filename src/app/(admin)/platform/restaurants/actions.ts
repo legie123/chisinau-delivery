@@ -1,28 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requirePlatformAdmin } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CuisineType } from "@/lib/types/domain";
 
 export type ActionState = { error: string | null };
 
-async function requirePlatformAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Neautentificat.");
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "platform_admin") throw new Error("Acces interzis.");
-
-  return supabase;
-}
-
 export async function createRestaurant(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const supabase = await requirePlatformAdmin();
+    const { supabase } = await requirePlatformAdmin();
 
     const name = String(formData.get("name") ?? "").trim();
     const slug = String(formData.get("slug") ?? "").trim();

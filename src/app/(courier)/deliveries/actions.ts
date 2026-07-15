@@ -1,16 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
 
 export async function setOnlineStatus(online: boolean): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautentificat." };
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
 
   const { error } = await supabase.rpc("set_courier_online_status", { p_status: online ? "online" : "offline" });
   if (error) return { error: error.message };
@@ -20,11 +21,12 @@ export async function setOnlineStatus(online: boolean): Promise<ActionResult> {
 }
 
 export async function acceptDelivery(orderId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautentificat." };
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
 
   const { error } = await supabase.rpc("assign_courier", { p_order_id: orderId });
   if (error) return { error: error.message };
@@ -38,11 +40,12 @@ export async function advanceStatus(
   newStatus: string,
   paymentConfirmed?: boolean,
 ): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Neautentificat." };
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
 
   const { error } = await supabase.rpc("advance_delivery_status", {
     p_order_id: orderId,

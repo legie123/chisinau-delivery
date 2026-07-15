@@ -1,21 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requirePlatformAdmin } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ActionState = { error: string | null };
-
-async function requirePlatformAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Neautentificat.");
-
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "platform_admin") throw new Error("Acces interzis.");
-}
 
 export async function inviteCourier(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
@@ -58,8 +47,7 @@ export async function inviteCourier(_prev: ActionState, formData: FormData): Pro
 
 export async function setCourierActive(courierId: string, isActive: boolean): Promise<ActionState> {
   try {
-    await requirePlatformAdmin();
-    const supabase = await createClient();
+    const { supabase } = await requirePlatformAdmin();
     const { error } = await supabase.from("couriers").update({ is_active: isActive }).eq("id", courierId);
     if (error) return { error: error.message };
     revalidatePath("/platform/couriers");

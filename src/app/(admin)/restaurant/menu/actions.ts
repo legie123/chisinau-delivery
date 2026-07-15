@@ -1,27 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireOwnRestaurant } from "@/lib/auth/require";
 
 export type ActionState = { error: string | null };
-
-async function requireOwnRestaurant() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Neautentificat.");
-
-  const { data: staffRow } = await supabase
-    .from("restaurant_staff")
-    .select("restaurant_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!staffRow) throw new Error("Contul tău nu este asociat cu un restaurant.");
-
-  return { supabase, restaurantId: staffRow.restaurant_id as string };
-}
 
 export async function createCategory(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
