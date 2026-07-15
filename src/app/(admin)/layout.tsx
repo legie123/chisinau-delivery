@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-[#0a0a14] text-white">
       <header className="flex items-center justify-between border-b border-white/10 bg-[#0d0d1f] px-6 py-4 text-white">
         <Link href="/" className="font-semibold">
           <span className="text-gold">Dragons</span> Delivery — Admin

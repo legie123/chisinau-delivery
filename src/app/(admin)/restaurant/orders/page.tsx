@@ -30,13 +30,16 @@ export default async function RestaurantOrdersPage() {
   const orderList = (orders ?? []) as Order[];
 
   return (
-    <main className="flex-1 px-6 py-10">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
       {staffRow && <OrderQueueLive restaurantId={staffRow.restaurant_id} />}
-      <h1 className="mb-6 text-2xl font-semibold">Comenzi</h1>
+      <h1 className="mb-6 text-2xl font-bold text-white">Comenzi</h1>
       {orderList.length === 0 ? (
-        <p className="text-zinc-500">Nicio comandă activă momentan.</p>
+        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.04] py-14 text-center ring-1 ring-white/[0.06]">
+          <span className="text-5xl" aria-hidden>🍱</span>
+          <p className="text-white/60">Nicio comandă activă — cele noi apar aici instant.</p>
+        </div>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {orderList.map((order) => (
             <OrderQueueRow key={order.id} order={order} />
           ))}

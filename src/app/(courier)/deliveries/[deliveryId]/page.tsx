@@ -49,76 +49,91 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
       : null;
 
   return (
-    <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Livrare {typedOrder.order_number}</h1>
+    <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
+      <h1 className="mb-5 text-2xl font-bold text-white">Livrare {typedOrder.order_number}</h1>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <section className="rounded-lg border border-zinc-200 p-4 text-sm dark:border-zinc-800">
-          <h2 className="mb-2 font-medium">Ridicare</h2>
-          <p>{restaurant?.name}</p>
-          <p className="text-zinc-500">{restaurant?.address}</p>
-          {restaurant?.phone && (
-            <a href={`tel:${restaurant.phone}`} className="text-xs underline underline-offset-4">
-              {restaurant.phone}
-            </a>
-          )}
+      {/* Route: pickup -> dropoff, Bolt driver two-stop card */}
+      <div className="mb-4 flex flex-col gap-3">
+        <section className="flex items-start gap-4 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/15 text-lg" aria-hidden>
+            🏪
+          </span>
+          <div className="min-w-0 text-sm">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-white/50">Ridicare</h2>
+            <p className="mt-1 font-semibold text-white">{restaurant?.name}</p>
+            <p className="text-white/50">{restaurant?.address}</p>
+            {restaurant?.phone && (
+              <a href={`tel:${restaurant.phone}`} className="mt-1 inline-block text-primary underline underline-offset-4">
+                {restaurant.phone}
+              </a>
+            )}
+          </div>
         </section>
-        <section className="rounded-lg border border-zinc-200 p-4 text-sm dark:border-zinc-800">
-          <h2 className="mb-2 font-medium">Livrare</h2>
-          {typedAddress ? (
-            <>
-              <p>{typedAddress.street_address}</p>
-              <p className="text-zinc-500">
-                {[typedAddress.building && `bloc ${typedAddress.building}`, typedAddress.apartment && `ap. ${typedAddress.apartment}`]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-              {typedAddress.notes && <p className="text-xs text-zinc-500">{typedAddress.notes}</p>}
-              {mapsUrl && (
-                <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-xs underline underline-offset-4">
-                  Deschide în Google Maps
-                </a>
-              )}
-            </>
-          ) : catering ? (
-            <>
-              <p>{catering.event_address_text}</p>
-              <p className="text-zinc-500">
-                Eveniment {catering.event_date}
-                {catering.event_time ? ` · ${String(catering.event_time).slice(0, 5)}` : ""}
-              </p>
-              <p className="text-zinc-500">
-                {catering.contact_person} ·{" "}
-                <a href={`tel:${catering.contact_phone}`} className="underline underline-offset-4">
-                  {catering.contact_phone}
-                </a>
-              </p>
-              {mapsUrl && (
-                <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-xs underline underline-offset-4">
-                  Deschide în Google Maps
-                </a>
-              )}
-            </>
-          ) : (
-            <p className="text-zinc-500">Fără adresă atașată.</p>
-          )}
+
+        <section className="flex items-start gap-4 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-lg" aria-hidden>
+            📍
+          </span>
+          <div className="min-w-0 flex-1 text-sm">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-white/50">Livrare</h2>
+            {typedAddress ? (
+              <>
+                <p className="mt-1 font-semibold text-white">{typedAddress.street_address}</p>
+                <p className="text-white/50">
+                  {[typedAddress.building && `bloc ${typedAddress.building}`, typedAddress.apartment && `ap. ${typedAddress.apartment}`]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+                {typedAddress.notes && <p className="mt-1 text-white/50">📝 {typedAddress.notes}</p>}
+              </>
+            ) : catering ? (
+              <>
+                <p className="mt-1 font-semibold text-white">{catering.event_address_text}</p>
+                <p className="text-white/50">
+                  Eveniment {catering.event_date}
+                  {catering.event_time ? ` · ${String(catering.event_time).slice(0, 5)}` : ""}
+                </p>
+                <p className="text-white/50">
+                  {catering.contact_person} ·{" "}
+                  <a href={`tel:${catering.contact_phone}`} className="text-primary underline underline-offset-4">
+                    {catering.contact_phone}
+                  </a>
+                </p>
+              </>
+            ) : (
+              <p className="mt-1 text-white/50">Fără adresă atașată.</p>
+            )}
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+              >
+                🗺️ Navighează cu Google Maps
+              </a>
+            )}
+          </div>
         </section>
       </div>
 
-      <ul className="mb-6 flex flex-col gap-1 text-sm">
-        {((items ?? []) as OrderItem[]).map((item) => (
-          <li key={item.id} className="flex justify-between">
-            <span>
-              {item.quantity}× {item.item_name_snapshot}
-            </span>
-            <span>{item.line_total_mdl} MDL</span>
-          </li>
-        ))}
-        <li className="flex justify-between border-t border-zinc-200 pt-1 font-medium dark:border-zinc-800">
-          <span>De încasat ({typedOrder.payment_method === "cash" ? "cash" : "card la livrare"})</span>
-          <span>{typedOrder.total_mdl} MDL</span>
-        </li>
-      </ul>
+      <section className="mb-4 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">Comanda</h2>
+        <ul className="flex flex-col gap-2 text-sm">
+          {((items ?? []) as OrderItem[]).map((item) => (
+            <li key={item.id} className="flex justify-between text-white/90">
+              <span>
+                {item.quantity}× {item.item_name_snapshot}
+              </span>
+              <span>{item.line_total_mdl} MDL</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-3 flex justify-between border-t border-white/10 pt-3 font-bold text-white">
+          <span>De încasat ({typedOrder.payment_method === "cash" ? "cash" : "card POS"})</span>
+          <span className="text-gold">{typedOrder.total_mdl} MDL</span>
+        </div>
+      </section>
 
       <DeliveryStatusControls order={typedOrder} courierId={courier.id} />
     </main>

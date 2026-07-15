@@ -18,7 +18,12 @@ export function OnlineToggle({ initialStatus }: { initialStatus: string }) {
   }
 
   if (isOnDelivery) {
-    return <span className="rounded-full bg-blue-100 px-4 py-2 text-sm text-blue-700 dark:bg-blue-900 dark:text-blue-300">În livrare</span>;
+    return (
+      <span className="flex items-center gap-2 rounded-full bg-blue-500/15 px-5 py-2.5 text-sm font-semibold text-blue-400 ring-1 ring-blue-500/30">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-blue-400" aria-hidden />
+        În livrare
+      </span>
+    );
   }
 
   return (
@@ -26,13 +31,14 @@ export function OnlineToggle({ initialStatus }: { initialStatus: string }) {
       type="button"
       onClick={handleToggle}
       disabled={pending}
-      className={`w-fit rounded-full px-4 py-2 text-sm ${
+      className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${
         online
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
-          : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+          ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+          : "bg-white/5 text-white/50 ring-1 ring-white/10"
       }`}
     >
-      {online ? "Online — primești comenzi" : "Offline"}
+      <span className={`h-2 w-2 rounded-full ${online ? "animate-pulse bg-emerald-400" : "bg-white/30"}`} aria-hidden />
+      {online ? "Online" : "Offline"}
     </button>
   );
 }

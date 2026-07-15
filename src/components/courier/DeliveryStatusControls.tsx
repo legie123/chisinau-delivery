@@ -5,10 +5,10 @@ import { advanceStatus } from "@/app/(courier)/deliveries/actions";
 import { useBroadcastCourierLocation } from "@/hooks/useBroadcastCourierLocation";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 
-const NEXT_STEP: Record<string, { next: string; label: string }> = {
-  courier_assigned: { next: "picked_up", label: "Am ridicat comanda" },
-  picked_up: { next: "en_route", label: "Am pornit spre client" },
-  en_route: { next: "delivered", label: "Am livrat" },
+const NEXT_STEP: Record<string, { next: string; label: string; emoji: string }> = {
+  courier_assigned: { next: "picked_up", label: "Am ridicat comanda", emoji: "🥡" },
+  picked_up: { next: "en_route", label: "Am pornit spre client", emoji: "🛵" },
+  en_route: { next: "delivered", label: "Am livrat comanda", emoji: "✅" },
 };
 
 export function DeliveryStatusControls({ order, courierId }: { order: Order; courierId: string }) {
@@ -35,12 +35,16 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm">
-        Status: <span className="font-medium">{ORDER_STATUS_LABEL[order.status]}</span>
-      </p>
+      <div className="flex items-center justify-between rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
+        <span className="text-sm text-white/60">Status curent</span>
+        <span className="rounded-full bg-gold/15 px-3 py-1 text-sm font-semibold text-gold ring-1 ring-gold/30">
+          {ORDER_STATUS_LABEL[order.status]}
+        </span>
+      </div>
       {broadcasting && (
-        <p className="text-xs text-zinc-500">
-          {geoError ? `GPS indisponibil: ${geoError}` : "Locația ta se transmite live clientului."}
+        <p className="flex items-center gap-2 px-1 text-xs text-white/50">
+          <span className={`h-2 w-2 rounded-full ${geoError ? "bg-primary" : "animate-pulse bg-emerald-400"}`} aria-hidden />
+          {geoError ? `GPS indisponibil: ${geoError}` : "Locația ta se transmite live clientului"}
         </p>
       )}
       {step && (
@@ -48,12 +52,15 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
           type="button"
           onClick={handleAdvance}
           disabled={pending}
-          className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
+          className="flex items-center justify-center gap-2.5 rounded-full bg-primary py-4 text-[15px] font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
         >
-          {pending ? "..." : step.label}
+          <span aria-hidden>{step.emoji}</span>
+          {pending ? "Se actualizează..." : step.label}
         </button>
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <p className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">{error}</p>
+      )}
     </div>
   );
 }

@@ -16,19 +16,27 @@ export function AvailableOrderRow({ order }: { order: Order }) {
   }
 
   return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-      <div>
-        <p className="font-medium">{order.order_number}</p>
-        <p className="text-xs text-zinc-500">{order.total_mdl} MDL</p>
-        {error && <p className="text-xs text-red-600">{error}</p>}
+    <li className="flex items-center justify-between gap-4 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+      <div className="flex items-center gap-4">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold/15 text-xl" aria-hidden>
+          📦
+        </span>
+        <div>
+          <p className="font-semibold text-white">{order.order_number}</p>
+          <p className="mt-0.5 text-sm text-white/50">
+            De încasat: <span className="font-semibold text-white/80">{order.total_mdl} MDL</span>
+          </p>
+          <p className="text-sm font-bold text-gold">Câștig: {order.delivery_fee_mdl} MDL</p>
+          {error && <p className="mt-1 text-xs text-primary">{error}</p>}
+        </div>
       </div>
       <button
         type="button"
         onClick={handleAccept}
         disabled={pending}
-        className="rounded-full bg-primary px-4 py-1.5 text-xs text-white transition hover:bg-primary-dark disabled:opacity-50"
+        className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
       >
-        {pending ? "..." : "Acceptă livrarea"}
+        {pending ? "..." : "Acceptă"}
       </button>
     </li>
   );
