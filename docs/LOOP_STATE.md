@@ -18,8 +18,8 @@ FIECARE val (build+lint+smoke+screenshot; workflow adversarial la 2-3 valuri).
 - [x] W7 luxury identity (serif gold, carduri tentate, DA VIP)
 
 ## Roadmap 12h (rămase)
-- [ ] W8: curier web = video ref: progress bar 4 pași pe detaliu livrare +
-      pagina Istoric Livrări (azi: N livrări, câștig/livrare gold) + nav
+- [x] W8: curier web = video ref: progress 4 pași verzi pe detaliu +
+      /deliveries/history (azi: N livrări + total gold, carduri check verde)
 - [ ] W9: workflow ANALYSIS (multi-agent): audit calitate cod + performanță
       (queries N+1, indexuri, bundle, re-renders) → findings → fix confirmate
 - [ ] W10: workflow OPTIMIZATION: aplicare recomandări perf (paralel queries,

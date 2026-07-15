@@ -12,6 +12,9 @@ export default function CourierLayout({ children }: { children: React.ReactNode 
           <Link href="/deliveries" className="transition hover:text-white">
             Livrările mele
           </Link>
+          <Link href="/deliveries/history" className="transition hover:text-white">
+            Istoric
+          </Link>
           <SignOutButton />
         </nav>
       </header>
