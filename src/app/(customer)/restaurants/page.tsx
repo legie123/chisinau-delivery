@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { RestaurantBrowser } from "@/components/customer/RestaurantBrowser";
 import type { Restaurant } from "@/lib/types/domain";
-
-const CUISINE_LABEL: Record<Restaurant["cuisine_type"], string> = {
-  sushi: "Sushi",
-  fine_dining: "Fine dining",
-  other: "Altele",
-};
 
 export default async function RestaurantsPage() {
   const supabase = await createClient();
@@ -18,47 +13,33 @@ export default async function RestaurantsPage() {
 
   if (error) {
     return (
-      <main className="flex-1 px-6 py-10">
-        <p className="text-red-600">Nu am putut încărca restaurantele: {error.message}</p>
+      <main className="flex-1 px-5 py-10">
+        <p className="text-red-500">Nu am putut încărca restaurantele: {error.message}</p>
       </main>
     );
   }
 
   return (
-    <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Restaurante din Chișinău</h1>
-      {restaurants?.length === 0 ? (
-        <p className="text-zinc-500">Niciun restaurant disponibil momentan.</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {restaurants?.map((restaurant: Restaurant) => (
-            <Link
-              key={restaurant.id}
-              href={`/restaurants/${restaurant.slug}`}
-              className="rounded-lg border border-zinc-200 p-4 transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
-            >
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="font-medium">{restaurant.name}</h2>
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
-                  {CUISINE_LABEL[restaurant.cuisine_type]}
-                </span>
-              </div>
-              {restaurant.description && (
-                <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  {restaurant.description}
-                </p>
-              )}
-              <p className="text-xs text-zinc-500">
-                {restaurant.sector ?? restaurant.address} · livrare {restaurant.delivery_fee_mdl} MDL
-                · minim {restaurant.min_order_amount_mdl} MDL
-              </p>
-              {!restaurant.accepting_orders && (
-                <p className="mt-2 text-xs font-medium text-amber-600">Nu acceptă comenzi acum</p>
-              )}
-            </Link>
-          ))}
-        </div>
-      )}
+    <main className="flex-1 px-5 pb-24 pt-6">
+      {/* Hero promo — Bolt-style banner, Dragons brand */}
+      <Link
+        href="/catering"
+        className="mb-6 block overflow-hidden rounded-2xl p-6"
+        style={{ background: "linear-gradient(120deg, #16213e 0%, #1a1a2e 55%, #e94560 160%)" }}
+      >
+        <p className="text-xs font-bold uppercase tracking-widest text-gold">Dragons Delivery</p>
+        <h1 className="mt-1 max-w-md text-2xl font-bold leading-snug text-white sm:text-3xl">
+          Sushi premium & fine dining, livrate rapid în Chișinău
+        </h1>
+        <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-gold">
+          Catering pentru evenimente
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
+          </svg>
+        </p>
+      </Link>
+
+      <RestaurantBrowser restaurants={(restaurants ?? []) as Restaurant[]} />
     </main>
   );
 }

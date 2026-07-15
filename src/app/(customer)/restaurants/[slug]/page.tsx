@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { AddToCartButton } from "@/components/customer/AddToCartButton";
-import type { MenuCategory, MenuItem } from "@/lib/types/domain";
+import { CoverImage } from "@/components/customer/CoverImage";
+import { MenuBrowser } from "@/components/customer/MenuBrowser";
+import type { MenuCategory, MenuItem, Restaurant } from "@/lib/types/domain";
 
 export default async function RestaurantMenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -27,75 +28,52 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
       .order("sort_order"),
   ]);
 
-  const categoryList = (categories ?? []) as MenuCategory[];
-  const itemList = (items ?? []) as MenuItem[];
-  const uncategorized = itemList.filter((item) => !item.category_id);
+  const typedRestaurant = restaurant as Restaurant;
 
   return (
-    <main className="flex-1 px-6 py-10">
-      <h1 className="mb-1 text-2xl font-semibold">{restaurant.name}</h1>
-      <p className="mb-6 text-sm text-zinc-500">
-        {restaurant.sector ?? restaurant.address} · livrare {restaurant.delivery_fee_mdl} MDL · minim{" "}
-        {restaurant.min_order_amount_mdl} MDL
-      </p>
+    <main className="flex-1 px-5 pb-24 pt-6">
+      {/* Cover banner with overlaid identity — Bolt restaurant header */}
+      <CoverImage
+        src={typedRestaurant.cover_photo_url}
+        cuisine={typedRestaurant.cuisine_type}
+        alt={typedRestaurant.name}
+        heightClass="h-52 sm:h-64"
+      >
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-5">
+          <h1 className="text-2xl font-bold text-white sm:text-3xl">{typedRestaurant.name}</h1>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
+            <span className="flex items-center gap-1 rounded-full bg-[#fdf6e3] px-2 py-0.5 text-xs font-bold text-zinc-900">
+              <span className="text-gold" aria-hidden>★</span> Nou
+            </span>
+            <span>
+              {typedRestaurant.avg_prep_minutes}–{typedRestaurant.avg_prep_minutes + 15} min
+            </span>
+            <span>·</span>
+            <span>
+              {Number(typedRestaurant.delivery_fee_mdl) === 0
+                ? "Livrare gratuită"
+                : `Livrare ${typedRestaurant.delivery_fee_mdl} MDL`}
+            </span>
+            <span>·</span>
+            <span>minim {typedRestaurant.min_order_amount_mdl} MDL</span>
+          </p>
+        </div>
+      </CoverImage>
 
-      {!restaurant.accepting_orders && (
-        <p className="mb-6 rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-          Acest restaurant nu acceptă comenzi momentan.
+      {!typedRestaurant.accepting_orders && (
+        <p className="mt-4 rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-amber-400 ring-1 ring-amber-500/30">
+          Acest restaurant nu acceptă comenzi momentan — poți răsfoi meniul.
         </p>
       )}
 
-      {itemList.length === 0 ? (
-        <p className="text-zinc-500">Niciun articol disponibil momentan.</p>
-      ) : (
-        <div className="flex flex-col gap-6">
-          {categoryList.map((category) => {
-            const categoryItems = itemList.filter((item) => item.category_id === category.id);
-            if (categoryItems.length === 0) return null;
-            return (
-              <section key={category.id}>
-                <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">{category.name}</h2>
-                <ul className="flex flex-col gap-2">
-                  {categoryItems.map((item) => (
-                    <MenuItemRow key={item.id} item={item} restaurantId={restaurant.id} restaurantName={restaurant.name} />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-          {uncategorized.length > 0 && (
-            <section>
-              <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">Alte articole</h2>
-              <ul className="flex flex-col gap-2">
-                {uncategorized.map((item) => (
-                  <MenuItemRow key={item.id} item={item} restaurantId={restaurant.id} restaurantName={restaurant.name} />
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
-      )}
+      <div className="mt-5">
+        <MenuBrowser
+          restaurant={typedRestaurant}
+          categories={(categories ?? []) as MenuCategory[]}
+          items={(items ?? []) as MenuItem[]}
+        />
+      </div>
     </main>
-  );
-}
-
-function MenuItemRow({ item, restaurantId, restaurantName }: { item: MenuItem; restaurantId: string; restaurantName: string }) {
-  return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
-      <div className="flex items-center gap-3">
-        {item.photo_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.photo_url} alt={item.name} className="h-12 w-12 rounded-md object-cover" />
-        )}
-        <div>
-          <p className="font-medium">{item.name}</p>
-          {item.description && <p className="text-xs text-zinc-500">{item.description}</p>}
-        </div>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-zinc-500">{item.price_mdl} MDL</span>
-        <AddToCartButton restaurantId={restaurantId} restaurantName={restaurantName} item={item} />
-      </div>
-    </li>
   );
 }
