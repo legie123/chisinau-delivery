@@ -1,15 +1,41 @@
-import React from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar, ScrollView, RefreshControl } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../theme';
+import { fetchMyOrders, isSignedIn, CustomerOrder } from '../lib/api';
 
-const MOCK_ORDERS = [
-  { id: 1, restaurant: "Dragon's Wok", items: "2x Pad Thai, 1x Spring Rolls", total: "82 RON", status: "Livrat", date: "Azi, 14:30", statusColor: COLORS.success },
-  { id: 2, restaurant: "Casa Românească", items: "1x Ciorbă de burtă, 1x Mici", total: "45 RON", status: "În pregătire", date: "Azi, 13:15", statusColor: COLORS.warning },
-  { id: 3, restaurant: "Sushi Dragon", items: "1x Dragon Roll, 1x Miso Soup", total: "68 RON", status: "Livrat", date: "Ieri, 20:00", statusColor: COLORS.success },
-];
+function statusColor(status: string): string {
+  if (status === 'delivered') return COLORS.success;
+  if (status === 'cancelled' || status === 'rejected') return COLORS.error;
+  return COLORS.warning;
+}
 
 export default function OrdersScreen() {
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [signedIn, setSignedIn] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    const authed = await isSignedIn();
+    setSignedIn(authed);
+    if (!authed) return;
+    try {
+      setOrders(await fetchMyOrders());
+    } catch {}
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
@@ -17,18 +43,22 @@ export default function OrdersScreen() {
         <Text style={styles.title}>Comenzile mele</Text>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {MOCK_ORDERS.map(order => (
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      >
+        {!signedIn && <Text style={styles.emptyText}>Autentifică-te din coș ca să vezi comenzile tale.</Text>}
+        {signedIn && orders.length === 0 && <Text style={styles.emptyText}>Nu ai plasat nicio comandă încă.</Text>}
+        {orders.map(order => (
           <View key={order.id} style={styles.orderCard}>
             <View style={styles.orderHeader}>
-              <Text style={styles.orderRestaurant}>{order.restaurant}</Text>
-              <View style={[styles.statusBadge, { backgroundColor: order.statusColor + '20', borderColor: order.statusColor + '40' }]}>
-                <Text style={[styles.statusText, { color: order.statusColor }]}>{order.status}</Text>
+              <Text style={styles.orderRestaurant}>{order.orderNumber}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: statusColor(order.status) + '20', borderColor: statusColor(order.status) + '40' }]}>
+                <Text style={[styles.statusText, { color: statusColor(order.status) }]}>{order.statusLabel}</Text>
               </View>
             </View>
-            <Text style={styles.orderItems}>{order.items}</Text>
             <View style={styles.orderFooter}>
-              <Text style={styles.orderDate}>{order.date}</Text>
+              <Text style={styles.orderDate}>{order.createdAt}</Text>
               <Text style={styles.orderTotal}>{order.total}</Text>
             </View>
           </View>
@@ -39,6 +69,11 @@ export default function OrdersScreen() {
 }
 
 const styles = StyleSheet.create({
+  emptyText: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: 48,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

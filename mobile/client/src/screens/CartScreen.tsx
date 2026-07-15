@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { CartItem } from '../types';
+import { isSignedIn, placeOrder as apiPlaceOrder } from '../lib/api';
 
 interface Props {
   route: any;
@@ -42,14 +43,37 @@ export default function CartScreen({ route, navigation }: Props) {
   const deliveryFee = restaurant.deliveryFee === '0' ? 0 : parseFloat(restaurant.deliveryFee || '7.99');
   const total = subtotal + deliveryFee;
 
-  const placeOrder = () => {
+  const [placing, setPlacing] = useState(false);
+
+  const placeOrder = async () => {
     if (!deliveryAddress.trim()) {
       Alert.alert('Adresă necesară', 'Te rugăm să introduci adresa de livrare.');
       return;
     }
+    if (!(await isSignedIn())) {
+      navigation.navigate('Login', { onSignedIn: () => placeOrder() });
+      return;
+    }
+    setPlacing(true);
+    const { orderNumber, error } = await apiPlaceOrder({
+      restaurantId: restaurant.id,
+      items: cart.map(c => ({ menuItemId: c.menuItem.id, quantity: c.quantity })),
+      streetAddress: deliveryAddress.trim(),
+      notes: notes.trim(),
+    });
+    setPlacing(false);
+    if (error) {
+      const friendly = error.includes('below minimum')
+        ? `Comanda nu atinge minimul restaurantului.`
+        : error.includes('not currently accepting')
+          ? 'Restaurantul nu acceptă comenzi momentan.'
+          : 'Nu am putut trimite comanda. Încearcă din nou.';
+      Alert.alert('Eroare', friendly);
+      return;
+    }
     Alert.alert(
       '✅ Comandă plasată!',
-      `Comanda ta de ${total.toFixed(2)} MDL de la ${restaurant.name} a fost trimisă. Vei primi o notificare când restaurantul o acceptă.`,
+      `Comanda ${orderNumber} de ${total.toFixed(2)} MDL de la ${restaurant.name} a fost trimisă. Restaurantul o va confirma în curând.`,
       [{ text: 'OK', onPress: () => navigation.popToTop() }]
     );
   };
@@ -166,7 +190,7 @@ export default function CartScreen({ route, navigation }: Props) {
       </ScrollView>
 
       {/* Place Order Button */}
-      <TouchableOpacity style={styles.orderBtn} activeOpacity={0.9} onPress={placeOrder}>
+      <TouchableOpacity style={[styles.orderBtn, placing && { opacity: 0.6 }]} activeOpacity={0.9} onPress={placeOrder} disabled={placing}>
         <Ionicons name="bag-check" size={20} color={COLORS.white} />
         <Text style={styles.orderBtnText}>Plasează comanda · {total.toFixed(2)} MDL</Text>
       </TouchableOpacity>

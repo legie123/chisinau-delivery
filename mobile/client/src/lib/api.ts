@@ -66,3 +66,100 @@ export async function fetchMenu(restaurantId: string): Promise<{ items: MenuItem
   const categories = [...new Set(mapped.map((i) => i.category))];
   return { items: mapped, categories };
 }
+
+// ---------- Auth + ordering (customer) ----------
+
+export async function signIn(email: string, password: string): Promise<string | null> {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  return error ? error.message : null;
+}
+
+export async function signUp(email: string, password: string, fullName: string): Promise<string | null> {
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName, role: "customer" } },
+  });
+  return error ? error.message : null;
+}
+
+export async function isSignedIn(): Promise<boolean> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return !!session;
+}
+
+export interface PlaceOrderInput {
+  restaurantId: string;
+  items: { menuItemId: string; quantity: number }[];
+  streetAddress: string;
+  notes: string;
+}
+
+// Creates the address then places the order through the place_order RPC —
+// the same validated path the web checkout uses.
+export async function placeOrder(input: PlaceOrderInput): Promise<{ orderNumber: string | null; error: string | null }> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { orderNumber: null, error: "Trebuie să fii autentificat." };
+
+  const { data: address, error: addressError } = await supabase
+    .from("addresses")
+    .insert({ customer_id: user.id, street_address: input.streetAddress, notes: input.notes || null })
+    .select("id")
+    .single();
+  if (addressError) return { orderNumber: null, error: addressError.message };
+
+  const { data: orderId, error: rpcError } = await supabase.rpc("place_order", {
+    p_restaurant_id: input.restaurantId,
+    p_order_type: "standard",
+    p_payment_method: "cash",
+    p_items: input.items.map((i) => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
+    p_delivery_address_id: address.id,
+    p_notes: input.notes || null,
+  });
+  if (rpcError) return { orderNumber: null, error: rpcError.message };
+
+  const { data: order } = await supabase.from("orders").select("order_number").eq("id", orderId).single();
+  return { orderNumber: order?.order_number ?? "—", error: null };
+}
+
+const ORDER_STATUS_RO: Record<string, string> = {
+  pending_restaurant: "În așteptare",
+  accepted: "Acceptată",
+  ready_for_pickup: "Gata de ridicare",
+  courier_assigned: "Curier atribuit",
+  picked_up: "Ridicată",
+  en_route: "Pe drum",
+  delivered: "Livrată",
+  cancelled: "Anulată",
+  rejected: "Refuzată",
+};
+
+export interface CustomerOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+  statusLabel: string;
+  total: string;
+  createdAt: string;
+}
+
+export async function fetchMyOrders(): Promise<CustomerOrder[]> {
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id, order_number, status, total_mdl, created_at")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((o) => ({
+    id: o.id,
+    orderNumber: o.order_number,
+    status: o.status,
+    statusLabel: ORDER_STATUS_RO[o.status] ?? o.status,
+    total: `${o.total_mdl} MDL`,
+    createdAt: new Date(o.created_at).toLocaleString("ro-RO"),
+  }));
+}
