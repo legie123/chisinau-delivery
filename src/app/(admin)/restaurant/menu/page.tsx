@@ -20,7 +20,7 @@ export default async function RestaurantMenuPage() {
     return (
       <main className="flex-1 px-6 py-10">
         <h1 className="mb-2 text-2xl font-semibold">Meniul meu</h1>
-        <p className="text-zinc-500">
+        <p className="text-white/50">
           Contul tău nu este încă asociat cu un restaurant. Contactează un administrator.
         </p>
       </main>
@@ -47,7 +47,7 @@ export default async function RestaurantMenuPage() {
       <AddMenuItemForm restaurantId={restaurantId} categories={categoryList} />
 
       {itemList.length === 0 ? (
-        <p className="text-zinc-500">Niciun articol de meniu încă.</p>
+        <p className="text-white/50">Niciun articol de meniu încă.</p>
       ) : (
         <div className="flex flex-col gap-6">
           {categoryList.map((category) => {
@@ -55,7 +55,7 @@ export default async function RestaurantMenuPage() {
             if (categoryItems.length === 0) return null;
             return (
               <section key={category.id}>
-                <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">{category.name}</h2>
+                <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">{category.name}</h2>
                 <ul className="flex flex-col gap-2">
                   {categoryItems.map((item) => (
                     <MenuItemRow key={item.id} item={item} />
@@ -66,7 +66,7 @@ export default async function RestaurantMenuPage() {
           })}
           {uncategorized.length > 0 && (
             <section>
-              <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">Fără categorie</h2>
+              <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">Fără categorie</h2>
               <ul className="flex flex-col gap-2">
                 {uncategorized.map((item) => (
                   <MenuItemRow key={item.id} item={item} />

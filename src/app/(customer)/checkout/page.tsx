@@ -12,7 +12,7 @@ export default async function CheckoutPage() {
     return (
       <main className="flex-1 px-6 py-10">
         <h1 className="mb-2 text-2xl font-semibold">Finalizare comandă</h1>
-        <p className="text-zinc-500">
+        <p className="text-white/50">
           Trebuie să te autentifici înainte de a plasa o comandă.{" "}
           <a href="/login?next=/checkout" className="underline underline-offset-4">
             Autentificare

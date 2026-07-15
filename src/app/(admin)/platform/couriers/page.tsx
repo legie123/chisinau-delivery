@@ -21,11 +21,11 @@ export default async function PlatformCouriersPage() {
       <InviteCourierForm />
 
       {couriers?.length === 0 ? (
-        <p className="text-zinc-500">Niciun curier încă.</p>
+        <p className="text-white/50">Niciun curier încă.</p>
       ) : (
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 dark:border-zinc-800">
+            <tr className="border-b border-white/10">
               <th className="py-2">Nume</th>
               <th className="py-2">Telefon</th>
               <th className="py-2">Vehicul</th>
@@ -35,7 +35,7 @@ export default async function PlatformCouriersPage() {
           </thead>
           <tbody>
             {couriers?.map((courier) => (
-              <tr key={courier.id} className="border-b border-zinc-100 dark:border-zinc-900">
+              <tr key={courier.id} className="border-b border-white/5">
                 <td className="py-2">{courier.full_name}</td>
                 <td className="py-2">{courier.phone}</td>
                 <td className="py-2">{VEHICLE_LABEL[courier.vehicle_type] ?? courier.vehicle_type}</td>

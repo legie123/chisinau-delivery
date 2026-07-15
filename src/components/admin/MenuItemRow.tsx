@@ -31,7 +31,7 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
   }
 
   return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800">
+    <li className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]">
       <div className="flex items-center gap-3">
         {item.photo_url && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -41,11 +41,11 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
           <p className="font-medium">
             {item.name} {item.is_catering_only && <span className="text-xs text-amber-600">(catering)</span>}
           </p>
-          {item.description && <p className="text-xs text-zinc-500">{item.description}</p>}
+          {item.description && <p className="text-xs text-white/50">{item.description}</p>}
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-sm text-zinc-500">{item.price_mdl} MDL</span>
+        <span className="text-sm text-white/50">{item.price_mdl} MDL</span>
         <button
           type="button"
           onClick={handleToggle}
@@ -53,7 +53,7 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
           className={`rounded-full px-3 py-1 text-xs ${
             isAvailable
               ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
-              : "bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+              : "bg-white/10 text-white/50"
           }`}
         >
           {isAvailable ? "Disponibil" : "Indisponibil"}

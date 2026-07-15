@@ -90,33 +90,33 @@ export function CateringTracking({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+      <section className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
         <p className="text-sm font-medium">
           {isTerminal ? ORDER_STATUS_LABEL[order.status] : QUOTE_LABEL[details.quote_status]}
         </p>
         {isTerminal && order.cancellation_reason && (
-          <p className="mt-1 text-sm text-zinc-500">{order.cancellation_reason}</p>
+          <p className="mt-1 text-sm text-white/50">{order.cancellation_reason}</p>
         )}
         {details.quote_status === "confirmed" && !isTerminal && (
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-white/50">
             Status livrare: {ORDER_STATUS_LABEL[order.status]}
           </p>
         )}
       </section>
 
       <section className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
           <h2 className="mb-2 font-medium">Eveniment</h2>
           <p>
             {details.event_date}
             {details.event_time ? ` · ${details.event_time.slice(0, 5)}` : ""} · {details.guest_count} invitați
           </p>
-          <p className="text-zinc-500">{details.event_address_text}</p>
+          <p className="text-white/50">{details.event_address_text}</p>
         </div>
-        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
           <h2 className="mb-2 font-medium">Contact</h2>
           <p>{details.contact_person}</p>
-          <p className="text-zinc-500">{details.contact_phone}</p>
+          <p className="text-white/50">{details.contact_phone}</p>
         </div>
       </section>
 
@@ -129,14 +129,14 @@ export function CateringTracking({
             <span>{item.line_total_mdl} MDL</span>
           </li>
         ))}
-        <li className="flex justify-between border-t border-zinc-200 pt-1 font-medium dark:border-zinc-800">
+        <li className="flex justify-between border-t border-white/10 pt-1 font-medium">
           <span>{hasQuote ? "Total ofertat" : "Subtotal estimativ"}</span>
           <span>{hasQuote ? `${details.quoted_total_mdl} MDL` : `${order.subtotal_mdl} MDL`}</span>
         </li>
       </ul>
 
       {details.restaurant_notes && (
-        <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+        <p className="rounded-md bg-white/5 px-3 py-2 text-sm text-white/60">
           Mesaj de la restaurant: {details.restaurant_notes}
         </p>
       )}
@@ -160,7 +160,7 @@ export function CateringTracking({
               type="button"
               onClick={handleCancel}
               disabled={pending}
-              className="rounded-full border border-zinc-300 px-6 py-3 text-sm transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+              className="rounded-full border border-white/15 px-6 py-3 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-50"
             >
               Anulează cererea
             </button>

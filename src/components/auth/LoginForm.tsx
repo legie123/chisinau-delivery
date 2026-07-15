@@ -70,7 +70,7 @@ export function LoginForm({ next }: { next: string | null }) {
             required
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
           />
         </label>
       )}
@@ -81,7 +81,7 @@ export function LoginForm({ next }: { next: string | null }) {
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
         />
       </label>
       <label className="flex flex-col gap-1 text-sm">
@@ -92,7 +92,7 @@ export function LoginForm({ next }: { next: string | null }) {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
         />
       </label>
 
@@ -109,7 +109,7 @@ export function LoginForm({ next }: { next: string | null }) {
       <button
         type="button"
         onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}
-        className="text-sm text-zinc-500 underline underline-offset-4"
+        className="text-sm text-white/50 underline underline-offset-4"
       >
         {mode === "sign-in" ? "Nu ai cont? Creează unul." : "Ai deja cont? Autentifică-te."}
       </button>

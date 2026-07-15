@@ -23,14 +23,14 @@ export function HoursForm({ hours }: { hours: RestaurantHours[] }) {
               type="time"
               name={`day_${day}_opens`}
               defaultValue={existing?.opens_at?.slice(0, 5) ?? "11:00"}
-              className="rounded-md border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-lg bg-white/5 px-2.5 py-1.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
             <span>–</span>
             <input
               type="time"
               name={`day_${day}_closes`}
               defaultValue={existing?.closes_at?.slice(0, 5) ?? "22:00"}
-              className="rounded-md border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-lg bg-white/5 px-2.5 py-1.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
             <label className="flex items-center gap-1">
               <input type="checkbox" name={`day_${day}_closed`} defaultChecked={existing?.is_closed ?? false} />

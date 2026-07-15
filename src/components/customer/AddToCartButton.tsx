@@ -17,7 +17,7 @@ export function AddToCartButton({
     <button
       type="button"
       onClick={() => addItem(restaurantId, restaurantName, item)}
-      className="rounded-full border border-zinc-300 px-3 py-1 text-xs transition hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-900"
+      className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-primary-dark"
     >
       Adaugă
     </button>

@@ -14,12 +14,12 @@ export function AddCategoryForm() {
         name="name"
         placeholder="Categorie nouă (ex. Roluri)"
         required
-        className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
       />
       <button
         type="submit"
         disabled={pending}
-        className="rounded-full border border-zinc-300 px-4 py-2 text-sm transition hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+        className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-50"
       >
         {pending ? "..." : "Adaugă categorie"}
       </button>

@@ -47,7 +47,7 @@ export default async function RestaurantCateringPage() {
       {staffRow && <OrderQueueLive restaurantId={staffRow.restaurant_id} />}
       <h1 className="mb-6 text-2xl font-semibold">Cereri de catering</h1>
       {orderList.length === 0 ? (
-        <p className="text-zinc-500">Nicio cerere de catering încă.</p>
+        <p className="text-white/50">Nicio cerere de catering încă.</p>
       ) : (
         <ul className="flex flex-col gap-4">
           {orderList.map((order) => {

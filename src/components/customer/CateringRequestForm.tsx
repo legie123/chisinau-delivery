@@ -133,17 +133,17 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
   }
 
   if (restaurants.length === 0) {
-    return <p className="text-zinc-500">Niciun restaurant nu acceptă comenzi de catering momentan.</p>;
+    return <p className="text-white/50">Niciun restaurant nu acceptă comenzi de catering momentan.</p>;
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       <section>
-        <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">Restaurant</h2>
+        <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">Restaurant</h2>
         <select
           value={restaurantId}
           onChange={(e) => setRestaurantId(e.target.value)}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm sm:max-w-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white ring-1 ring-white/10 outline-none focus:ring-primary/60 sm:max-w-sm"
         >
           {restaurants.map((r) => (
             <option key={r.id} value={r.id}>
@@ -155,7 +155,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">Detalii eveniment</h2>
+        <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">Detalii eveniment</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm">
             Data evenimentului
@@ -165,7 +165,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
               min={new Date().toISOString().slice(0, 10)}
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
-              className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -174,7 +174,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
               type="time"
               value={eventTime}
               onChange={(e) => setEventTime(e.target.value)}
-              className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -185,7 +185,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
               required
               value={guestCount}
               onChange={(e) => setGuestCount(Number(e.target.value))}
-              className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
@@ -195,7 +195,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
               value={eventAddress}
               onChange={(e) => setEventAddress(e.target.value)}
               placeholder="Ex: Restaurantul Panorama, Str. Pușkin 22"
-              className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -204,7 +204,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
               required
               value={contactPerson}
               onChange={(e) => setContactPerson(e.target.value)}
-              className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
           </label>
           <label className="flex flex-col gap-1 text-sm">
@@ -214,22 +214,22 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
               placeholder="+373..."
-              className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
             />
           </label>
         </div>
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">Articole</h2>
+        <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">Articole</h2>
         {items.length === 0 ? (
-          <p className="text-sm text-zinc-500">Se încarcă meniul...</p>
+          <p className="text-sm text-white/50">Se încarcă meniul...</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800"
+                className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]"
               >
                 <div>
                   <p className="font-medium">
@@ -238,19 +238,19 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
                       <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">catering</span>
                     )}
                   </p>
-                  {item.description && <p className="text-xs text-zinc-500">{item.description}</p>}
+                  {item.description && <p className="text-xs text-white/50">{item.description}</p>}
                   {item.catering_min_qty && item.catering_min_qty > 1 && (
-                    <p className="text-xs text-zinc-500">Minim {item.catering_min_qty} buc.</p>
+                    <p className="text-xs text-white/50">Minim {item.catering_min_qty} buc.</p>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-zinc-500">{item.price_mdl} MDL</span>
+                  <span className="text-sm text-white/50">{item.price_mdl} MDL</span>
                   <input
                     type="number"
                     min={0}
                     value={quantities[item.id] ?? 0}
                     onChange={(e) => setQty(item, Number(e.target.value))}
-                    className="w-20 rounded-md border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                    className="w-20 rounded-lg bg-white/5 px-2.5 py-1.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
                   />
                 </div>
               </li>
@@ -266,12 +266,12 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Preferințe, alergii, detalii logistice..."
-            className="rounded-md border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
           />
         </label>
       </section>
 
-      <div className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="flex flex-col gap-2 border-t border-white/10 pt-4">
         <div className="flex justify-between text-sm">
           <span>Subtotal estimativ</span>
           <span className="font-medium">{subtotal} MDL</span>
@@ -281,7 +281,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
             Comanda minimă de catering la {restaurant.name} este {restaurant.catering_min_amount_mdl} MDL.
           </p>
         )}
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-white/50">
           Trimiti o cerere de ofertă — restaurantul revine cu prețul final, pe care îl confirmi înainte ca
           comanda să intre în lucru.
         </p>

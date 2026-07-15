@@ -42,13 +42,13 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
     <form
       ref={formRef}
       onSubmit={handleSubmit}
-      className="mb-8 flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+      className="mb-8 flex flex-col gap-3 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]"
     >
       <h2 className="font-medium">Articol nou</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <input name="name" placeholder="Nume" required className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
-        <input name="price_mdl" type="number" step="0.01" min="0.01" placeholder="Preț (MDL)" required className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900" />
-        <select name="category_id" className="rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <input name="name" placeholder="Nume" required className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60" />
+        <input name="price_mdl" type="number" step="0.01" min="0.01" placeholder="Preț (MDL)" required className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60" />
+        <select name="category_id" className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60">
           <option value="">Fără categorie</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
@@ -60,7 +60,7 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
         <textarea
           name="description"
           placeholder="Descriere (opțional)"
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm sm:col-span-2 dark:border-zinc-700 dark:bg-zinc-900"
+          className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60 sm:col-span-2"
         />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="is_catering_only" />
