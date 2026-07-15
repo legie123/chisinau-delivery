@@ -23,7 +23,7 @@ export function InviteCourierForm() {
           <option value="on_foot">Pe jos</option>
         </select>
       </div>
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.error && <p className="text-sm text-red-400">{state.error}</p>}
       <button
         type="submit"
         disabled={pending}

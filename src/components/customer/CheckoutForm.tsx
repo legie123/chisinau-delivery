@@ -129,7 +129,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
           <select
             value={selectedAddressId}
             onChange={(e) => setSelectedAddressId(e.target.value)}
-            className={`mb-3 w-full appearance-none ${inputClass}`}
+            className={`mb-3 w-full ${inputClass}`}
           >
             {addresses.map((a) => (
               <option key={a.id} value={a.id}>

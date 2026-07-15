@@ -277,7 +277,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
           <span className="font-medium">{subtotal} MDL</span>
         </div>
         {belowMinimum && restaurant?.catering_min_amount_mdl && (
-          <p className="text-sm text-amber-600">
+          <p className="text-sm text-amber-400">
             Comanda minimă de catering la {restaurant.name} este {restaurant.catering_min_amount_mdl} MDL.
           </p>
         )}
@@ -285,7 +285,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: Restaurant[]
           Trimiti o cerere de ofertă — restaurantul revine cu prețul final, pe care îl confirmi înainte ca
           comanda să intre în lucru.
         </p>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-400">{error}</p>}
         <button
           type="submit"
           disabled={pending || belowMinimum}

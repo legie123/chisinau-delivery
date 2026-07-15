@@ -25,7 +25,7 @@ export function CreateRestaurantForm() {
         <input name="delivery_fee_mdl" type="number" step="0.01" min="0" placeholder="Taxă livrare (MDL)" className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60" />
         <input name="min_order_amount_mdl" type="number" step="0.01" min="0" placeholder="Comandă minimă (MDL)" className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60" />
       </div>
-      {state.error && <p className="text-sm text-red-600">{state.error}</p>}
+      {state.error && <p className="text-sm text-red-400">{state.error}</p>}
       <button
         type="submit"
         disabled={pending}

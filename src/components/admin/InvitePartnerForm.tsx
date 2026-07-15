@@ -31,7 +31,7 @@ export function InvitePartnerForm({ restaurantId, restaurantName }: { restaurant
       >
         {pending ? "..." : `Invită partener la ${restaurantName}`}
       </button>
-      {state.error && <span className="text-xs text-red-600">{state.error}</span>}
+      {state.error && <span className="text-xs text-red-400">{state.error}</span>}
     </form>
   );
 }

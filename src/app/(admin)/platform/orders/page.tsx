@@ -25,7 +25,7 @@ export default async function PlatformOrdersPage() {
     return (
       <main className="flex-1 px-6 py-10">
         <h1 className="mb-6 text-2xl font-semibold">Toate comenzile</h1>
-        <p className="text-red-600">
+        <p className="text-red-400">
           Nu am putut încărca comenzile: {ordersRes.error?.message ?? restaurantsRes.error?.message}
         </p>
       </main>

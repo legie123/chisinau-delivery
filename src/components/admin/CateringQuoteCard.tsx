@@ -86,7 +86,7 @@ export function CateringQuoteCard({
         </li>
       </ul>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!isTerminal && details.quote_status === "requested" && (
         <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-3">

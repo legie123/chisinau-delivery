@@ -39,7 +39,7 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
         )}
         <div>
           <p className="font-medium">
-            {item.name} {item.is_catering_only && <span className="text-xs text-amber-600">(catering)</span>}
+            {item.name} {item.is_catering_only && <span className="text-xs text-amber-400">(catering)</span>}
           </p>
           {item.description && <p className="text-xs text-white/50">{item.description}</p>}
         </div>
@@ -52,7 +52,7 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
           disabled={pending}
           className={`rounded-full px-3 py-1 text-xs ${
             isAvailable
-              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+              ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
               : "bg-white/10 text-white/50"
           }`}
         >
@@ -62,7 +62,7 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
           type="button"
           onClick={handleDelete}
           disabled={pending}
-          className="text-xs text-red-600 underline underline-offset-4"
+          className="text-xs text-red-400 underline underline-offset-4"
         >
           Șterge
         </button>

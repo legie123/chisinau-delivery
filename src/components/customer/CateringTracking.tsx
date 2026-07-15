@@ -141,7 +141,7 @@ export function CateringTracking({
         </p>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       {!isTerminal && (
         <div className="flex gap-3">

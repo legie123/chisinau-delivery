@@ -26,7 +26,7 @@ export function CourierActiveToggle({ courierId, initialActive }: { courierId: s
       disabled={pending}
       className={`rounded-full px-3 py-1 text-xs ${
         active
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+          ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
           : "bg-white/10 text-white/50"
       }`}
     >
