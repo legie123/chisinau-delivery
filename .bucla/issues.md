@@ -13,8 +13,8 @@
 - [ ] CateringRequestForm ~300 linii → split în secțiuni
 
 ## Documentație
-- [ ] docs/architecture.md lipsă (harta: 3 suprafețe, RPC contract, realtime design)
-- [ ] Contract RPC-uri nedocumentat (nume, parametri, cine are voie)
+- [x] docs/architecture.md scris (it.17)
+- [x] Contract RPC documentat tabelar în architecture.md (it.17)
 
 ## Minor (acceptat/documentat)
 - [x] 404 pe slug inexistent întoarce 200 pe shell-ul streamed (cosmetic, documentat W6)
