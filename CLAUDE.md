@@ -31,7 +31,7 @@ npm run dev          # dev server
 ## Backend (Supabase)
 
 - Live project: `rdowjxnuyawhrjppxzuu` (shared with dormant Trade-AI tables — do NOT touch `poly_*`, `polymarket_*`, `gladiator*`, `equity_history`, `syndicate_audits`, etc.).
-- Schema lives in `supabase/migrations/` (7 numbered files, order matters: couriers before orders). Migrations have been applied remotely via MCP `apply_migration`; keep local files and remote in sync.
+- Schema lives in `supabase/migrations/` (13 numbered files, order matters: couriers before orders). Migrations have been applied remotely via MCP `apply_migration`; keep local files and remote in sync.
 - `.env.local` holds `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (real, gitignored). `SUPABASE_SERVICE_ROLE_KEY` intentionally absent until needed by admin invite flows (`src/lib/supabase/admin.ts` throws without it).
 - `NEXT_PUBLIC_*` vars are inlined at build time — changing `.env.local` requires rebuild + server restart.
 - Test account: `client@test.md` / `parola123`. SQL-created auth users need token columns set to `''` not NULL, else GoTrue 500s on login.
@@ -48,8 +48,8 @@ npm run dev          # dev server
 
 **Conventions**: Server Components fetch data; mutations are Server Actions (`actions.ts` per route) returning `{error: string|null}` for `useActionState`; hand-written domain types in `src/lib/types/domain.ts` mirror the schema (regenerate real types via `scripts/gen-types.sh` once local Supabase exists). Cart is Zustand + localStorage (`src/lib/orders/cart.ts`), one restaurant per cart. Menu photos: client-side canvas compression (`src/lib/storage/uploadMenuPhoto.ts`) → bucket `restaurant-photos`, path `{restaurantId}/...` (first path segment drives storage RLS). Brand palette (navy `#0d0d1f`, red `#e94560`, gold `#f5a623`) defined in `globals.css` tokens.
 
-**`mobile/`** — two vendored Expo/React Native apps (client + driver) from Zmocolini/dragons-couriers; own toolchain, excluded from Next.js tsconfig/eslint, still on mock data. Don't import between `mobile/` and `src/`.
+**`mobile/`** — two vendored Expo/React Native apps (client + driver), both LIVE on Supabase via each app's `src/lib/api.ts` adapter; own toolchain, excluded from Next.js tsconfig/eslint. Don't import between `mobile/` and `src/`.
 
 ## Status
 
-Phases 0–3 done (schema, restaurant admin + menu, customer ordering, courier app + realtime tracking). Phase 4 = catering UI (RPCs already exist). Phase 5 = polish/launch. Deploy target: Vercel — production deploys only with explicit user confirmation.
+All surfaces functional on live data (web 3 surfaces + 2 mobile apps), Dragons Alliance Premium design system, full order+catering lifecycle proven E2E. Loop memory: `.bucla/` (scores with evidence) + `docs/LOOP_STATE.md` + `docs/architecture.md`. Known debt: `/enter/[role]` demo doorway — REMOVE before public launch. Deploys only with explicit user confirmation.
