@@ -2,8 +2,8 @@
   "project": "chisinau-delivery",
   "objective": "Platformă food-delivery Chișinău (sushi/fine-dining + catering): web 3 suprafețe + 2 app-uri Expo, calitate premium verificabilă, local-only până la OK explicit de deploy",
   "session": "2026-07-16-overnight",
-  "iteration": 17,
-  "iterations_this_session": 17,
+  "iteration": 18,
+  "iterations_this_session": 18,
   "max_iterations_per_session": 30,
   "scores": {
     "functionalitate": {
@@ -11,8 +11,8 @@
       "evidence": "10/10 findings W14 reale fixate: curierul citește venue-ul catering (RLS nou, aplicat live), resume path la livrarea activă în driver, câștiguri reale MDL pe hartă, Deconectare funcțională, telefon fals eliminat"
     },
     "stabilitate": {
-      "value": 88,
-      "evidence": "build+lint verzi pe fiecare val; launchd auto-restart; DAR zero teste automate — verificarea e manuală+adversarială ad-hoc"
+      "value": 90,
+      "evidence": "vitest instalat + 7 teste unit verzi (matematica cosului: add/switch-restaurant/qty/subtotal/remove; sincronizarea hartilor de etichete cu enum-urile DB); npm test in verifier; ramane fara E2E automatizat"
     },
     "securitate": {
       "value": 88,
@@ -37,8 +37,7 @@
   },
   "critical_defects": [],
   "loop_active_because": [
-    "stabilitate<90",
-    "securitate<90"
+    "securitate<90 (doorway demo, capat pana la lansare)"
   ],
   "no_progress_counter": 0
 }

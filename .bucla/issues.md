@@ -5,7 +5,7 @@
 - [ ] SUPABASE_SERVICE_ROLE_KEY absent → invite parteneri/curieri din UI admin pică politicos; userul îl ia din Dashboard→Settings→API când vrea
 
 ## Stabilitate
-- [ ] Zero teste automate (vitest/playwright) — fluxurile critice (place_order math, statusMachine, RLS per rol) merită suite; efort mediu
+- [x] vitest + 7 teste unit pe logica banilor + label sync (it.18); E2E automatizat rămâne pe lista lungă
 - [ ] subscribeTable: onDegraded există dar nefolosit de consumatori (fallback polling nefăcut)
 
 ## Mentenabilitate

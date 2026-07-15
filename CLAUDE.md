@@ -11,7 +11,7 @@ Chișinău Delivery — food-delivery platform (sushi/fine-dining + catering) fo
 ## LOOP RULE (mandatory working mode)
 
 Every non-trivial task in this repo runs as a loop, not a one-shot: define END-STATE (verifiable) + SCOPE + STOP-RULE up front, then iterate Doer → Verifier → Improve.
-- **Verifier for this repo** = `npm run build` + `npm run lint` + smoke-test routes over the launchd server (`launchctl kickstart -k gui/501/com.chisinau-delivery.server`, then curl the touched paths) — after EVERY iteration, not at the end. For large changes, add an adversarial review workflow before declaring done.
+- **Verifier for this repo** = `npm run build` + `npm run lint` + `npm test` + smoke-test routes over the launchd server (`launchctl kickstart -k gui/501/com.chisinau-delivery.server`, then curl the touched paths) — after EVERY iteration, not at the end. For large changes, add an adversarial review workflow before declaring done.
 - **Memory** = one git commit per iteration (atomic, descriptive).
 - **Stop** = end-state verified OR 3 iterations OR explicit user stop. Deploys still require explicit user OK.
 
@@ -20,11 +20,12 @@ Every non-trivial task in this repo runs as a loop, not a one-shot: define END-S
 ```bash
 npm run build        # production build (Turbopack) — must pass before any phase is "done"
 npm run lint         # eslint
+npm test             # vitest unit suite (tests/unit) — part of the verifier
 npm run dev          # dev server
 ```
 
 - Production server runs as a launchd agent on port 3000 (`com.chisinau-delivery.server`, log `/tmp/chisinau-delivery-server.log`). After a rebuild: `launchctl kickstart -k gui/501/com.chisinau-delivery.server`. Do not kill it ad hoc.
-- No test suite yet. Verification = build + lint + manual flows in browser per role.
+- Verification = build + lint + `npm test` + manual flows in browser per role.
 - Shell quirk on this machine: plain commands can fail with `command not found: _lc` — run via `env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin" <cmd>`.
 
 ## Backend (Supabase)
