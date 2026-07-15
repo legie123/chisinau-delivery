@@ -8,9 +8,13 @@ export function CartView() {
 
   if (!restaurantId || lines.length === 0) {
     return (
-      <div>
-        <p className="mb-4 text-zinc-500">Coșul tău este gol.</p>
-        <Link href="/restaurants" className="text-sm underline underline-offset-4">
+      <div className="flex flex-col items-center gap-4 py-20 text-center">
+        <span className="text-6xl" aria-hidden>🛒</span>
+        <p className="text-white/60">Coșul tău este gol.</p>
+        <Link
+          href="/restaurants"
+          className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
+        >
           Vezi restaurantele
         </Link>
       </div>
@@ -21,53 +25,63 @@ export function CartView() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-sm font-medium text-zinc-500">{restaurantName}</h2>
-      <ul className="flex flex-col gap-2">
-        {lines.map((line) => (
-          <li
-            key={line.menuItemId}
-            className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-4 py-3 dark:border-zinc-800"
-          >
-            <span>{line.name}</span>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
+      <div className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/50">{restaurantName}</h2>
+        <ul className="flex flex-col gap-4">
+          {lines.map((line) => (
+            <li key={line.menuItemId} className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-white">{line.name}</p>
+                <p className="text-sm text-white/50">{line.priceMdl} MDL</p>
+              </div>
+              {/* Bolt-style quantity stepper */}
+              <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
                 <button
                   type="button"
                   onClick={() => setQuantity(line.menuItemId, line.quantity - 1)}
-                  className="h-6 w-6 rounded-full border border-zinc-300 dark:border-zinc-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-white/80 transition hover:bg-white/10"
+                  aria-label="Scade cantitatea"
                 >
-                  –
+                  −
                 </button>
-                <span className="w-6 text-center text-sm">{line.quantity}</span>
+                <span className="w-7 text-center text-sm font-bold text-white">{line.quantity}</span>
                 <button
                   type="button"
                   onClick={() => setQuantity(line.menuItemId, line.quantity + 1)}
-                  className="h-6 w-6 rounded-full border border-zinc-300 dark:border-zinc-700"
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-white/80 transition hover:bg-white/10"
+                  aria-label="Crește cantitatea"
                 >
                   +
                 </button>
               </div>
-              <span className="w-20 text-right text-sm text-zinc-500">{line.priceMdl * line.quantity} MDL</span>
-              <button
-                type="button"
-                onClick={() => removeItem(line.menuItemId)}
-                className="text-xs text-red-600 underline underline-offset-4"
-              >
-                Șterge
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <div className="flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-800">
-        <span className="font-medium">Subtotal</span>
-        <span className="font-medium">{subtotal} MDL</span>
+              <div className="flex flex-col items-end gap-1">
+                <span className="w-20 text-right font-semibold text-white">{line.priceMdl * line.quantity} MDL</span>
+                <button
+                  type="button"
+                  onClick={() => removeItem(line.menuItemId)}
+                  className="text-xs text-white/40 underline underline-offset-4 transition hover:text-primary"
+                >
+                  Șterge
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
+
+      <div className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+        <div className="flex items-center justify-between text-white">
+          <span className="font-medium">Subtotal</span>
+          <span className="text-lg font-bold">{subtotal} MDL</span>
+        </div>
+        <p className="mt-1 text-xs text-white/40">Taxa de livrare se adaugă la checkout.</p>
+      </div>
+
       <Link
         href="/checkout"
-        className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark"
+        className="rounded-full bg-primary py-4 text-center text-[15px] font-semibold text-white transition hover:bg-primary-dark"
       >
-        Continuă spre plată
+        Continuă spre plată · {subtotal} MDL
       </Link>
     </div>
   );

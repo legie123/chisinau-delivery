@@ -2,6 +2,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 
+function statusTone(status: Order["status"]): string {
+  if (status === "delivered") return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
+  if (status === "cancelled" || status === "rejected") return "bg-primary/15 text-primary ring-primary/30";
+  return "bg-gold/15 text-gold ring-gold/30";
+}
+
 export default async function OrdersPage() {
   const supabase = await createClient();
   const {
@@ -10,12 +16,11 @@ export default async function OrdersPage() {
 
   if (!user) {
     return (
-      <main className="flex-1 px-6 py-10">
-        <h1 className="mb-2 text-2xl font-semibold">Comenzile mele</h1>
-        <p className="text-zinc-500">
-          <a href="/login?next=/orders" className="underline underline-offset-4">
+      <main className="flex-1 px-5 py-16 text-center">
+        <p className="text-white/60">
+          <Link href="/login?next=/orders" className="text-primary underline underline-offset-4">
             Autentifică-te
-          </a>{" "}
+          </Link>{" "}
           ca să vezi comenzile tale.
         </p>
       </main>
@@ -29,23 +34,47 @@ export default async function OrdersPage() {
     .order("created_at", { ascending: false });
 
   const orderList = (orders ?? []) as Order[];
+  const formatDate = new Intl.DateTimeFormat("ro-RO", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Chisinau",
+  });
 
   return (
-    <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Comenzile mele</h1>
+    <main className="flex-1 px-5 pb-24 pt-6">
+      <h1 className="mb-6 text-2xl font-bold text-white">Comenzile mele</h1>
       {orderList.length === 0 ? (
-        <p className="text-zinc-500">Nu ai plasat nicio comandă încă.</p>
+        <div className="flex flex-col items-center gap-4 py-20 text-center">
+          <span className="text-6xl" aria-hidden>🍣</span>
+          <p className="text-white/60">Nu ai plasat nicio comandă încă.</p>
+          <Link
+            href="/restaurants"
+            className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
+          >
+            Comandă acum
+          </Link>
+        </div>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {orderList.map((order) => (
             <li key={order.id}>
               <Link
-                href={`/orders/${order.id}`}
-                className="flex items-center justify-between rounded-lg border border-zinc-200 px-4 py-3 text-sm transition hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
+                href={order.order_type === "catering" ? `/catering/${order.id}` : `/orders/${order.id}`}
+                className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06] transition hover:ring-white/20"
               >
-                <span>{order.order_number}</span>
-                <span className="text-zinc-500">{ORDER_STATUS_LABEL[order.status]}</span>
-                <span>{order.total_mdl} MDL</span>
+                <div>
+                  <p className="font-semibold text-white">
+                    {order.order_number}
+                    {order.order_type === "catering" && <span className="ml-2 text-xs text-gold">CATERING</span>}
+                  </p>
+                  <p className="mt-0.5 text-sm text-white/50">{formatDate.format(new Date(order.created_at))}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusTone(order.status)}`}>
+                    {ORDER_STATUS_LABEL[order.status]}
+                  </span>
+                  <span className="font-bold text-white">{order.total_mdl} MDL</span>
+                </div>
               </Link>
             </li>
           ))}

@@ -4,6 +4,33 @@ import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 import { useCourierLocation } from "@/hooks/useCourierLocation";
 import { ORDER_STATUS_LABEL, type DeliveryStatusEvent, type Order, type OrderItem } from "@/lib/types/domain";
 
+// Bolt-style 4-step progress. Maps our 7 active statuses onto customer-facing steps.
+const STEPS = [
+  { label: "Confirmată", emoji: "✅" },
+  { label: "În pregătire", emoji: "👨‍🍳" },
+  { label: "Pe drum", emoji: "🛵" },
+  { label: "Livrată", emoji: "🎉" },
+];
+
+function stepIndex(status: Order["status"]): number {
+  switch (status) {
+    case "pending_restaurant":
+      return -1; // waiting for confirmation — step 0 pulses
+    case "accepted":
+      return 0;
+    case "ready_for_pickup":
+    case "courier_assigned":
+      return 1;
+    case "picked_up":
+    case "en_route":
+      return 2;
+    case "delivered":
+      return 3;
+    default:
+      return -2; // cancelled/rejected — stepper hidden
+  }
+}
+
 export function OrderTracking({
   initialOrder,
   initialEvents,
@@ -17,66 +44,128 @@ export function OrderTracking({
   const tracking = order.status === "picked_up" || order.status === "en_route";
   const position = useCourierLocation(order.id, order.courier_id, tracking);
 
-  return (
-    <div className="flex flex-col gap-6">
-      <p className="text-sm">
-        Status: <span className="font-medium">{ORDER_STATUS_LABEL[order.status]}</span>
-        {(order.status === "cancelled" || order.status === "rejected") && order.cancellation_reason && (
-          <span className="text-zinc-500"> — {order.cancellation_reason}</span>
-        )}
-      </p>
+  const current = stepIndex(order.status);
+  const isTerminalBad = order.status === "cancelled" || order.status === "rejected";
 
+  return (
+    <div className="flex flex-col gap-4 pb-8">
+      {/* Status hero card with stepper */}
+      <section className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+        {isTerminalBad ? (
+          <div className="flex flex-col items-center gap-2 py-4 text-center">
+            <span className="text-5xl" aria-hidden>😔</span>
+            <p className="text-lg font-semibold text-white">{ORDER_STATUS_LABEL[order.status]}</p>
+            {order.cancellation_reason && <p className="text-sm text-white/50">{order.cancellation_reason}</p>}
+          </div>
+        ) : (
+          <>
+            <p className="mb-5 text-center text-lg font-semibold text-white">
+              {order.status === "pending_restaurant"
+                ? "Așteptăm confirmarea restaurantului..."
+                : ORDER_STATUS_LABEL[order.status]}
+            </p>
+            <div className="flex items-start justify-between">
+              {STEPS.map((step, i) => {
+                const done = i <= current;
+                const active = i === current + 1 && !done;
+                return (
+                  <div key={step.label} className="flex flex-1 flex-col items-center gap-1.5">
+                    <div className="flex w-full items-center">
+                      <div className={`h-1 flex-1 rounded ${i === 0 ? "opacity-0" : i <= current ? "bg-primary" : "bg-white/10"}`} />
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg ${
+                          done
+                            ? "bg-primary"
+                            : active
+                              ? "animate-pulse bg-primary/30 ring-2 ring-primary"
+                              : "bg-white/10"
+                        }`}
+                        aria-hidden
+                      >
+                        {step.emoji}
+                      </span>
+                      <div className={`h-1 flex-1 rounded ${i === STEPS.length - 1 ? "opacity-0" : i < current ? "bg-primary" : "bg-white/10"}`} />
+                    </div>
+                    <span className={`text-center text-xs ${done || active ? "font-semibold text-white" : "text-white/40"}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Courier live card */}
       {tracking && (
-        <section className="rounded-lg border border-zinc-200 p-4 text-sm dark:border-zinc-800">
-          <h2 className="mb-1 font-medium">Curierul tău e pe drum</h2>
-          {position ? (
+        <section className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/20 text-xl" aria-hidden>
+              🛵
+            </span>
+            <div>
+              <p className="font-semibold text-white">Curierul tău e pe drum</p>
+              <p className="text-sm text-white/50">
+                {position ? "Poziție live disponibilă" : "Așteptăm semnalul GPS..."}
+              </p>
+            </div>
+          </div>
+          {position && (
             <a
               href={`https://www.google.com/maps?q=${position.lat},${position.lng}`}
               target="_blank"
               rel="noreferrer"
-              className="underline underline-offset-4"
+              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark"
             >
-              Vezi poziția live pe hartă ({position.lat.toFixed(4)}, {position.lng.toFixed(4)})
+              Vezi pe hartă
             </a>
-          ) : (
-            <p className="text-zinc-500">Așteptăm semnalul GPS al curierului...</p>
           )}
         </section>
       )}
 
-      <ul className="flex flex-col gap-1 text-sm">
-        {items.map((item) => (
-          <li key={item.id} className="flex justify-between">
-            <span>
-              {item.quantity}× {item.item_name_snapshot}
-            </span>
-            <span>{item.line_total_mdl} MDL</span>
-          </li>
-        ))}
-      </ul>
+      {/* Items + totals card */}
+      <section className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Comanda ta</h2>
+        <ul className="flex flex-col gap-2 text-[15px]">
+          {items.map((item) => (
+            <li key={item.id} className="flex justify-between text-white/90">
+              <span>
+                {item.quantity}× {item.item_name_snapshot}
+              </span>
+              <span>{item.line_total_mdl} MDL</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex flex-col gap-1.5 border-t border-white/10 pt-3 text-[15px]">
+          <div className="flex justify-between text-white/70">
+            <span>Subtotal</span>
+            <span>{order.subtotal_mdl} MDL</span>
+          </div>
+          <div className="flex justify-between text-white/70">
+            <span>Livrare</span>
+            <span>{Number(order.delivery_fee_mdl) === 0 ? "Gratuită" : `${order.delivery_fee_mdl} MDL`}</span>
+          </div>
+          <div className="flex justify-between text-lg font-bold text-white">
+            <span>Total ({order.payment_method === "cash" ? "cash" : "card la livrare"})</span>
+            <span>{order.total_mdl} MDL</span>
+          </div>
+        </div>
+      </section>
 
-      <div className="flex flex-col gap-1 border-t border-zinc-200 pt-2 text-sm dark:border-zinc-800">
-        <div className="flex justify-between">
-          <span>Subtotal</span>
-          <span>{order.subtotal_mdl} MDL</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Livrare</span>
-          <span>{order.delivery_fee_mdl} MDL</span>
-        </div>
-        <div className="flex justify-between font-medium">
-          <span>Total</span>
-          <span>{order.total_mdl} MDL</span>
-        </div>
-      </div>
-
-      <section>
-        <h2 className="mb-2 text-sm font-semibold uppercase text-zinc-500">Istoric</h2>
-        <ul className="flex flex-col gap-1 text-sm">
+      {/* Timeline card */}
+      <section className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Istoric</h2>
+        <ul className="flex flex-col gap-2.5">
           {events.map((event) => (
-            <li key={event.id} className="flex justify-between">
-              <span>{ORDER_STATUS_LABEL[event.status as Order["status"]] ?? event.status}</span>
-              <span className="text-zinc-500">{new Date(event.created_at).toLocaleTimeString("ro-RO")}</span>
+            <li key={event.id} className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-2 text-white/90">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                {ORDER_STATUS_LABEL[event.status as Order["status"]] ?? event.status}
+              </span>
+              <span className="text-white/40">
+                {new Date(event.created_at).toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" })}
+              </span>
             </li>
           ))}
         </ul>
