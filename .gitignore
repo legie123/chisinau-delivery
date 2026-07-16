@@ -45,3 +45,5 @@ graphify-out/
 *.tsbuildinfo
 next-env.d.ts
 .bucla/
+.swarm/
+ruvector.db
