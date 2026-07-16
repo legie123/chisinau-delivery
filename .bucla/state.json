@@ -1,9 +1,9 @@
 {
   "project": "chisinau-delivery",
-  "objective": "Platformă food-delivery Chișinău (sushi/fine-dining + catering): web 3 suprafețe + 2 app-uri Expo, calitate premium verificabilă, local-only până la OK explicit de deploy",
-  "session": "2026-07-16-overnight",
-  "iteration": 18,
-  "iterations_this_session": 18,
+  "objective": "Construcție masivă research-driven (proiect la ~16% din viziune) — web+mobile+db în workstreams paralele cu 10+ agenți; calitate BUCLA ≥90 menținută",
+  "session": "2026-07-17-ultradeep",
+  "iteration": 0,
+  "iterations_this_session": 0,
   "max_iterations_per_session": 30,
   "scores": {
     "functionalitate": {
@@ -39,5 +39,11 @@
   "loop_active_because": [
     "securitate<90 (doorway demo, capat pana la lansare)"
   ],
-  "no_progress_counter": 0
+  "no_progress_counter": 0,
+  "ultradeep": {
+    "prepared": true,
+    "plan": ".bucla/ultradeep-plan.md",
+    "awaiting": "research deep de la user",
+    "swarm": "ruflo hierarchical 15 max, init OK"
+  }
 }
