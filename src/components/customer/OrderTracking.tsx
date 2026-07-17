@@ -5,6 +5,7 @@ import { useCourierLocation } from "@/hooks/useCourierLocation";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { PrepCountdown } from "@/components/customer/PrepCountdown";
 import { RatingForm } from "@/components/customer/RatingForm";
+import { DeliveryMap, type MapPoint } from "@/components/shared/DeliveryMap";
 import {
   ORDER_STATUS_LABEL,
   PAYMENT_METHOD_LABEL,
@@ -47,12 +48,16 @@ export function OrderTracking({
   items,
   acceptSlaMinutes,
   initialRatings,
+  pickup = null,
+  dropoff = null,
 }: {
   initialOrder: Order;
   initialEvents: DeliveryStatusEvent[];
   items: OrderItem[];
   acceptSlaMinutes: number;
   initialRatings: Rating[];
+  pickup?: MapPoint | null;
+  dropoff?: MapPoint | null;
 }) {
   const { order, events } = useOrderRealtime(initialOrder.id, initialOrder, initialEvents);
   const tracking = order.status === "picked_up" || order.status === "en_route";
@@ -128,6 +133,11 @@ export function OrderTracking({
           appears the moment delivery completes without a reload. */}
       {order.status === "delivered" && (
         <RatingForm orderId={order.id} hasCourier={!!order.courier_id} existing={initialRatings} />
+      )}
+
+      {/* Live GPS map — the courier moving toward you, with pickup + dropoff. */}
+      {tracking && (position || dropoff || pickup) && (
+        <DeliveryMap pickup={pickup} dropoff={dropoff} courier={position} heightClass="h-60" />
       )}
 
       {/* Courier live card */}

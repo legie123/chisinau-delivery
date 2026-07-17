@@ -27,7 +27,23 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   // Reuse a once-created address on retry so a failed place_order doesn't
   // accumulate duplicate address rows.
   const [createdAddressId, setCreatedAddressId] = useState<string | null>(null);
+  // Optional GPS pin for the new address → real dropoff marker + courier navigation.
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
   const hydrated = useHydrated();
+
+  function captureLocation() {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setCoords({ lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)) });
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  }
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -78,7 +94,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
 
           const { data: inserted, error: addressError } = await supabase
             .from("addresses")
-            .insert({ customer_id: user.id, ...newAddress })
+            .insert({ customer_id: user.id, ...newAddress, ...(coords ?? {}) })
             .select("id")
             .single();
           if (addressError) throw new Error(addressError.message);
@@ -209,6 +225,14 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               onChange={(e) => setNewAddress({ ...newAddress, notes: e.target.value })}
               className={inputClass}
             />
+            <button
+              type="button"
+              onClick={captureLocation}
+              disabled={locating}
+              className="flex items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm text-white/80 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50 sm:col-span-2"
+            >
+              {coords ? "📍 Pin salvat ✓ (schimbă)" : locating ? "Te localizăm…" : "📍 Folosește locația mea"}
+            </button>
           </div>
         )}
       </section>
