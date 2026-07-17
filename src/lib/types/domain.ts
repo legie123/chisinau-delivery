@@ -193,6 +193,80 @@ export interface Rating {
   created_at: string;
 }
 
+// WS7 — admin ops views (security_invoker; platform_admin sees all, others scoped).
+export interface AdminOrderBoardRow {
+  id: string;
+  order_number: string;
+  order_type: OrderType;
+  status: OrderStatus;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  total_mdl: number;
+  created_at: string;
+  notes: string | null;
+  restaurant_id: string;
+  restaurant_name: string;
+  accept_sla_minutes: number;
+  avg_prep_minutes: number;
+  courier_id: string | null;
+  courier_name: string | null;
+  courier_status: string | null;
+  street_address: string | null;
+  sector: string | null;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
+  in_state_since: string;
+  in_state_seconds: number;
+}
+
+export interface AdminStuckOrderRow extends AdminOrderBoardRow {
+  stuck_reason: string;
+}
+
+export interface AdminFleetRow {
+  id: string;
+  full_name: string;
+  phone: string;
+  vehicle_type: string;
+  status: string;
+  is_active: boolean;
+  lat: number | null;
+  lng: number | null;
+  location_updated_at: string | null;
+  location_stale: boolean;
+  active_order_id: string | null;
+  active_order_number: string | null;
+  active_order_status: OrderStatus | null;
+}
+
+export interface AdminRestaurantKpiRow {
+  id: string;
+  name: string;
+  is_active: boolean;
+  accepting_orders: boolean;
+  accept_sla_minutes: number;
+  orders_7d: number;
+  accepted_7d: number;
+  rejected_7d: number;
+  auto_cancelled_7d: number;
+  acceptance_rate_7d: number | null;
+  avg_accept_minutes_7d: number | null;
+}
+
+export interface AdminPaymentQueueRow {
+  id: string;
+  order_number: string;
+  status: OrderStatus;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  total_mdl: number;
+  cancellation_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  restaurant_name: string;
+  courier_name: string | null;
+}
+
 export interface DeliveryStatusEvent {
   id: string;
   order_id: string;

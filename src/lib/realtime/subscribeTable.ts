@@ -11,7 +11,10 @@ export function subscribeTable<T extends { [key: string]: any }>(
   supabase: SupabaseClient,
   purpose: string,
   table: string,
-  filter: string,
+  // Row filter (e.g. `id=eq.X`). Omit ONLY for the sanctioned admin ops surface,
+  // where platform_admin RLS already scopes the whole table — never on
+  // customer/courier/partner surfaces (those must stay row-filtered).
+  filter: string | undefined,
   onChange: (payload: RealtimePostgresChangesPayload<T>) => void,
   onDegraded?: () => void,
 ) {
@@ -20,7 +23,7 @@ export function subscribeTable<T extends { [key: string]: any }>(
     .channel(channelName)
     .on(
       "postgres_changes",
-      { event: "*", schema: "public", table, filter },
+      { event: "*", schema: "public", table, ...(filter ? { filter } : {}) },
       (payload: RealtimePostgresChangesPayload<T>) => onChange(payload),
     )
     .subscribe((status, err) => {

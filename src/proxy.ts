@@ -20,7 +20,7 @@ export async function proxy(request: NextRequest) {
     ? ["courier", "platform_admin"]
     : pathname.startsWith("/restaurant/")
       ? ["restaurant_partner", "platform_admin"]
-      : pathname.startsWith("/platform/")
+      : pathname === "/platform" || pathname.startsWith("/platform/")
         ? ["platform_admin"]
         : null;
 
