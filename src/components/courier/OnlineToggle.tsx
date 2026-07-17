@@ -9,6 +9,14 @@ export function OnlineToggle({ initialStatus }: { initialStatus: string }) {
   const [failed, setFailed] = useState(false);
   const isOnDelivery = initialStatus === "on_delivery";
 
+  // Re-sync when the server re-renders with a fresh status (realtime refresh /
+  // another tab) — adjust-during-render, same pattern as MenuItemRow.
+  const [prevStatus, setPrevStatus] = useState(initialStatus);
+  if (prevStatus !== initialStatus) {
+    setPrevStatus(initialStatus);
+    setOnline(initialStatus === "online");
+  }
+
   function handleToggle() {
     const next = !online;
     setOnline(next);

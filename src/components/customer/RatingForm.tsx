@@ -15,7 +15,7 @@ function StarPicker({
 }) {
   const [hover, setHover] = useState(0);
   return (
-    <div className="flex gap-1.5" role="radiogroup" aria-label="Număr de stele">
+    <div className="flex gap-1.5" role="group" aria-label="Număr de stele">
       {[1, 2, 3, 4, 5].map((n) => {
         const lit = (hover || value) >= n;
         return (
@@ -23,9 +23,8 @@ function StarPicker({
             key={n}
             type="button"
             disabled={disabled}
-            role="radio"
-            aria-checked={value === n}
-            aria-label={`${n} stele`}
+            aria-pressed={value === n}
+            aria-label={`${n} ${n === 1 ? "stea" : "stele"}`}
             onMouseEnter={() => setHover(n)}
             onMouseLeave={() => setHover(0)}
             onFocus={() => setHover(n)}

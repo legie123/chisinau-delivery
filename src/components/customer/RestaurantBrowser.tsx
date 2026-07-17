@@ -66,6 +66,7 @@ export function RestaurantBrowser({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          aria-label="Caută restaurante sau preparate"
           placeholder="Caută restaurante sau preparate..."
           className="w-full bg-transparent text-[15px] text-white placeholder-white/40 outline-none"
         />

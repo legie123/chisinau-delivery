@@ -16,6 +16,12 @@ const STATUS_DOT: Record<string, string> = {
   offline: "bg-white/25",
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  online: "Online",
+  on_delivery: "În livrare",
+  offline: "Offline",
+};
+
 export function FleetPanel({ fleet }: { fleet: AdminFleetRow[] }) {
   const online = fleet.filter((c) => c.status === "online").length;
   const onDelivery = fleet.filter((c) => c.status === "on_delivery").length;
@@ -38,7 +44,9 @@ export function FleetPanel({ fleet }: { fleet: AdminFleetRow[] }) {
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[c.status] ?? "bg-white/25"}`} aria-hidden />
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">{c.full_name}</p>
-                <p className="text-xs text-white/40">{VEHICLE_LABEL[c.vehicle_type] ?? c.vehicle_type}</p>
+                <p className="text-xs text-white/40">
+                  {VEHICLE_LABEL[c.vehicle_type] ?? c.vehicle_type} · {STATUS_LABEL[c.status] ?? c.status}
+                </p>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2 text-xs">

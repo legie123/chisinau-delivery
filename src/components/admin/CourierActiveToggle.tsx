@@ -9,6 +9,13 @@ export function CourierActiveToggle({ courierId, initialActive }: { courierId: s
 
   const [failed, setFailed] = useState(false);
 
+  // Re-sync on a fresh server render (adjust-during-render, like MenuItemRow).
+  const [prevActive, setPrevActive] = useState(initialActive);
+  if (prevActive !== initialActive) {
+    setPrevActive(initialActive);
+    setActive(initialActive);
+  }
+
   function handleToggle() {
     const next = !active;
     setActive(next);

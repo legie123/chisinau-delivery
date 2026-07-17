@@ -70,6 +70,7 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
       {confirmingPayment && (
         <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-gold/30">
           <p className="text-sm font-semibold text-white">Ai încasat plata ({order.total_mdl} MDL, cash/POS)?</p>
+          <p className="text-xs text-white/45">Ambele opțiuni marchează comanda ca livrată.</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -85,9 +86,17 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
               disabled={pending}
               className="flex-1 rounded-full bg-white/10 py-3 text-sm text-white/80 ring-1 ring-white/15 transition hover:bg-white/15 disabled:opacity-50"
             >
-              Nu încă
+              Livrat, neîncasat
             </button>
           </div>
+          <button
+            type="button"
+            onClick={() => setConfirmingPayment(false)}
+            disabled={pending}
+            className="mt-1 rounded-full py-2 text-xs text-white/50 transition hover:text-white/80 disabled:opacity-50"
+          >
+            ← Înapoi (nu am livrat încă)
+          </button>
         </div>
       )}
       {error && (

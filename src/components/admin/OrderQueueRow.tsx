@@ -119,6 +119,7 @@ export function OrderQueueRow({ order, acceptSlaMinutes }: { order: Order; accep
           <input
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
+            aria-label="Motivul refuzului"
             placeholder="Motivul refuzului (obligatoriu)"
             className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
           />

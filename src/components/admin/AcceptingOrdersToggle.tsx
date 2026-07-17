@@ -9,6 +9,13 @@ export function AcceptingOrdersToggle({ initialValue }: { initialValue: boolean 
 
   const [failed, setFailed] = useState(false);
 
+  // Re-sync on a fresh server render (adjust-during-render, like MenuItemRow).
+  const [prevValue, setPrevValue] = useState(initialValue);
+  if (prevValue !== initialValue) {
+    setPrevValue(initialValue);
+    setAccepting(initialValue);
+  }
+
   function handleToggle() {
     const next = !accepting;
     setAccepting(next);

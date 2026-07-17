@@ -39,6 +39,7 @@ export function StuckOrderActions({ orderId }: { orderId: string }) {
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
+          aria-label="Motivul anulării"
           placeholder="Motiv"
           className="w-40 rounded-lg bg-white/5 px-2 py-1 text-xs text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
         />
