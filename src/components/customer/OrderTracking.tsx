@@ -4,12 +4,14 @@ import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 import { useCourierLocation } from "@/hooks/useCourierLocation";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { PrepCountdown } from "@/components/customer/PrepCountdown";
+import { RatingForm } from "@/components/customer/RatingForm";
 import {
   ORDER_STATUS_LABEL,
   PAYMENT_METHOD_LABEL,
   type DeliveryStatusEvent,
   type Order,
   type OrderItem,
+  type Rating,
 } from "@/lib/types/domain";
 
 // Bolt-style 4-step progress. Maps our 7 active statuses onto customer-facing steps.
@@ -44,11 +46,13 @@ export function OrderTracking({
   initialEvents,
   items,
   acceptSlaMinutes,
+  initialRatings,
 }: {
   initialOrder: Order;
   initialEvents: DeliveryStatusEvent[];
   items: OrderItem[];
   acceptSlaMinutes: number;
+  initialRatings: Rating[];
 }) {
   const { order, events } = useOrderRealtime(initialOrder.id, initialOrder, initialEvents);
   const tracking = order.status === "picked_up" || order.status === "en_route";
@@ -119,6 +123,12 @@ export function OrderTracking({
           </>
         )}
       </section>
+
+      {/* WS6 — post-delivery ratings. order is live via useOrderRealtime, so this
+          appears the moment delivery completes without a reload. */}
+      {order.status === "delivered" && (
+        <RatingForm orderId={order.id} hasCourier={!!order.courier_id} existing={initialRatings} />
+      )}
 
       {/* Courier live card */}
       {tracking && (

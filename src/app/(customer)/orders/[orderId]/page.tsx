@@ -1,16 +1,17 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { OrderTracking } from "@/components/customer/OrderTracking";
-import type { DeliveryStatusEvent, Order, OrderItem } from "@/lib/types/domain";
+import type { DeliveryStatusEvent, Order, OrderItem, Rating } from "@/lib/types/domain";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ orderId: string }> }) {
   const { orderId } = await params;
   const supabase = await createClient();
 
-  const [{ data: order }, { data: items }, { data: events }] = await Promise.all([
+  const [{ data: order }, { data: items }, { data: events }, { data: ratings }] = await Promise.all([
     supabase.from("orders").select("*, restaurants(accept_sla_minutes)").eq("id", orderId).single(),
     supabase.from("order_items").select("*").eq("order_id", orderId),
     supabase.from("delivery_status_events").select("*").eq("order_id", orderId).order("created_at"),
+    supabase.from("ratings").select("*").eq("order_id", orderId),
   ]);
   if (!order) notFound();
 
@@ -26,6 +27,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
         initialEvents={(events ?? []) as DeliveryStatusEvent[]}
         items={(items ?? []) as OrderItem[]}
         acceptSlaMinutes={acceptSlaMinutes}
+        initialRatings={(ratings ?? []) as Rating[]}
       />
     </main>
   );

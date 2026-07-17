@@ -49,7 +49,10 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
           <h1 className="text-2xl font-bold text-white sm:text-3xl">{typedRestaurant.name}</h1>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
             <span className="flex items-center gap-1 rounded-full bg-[#fdf6e3] px-2 py-0.5 text-xs font-bold text-zinc-900">
-              <span className="text-gold" aria-hidden>★</span> Nou
+              <span className="text-gold" aria-hidden>★</span>{" "}
+              {typedRestaurant.rating_count > 0
+                ? `${Number(typedRestaurant.rating_avg).toFixed(1)} (${typedRestaurant.rating_count})`
+                : "Nou"}
             </span>
             <span>{formatPrepRange(prepMinutes)}</span>
             <span>·</span>

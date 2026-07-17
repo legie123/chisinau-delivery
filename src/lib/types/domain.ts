@@ -35,6 +35,8 @@ export interface Restaurant {
   catering_min_amount_mdl: number | null;
   avg_prep_minutes: number;
   accept_sla_minutes: number;
+  rating_avg: number | null;
+  rating_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -159,6 +161,18 @@ export interface CateringDetails {
   quote_status: QuoteStatus;
   quoted_total_mdl: number | null;
   restaurant_notes: string | null;
+  created_at: string;
+}
+
+export interface Rating {
+  id: string;
+  order_id: string;
+  customer_id: string;
+  target_type: "restaurant" | "courier";
+  restaurant_id: string | null;
+  courier_id: string | null;
+  stars: number;
+  comment: string | null;
   created_at: string;
 }
 

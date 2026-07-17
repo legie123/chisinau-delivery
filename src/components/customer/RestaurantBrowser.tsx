@@ -111,7 +111,9 @@ export function RestaurantBrowser({
                   </h3>
                   <p className="mt-0.5 text-sm text-white/55">{CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}</p>
                   <p className="mt-2 flex items-center gap-2 text-sm">
-                    <span className="font-semibold text-gold">★ Nou</span>
+                    <span className="font-semibold text-gold">
+                      {r.rating_count > 0 ? `★ ${Number(r.rating_avg).toFixed(1)} (${r.rating_count})` : "★ Nou"}
+                    </span>
                     <span className="text-white/40">·</span>
                     <span className="text-white/70">
                       {formatPrepRange(estimates[r.id]?.prep_minutes ?? r.avg_prep_minutes)}
