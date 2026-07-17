@@ -37,6 +37,12 @@ insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, close
 select r.id, d, '11:00', '22:00'
 from public.restaurants r, generate_series(0, 6) as d;
 
+-- Geo coordinates (WS3): Chișinău points so nearby_restaurants + the ops map work.
+-- Demo values — verify against real addresses before public launch.
+update public.restaurants set lat = 47.024500, lng = 28.832200 where slug = 'sakura-sushi';
+update public.restaurants set lat = 47.011500, lng = 28.860000 where slug = 'le-jardin';
+update public.restaurants set lat = 47.050000, lng = 28.810000 where slug = 'osaka-house';
+
 -- Food photography (Unsplash CDN) — keeps local resets visually equivalent
 -- to the live project.
 update public.restaurants set cover_photo_url = 'https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800&h=400&fit=crop' where slug = 'sakura-sushi';
