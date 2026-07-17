@@ -134,8 +134,78 @@ export interface Order {
   notes: string | null;
   cancellation_reason: string | null;
   estimated_ready_at: string | null;
+  tip_mdl: number;
   created_at: string;
   updated_at: string;
+}
+
+// Platform foundation (2026-07-18) — Notifications / Payments / Onboarding / UX.
+export interface PushSubscription {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface Favorite {
+  customer_id: string;
+  restaurant_id: string;
+  created_at: string;
+}
+
+export type PaymentIntentStatus = "pending" | "succeeded" | "failed" | "refunded" | "cancelled";
+export interface PaymentIntent {
+  id: string;
+  order_id: string;
+  amount_mdl: number;
+  provider: string;
+  provider_ref: string | null;
+  status: PaymentIntentStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PayoutStatus = "pending" | "paid" | "failed";
+export interface Payout {
+  id: string;
+  recipient_type: "courier" | "restaurant";
+  recipient_id: string;
+  period_start: string;
+  period_end: string;
+  orders_count: number;
+  gross_mdl: number;
+  commission_mdl: number;
+  net_mdl: number;
+  status: PayoutStatus;
+  paid_at: string | null;
+  created_at: string;
+}
+
+export type OnboardingStatus = "pending" | "approved" | "rejected";
+export interface OnboardingApplication {
+  id: string;
+  user_id: string | null;
+  applicant_type: "courier" | "restaurant";
+  status: OnboardingStatus;
+  full_name: string;
+  phone: string;
+  email: string | null;
+  details: Record<string, unknown>;
+  review_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface KycDocument {
+  id: string;
+  application_id: string;
+  doc_type: string;
+  storage_path: string;
+  created_at: string;
 }
 
 export type PrepEstimate = {
