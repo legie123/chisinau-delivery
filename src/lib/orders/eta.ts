@@ -17,10 +17,12 @@ export function minutesUntil(iso: string): number {
   return Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
 }
 
-// "14:35" in Europe/Chisinau clock time for an ISO timestamp.
+// "14:35" in Europe/Chisinau clock time for an ISO timestamp — pinned to the
+// service timezone so it's correct regardless of where the app is deployed.
 export function formatClock(iso: string): string {
   return new Date(iso).toLocaleTimeString("ro-RO", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Europe/Chisinau",
   });
 }

@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
+import { useHydrated } from "@/hooks/useHydrated";
 
 export function CartView() {
   const { restaurantId, restaurantName, lines, setQuantity, removeItem } = useCartStore();
+  const hydrated = useHydrated();
 
-  if (!restaurantId || lines.length === 0) {
+  // Until hydrated, render the same empty branch the server did (the persisted
+  // cart isn't available server-side) — prevents a hydration mismatch/flash.
+  if (!hydrated || !restaurantId || lines.length === 0) {
     return (
       <div className="flex flex-col items-center gap-4 py-20 text-center">
         <span className="text-6xl" aria-hidden>🛒</span>

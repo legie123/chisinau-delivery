@@ -52,7 +52,10 @@ export function LoginForm({ next }: { next: string | null }) {
         .single();
 
       const role = (profile?.role ?? "customer") as UserRole;
-      router.push(next ?? ROLE_HOME[role]);
+      // Only follow same-origin relative paths — never an attacker-supplied
+      // absolute/protocol-relative URL (post-login open-redirect phishing).
+      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+      router.push(safeNext ?? ROLE_HOME[role]);
       router.refresh();
     } catch (err) {
       const raw = err instanceof Error ? err.message : "";

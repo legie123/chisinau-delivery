@@ -197,7 +197,7 @@ export function OrderTracking({
                 {ORDER_STATUS_LABEL[event.status as Order["status"]] ?? event.status}
               </span>
               <span className="text-white/40">
-                {new Date(event.created_at).toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" })}
+                {new Date(event.created_at).toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Chisinau" })}
               </span>
             </li>
           ))}

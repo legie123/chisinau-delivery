@@ -17,8 +17,10 @@ export default async function RestaurantOrdersPage() {
     .eq("user_id", user?.id ?? "")
     .maybeSingle();
 
+  // restaurant_staff.restaurant_id -> restaurants is a to-ONE FK, so PostgREST
+  // embeds an object, not an array.
   const acceptSlaMinutes =
-    (staffRow?.restaurants as unknown as { accept_sla_minutes: number }[] | null)?.[0]?.accept_sla_minutes ?? 7;
+    (staffRow?.restaurants as unknown as { accept_sla_minutes: number } | null)?.accept_sla_minutes ?? 7;
 
   // WS4 — the restaurant's own live prep estimate (drives the kitchen header chip).
   let prepEstimate: PrepEstimate | null = null;

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
+import { useHydrated } from "@/hooks/useHydrated";
 import type { Address, PaymentMethod } from "@/lib/types/domain";
 
 type RestaurantSummary = { name: string; delivery_fee_mdl: number; min_order_amount_mdl: number };
@@ -23,6 +24,10 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Reuse a once-created address on retry so a failed place_order doesn't
+  // accumulate duplicate address rows.
+  const [createdAddressId, setCreatedAddressId] = useState<string | null>(null);
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -41,7 +46,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
     };
   }, [restaurantId]);
 
-  if (!restaurantId || lines.length === 0) {
+  if (!hydrated || !restaurantId || lines.length === 0) {
     return <p className="py-16 text-center text-white/60">Coșul tău este gol.</p>;
   }
 
@@ -61,18 +66,25 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
 
       if (selectedAddressId === "new") {
         if (!newAddress.street_address.trim()) throw new Error("Adresa este obligatorie.");
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) throw new Error("Trebuie să fii autentificat.");
+        if (createdAddressId) {
+          // A previous submit already saved this address but place_order failed;
+          // reuse it instead of inserting a duplicate.
+          deliveryAddressId = createdAddressId;
+        } else {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (!user) throw new Error("Trebuie să fii autentificat.");
 
-        const { data: inserted, error: addressError } = await supabase
-          .from("addresses")
-          .insert({ customer_id: user.id, ...newAddress })
-          .select("id")
-          .single();
-        if (addressError) throw new Error(addressError.message);
-        deliveryAddressId = inserted.id;
+          const { data: inserted, error: addressError } = await supabase
+            .from("addresses")
+            .insert({ customer_id: user.id, ...newAddress })
+            .select("id")
+            .single();
+          if (addressError) throw new Error(addressError.message);
+          deliveryAddressId = inserted.id;
+          setCreatedAddressId(inserted.id);
+        }
       }
 
       const { data: orderId, error: rpcError } = await supabase.rpc("place_order", {

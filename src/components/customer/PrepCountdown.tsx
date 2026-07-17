@@ -15,7 +15,7 @@ export function PrepCountdown({
   estimatedReadyAt: string;
   status: Order["status"];
 }) {
-  const [, setTick] = useState<number | null>(null);
+  const [tick, setTick] = useState<number | null>(null);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setTick(Date.now()));
@@ -25,6 +25,10 @@ export function PrepCountdown({
       clearInterval(id);
     };
   }, []);
+
+  // Gate the Date.now()-dependent text on mount (SSR + first client render both
+  // return null) so the live headline never causes a hydration mismatch.
+  if (tick === null) return null;
 
   const readyIn = minutesUntil(estimatedReadyAt);
   // Arrival = kitchen-ready + courier travel placeholder (WS3 will refine).
