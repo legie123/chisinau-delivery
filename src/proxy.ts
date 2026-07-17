@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
   const { response, user, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
-  const requiredRoles = pathname.startsWith("/deliveries")
+  const requiredRoles = pathname.startsWith("/deliveries") || pathname === "/earnings"
     ? ["courier", "platform_admin"]
     : pathname.startsWith("/restaurant/")
       ? ["restaurant_partner", "platform_admin"]

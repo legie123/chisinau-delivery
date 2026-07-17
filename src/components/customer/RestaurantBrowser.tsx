@@ -5,6 +5,15 @@ import Link from "next/link";
 import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
 import { useNearbyRestaurants } from "@/hooks/useNearbyRestaurants";
+import { FavoriteButton } from "@/components/customer/FavoriteButton";
+
+type SortKey = "recommended" | "distance" | "rating";
+
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "recommended", label: "Recomandate" },
+  { key: "distance", label: "Distanță" },
+  { key: "rating", label: "Rating" },
+];
 
 // WS3 — "480 m" / "1,4 km" (Romanian comma), snapped to 50 m under 1 km.
 function distanceLabel(d: number | null): string | null {
@@ -37,24 +46,51 @@ const CUISINE_LABEL: Record<string, string> = {
 export function RestaurantBrowser({
   restaurants,
   estimates = {},
+  favoriteIds = [],
+  openNowIds = [],
+  customerId = null,
 }: {
   restaurants: Restaurant[];
   estimates?: Record<string, PrepEstimate>;
+  favoriteIds?: string[];
+  openNowIds?: string[];
+  customerId?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const [openNowOnly, setOpenNowOnly] = useState(false);
+  const [sort, setSort] = useState<SortKey>("recommended");
   // WS3 — soft geolocation reorders by proximity; fails open to the SSR list.
   const { restaurants: located, locating, located: hasLocation } = useNearbyRestaurants(restaurants);
 
+  const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const openNowSet = useMemo(() => new Set(openNowIds), [openNowIds]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return located.filter((r) => {
+    const list = located.filter((r) => {
+      if (openNowOnly && !openNowSet.has(r.id)) return false;
       if (category === "catering" && !r.accepts_catering) return false;
       if (category !== "all" && category !== "catering" && r.cuisine_type !== category) return false;
       if (q && !r.name.toLowerCase().includes(q) && !(r.description ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [located, query, category]);
+
+    if (sort === "distance") {
+      return [...list].sort((a, b) => {
+        if (a.distance_m == null && b.distance_m == null) return 0;
+        if (a.distance_m == null) return 1;
+        if (b.distance_m == null) return -1;
+        return a.distance_m - b.distance_m;
+      });
+    }
+    if (sort === "rating") {
+      return [...list].sort(
+        (a, b) => Number(b.rating_avg ?? 0) - Number(a.rating_avg ?? 0) || b.rating_count - a.rating_count,
+      );
+    }
+    return list; // "Recomandate" keeps the proximity/SSR order as-is.
+  }, [located, query, category, openNowOnly, openNowSet, sort]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -91,6 +127,39 @@ export function RestaurantBrowser({
         ))}
       </div>
 
+      {/* Open-now filter + sort control */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpenNowOnly((v) => !v)}
+          aria-pressed={openNowOnly}
+          className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
+            openNowOnly
+              ? "bg-gold text-zinc-900"
+              : "bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10"
+          }`}
+        >
+          <span aria-hidden>🟢</span>
+          Deschis acum
+        </button>
+
+        <div className="ml-auto flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
+          {SORTS.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => setSort(s.key)}
+              aria-pressed={sort === s.key}
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                sort === s.key ? "bg-primary text-white" : "text-white/60 hover:text-white"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-lg font-semibold text-white">
           {hasLocation ? "Aproape de tine" : "Restaurante alese"}
@@ -109,10 +178,10 @@ export function RestaurantBrowser({
       ) : (
         <div className="flex flex-col gap-4">
           {filtered.map((r) => (
+            <div key={r.id} className="relative">
             <Link
-              key={r.id}
               href={`/restaurants/${r.slug}`}
-              className="group relative overflow-hidden rounded-2xl p-5 ring-1 ring-gold/15 transition hover:ring-gold/40"
+              className="group relative block overflow-hidden rounded-2xl p-5 ring-1 ring-gold/15 transition hover:ring-gold/40"
               style={{ background: CARD_TINT[r.cuisine_type] ?? CARD_TINT.other }}
             >
               {/* dragon watermark */}
@@ -169,6 +238,15 @@ export function RestaurantBrowser({
                 </div>
               )}
             </Link>
+            {customerId && (
+              <FavoriteButton
+                customerId={customerId}
+                restaurantId={r.id}
+                initialFavorited={favoriteSet.has(r.id)}
+                className="absolute right-3 top-3 z-20"
+              />
+            )}
+            </div>
           ))}
 
           {/* VIP catering banner — gold, maps to a real action */}

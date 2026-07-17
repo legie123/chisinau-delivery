@@ -5,6 +5,7 @@ import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
 import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
 import { OfferCard } from "@/components/courier/OfferCard";
 import { OffersLive } from "@/components/courier/OffersLive";
+import { PushOptIn } from "@/components/shared/PushOptIn";
 import { ORDER_STATUS_LABEL, type DispatchOffer, type Order } from "@/lib/types/domain";
 
 export default async function DeliveriesPage() {
@@ -53,6 +54,11 @@ export default async function DeliveriesPage() {
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
       <AvailableOrdersLive />
       <OffersLive courierId={courier.id} />
+
+      {/* Web Push opt-in — so dispatch offers arrive even when the tab is backgrounded. */}
+      <div className="mb-4">
+        <PushOptIn />
+      </div>
 
       {/* WS2 — push-dispatch offer takes the top slot when one is live. */}
       {offer && <OfferCard offer={offer} />}

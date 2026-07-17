@@ -39,6 +39,9 @@ export default async function CustomerLayout({ children }: { children: React.Rea
                 <Link href="/orders" className="transition hover:text-white">
                   Comenzile mele
                 </Link>
+                <Link href="/devino-partener" className="transition hover:text-gold">
+                  Devino partener
+                </Link>
                 <SignOutButton />
               </>
             ) : (

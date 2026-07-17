@@ -2,6 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require";
+import { notifyOrderCustomer } from "@/lib/push/notify";
+
+const CUSTOMER_STATUS_PUSH: Record<string, { title: string; body: string }> = {
+  picked_up: { title: "Comanda a fost ridicată 🛵", body: "Curierul a ridicat comanda ta de la restaurant." },
+  en_route: { title: "Curierul e pe drum 🛵", body: "Comanda ta e în drum spre tine." },
+  delivered: { title: "Comandă livrată 🎉", body: "Pofta bună! Nu uita să evaluezi comanda." },
+};
 
 export type ActionResult = { error: string | null };
 
@@ -56,6 +63,11 @@ export async function advanceStatus(
 
   revalidatePath("/deliveries");
   revalidatePath(`/deliveries/${orderId}`);
+
+  const push = CUSTOMER_STATUS_PUSH[newStatus];
+  if (push) {
+    void notifyOrderCustomer(orderId, { ...push, url: `/orders/${orderId}`, tag: `order-${orderId}` });
+  }
   return { error: null };
 }
 

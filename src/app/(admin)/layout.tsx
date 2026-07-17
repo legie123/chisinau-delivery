@@ -47,6 +47,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Catering
             </Link>
           </RoleGate>
+          <RoleGate role={role} allow={["restaurant_partner", "platform_admin"]}>
+            <Link href="/restaurant/earnings" className="transition hover:text-gold">
+              Câștiguri
+            </Link>
+          </RoleGate>
           <RoleGate role={role} allow={["platform_admin"]}>
             <Link href="/platform" className="transition hover:text-white">
               Ops
@@ -75,6 +80,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <RoleGate role={role} allow={["platform_admin"]}>
             <Link href="/platform/fraud" className="transition hover:text-white">
               Semnalări
+            </Link>
+          </RoleGate>
+          <RoleGate role={role} allow={["platform_admin"]}>
+            <Link href="/platform/onboarding" className="transition hover:text-white">
+              Onboarding
+            </Link>
+          </RoleGate>
+          <RoleGate role={role} allow={["platform_admin"]}>
+            <Link href="/platform/payouts" className="transition hover:text-white">
+              Plăți
             </Link>
           </RoleGate>
           <SignOutButton />

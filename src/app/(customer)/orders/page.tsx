@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
+import { ReorderButton } from "@/components/customer/ReorderButton";
+
+type OrderRow = Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl"> & {
+  restaurant_id: string;
+  restaurants: { slug: string; name: string } | null;
+  order_items: { menu_item_id: string | null; item_name_snapshot: string; unit_price_mdl: number; quantity: number }[];
+};
 
 function statusTone(status: Order["status"]): string {
   if (status === "delivered") return "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30";
@@ -29,12 +36,14 @@ export default async function OrdersPage() {
 
   const { data: orders } = await supabase
     .from("orders")
-    .select("id, order_number, order_type, created_at, status, total_mdl")
+    .select(
+      "id, order_number, order_type, created_at, status, total_mdl, restaurant_id, restaurants(slug, name), order_items(menu_item_id, item_name_snapshot, unit_price_mdl, quantity)",
+    )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
     .limit(30);
 
-  const orderList = (orders ?? []) as Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl">[];
+  const orderList = (orders ?? []) as unknown as OrderRow[];
   const formatDate = new Intl.DateTimeFormat("ro-RO", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -57,28 +66,51 @@ export default async function OrdersPage() {
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {orderList.map((order) => (
-            <li key={order.id}>
-              <Link
-                href={order.order_type === "catering" ? `/catering/${order.id}` : `/orders/${order.id}`}
-                className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06] transition hover:ring-white/20"
-              >
-                <div>
-                  <p className="font-semibold text-white">
-                    {order.order_number}
-                    {order.order_type === "catering" && <span className="ml-2 text-xs text-gold">CATERING</span>}
-                  </p>
-                  <p className="mt-0.5 text-sm text-white/50">{formatDate.format(new Date(order.created_at))}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusTone(order.status)}`}>
-                    {ORDER_STATUS_LABEL[order.status]}
-                  </span>
-                  <span className="font-bold text-white">{order.total_mdl} MDL</span>
-                </div>
-              </Link>
-            </li>
-          ))}
+          {orderList.map((order) => {
+            const reorderItems = order.order_items
+              .filter((it) => it.menu_item_id)
+              .map((it) => ({
+                menuItemId: it.menu_item_id as string,
+                name: it.item_name_snapshot,
+                priceMdl: Number(it.unit_price_mdl),
+                quantity: it.quantity,
+              }));
+            const canReorder =
+              order.status === "delivered" &&
+              order.order_type === "standard" &&
+              order.restaurant_id != null &&
+              reorderItems.length > 0;
+
+            return (
+              <li key={order.id} className="flex flex-col gap-2">
+                <Link
+                  href={order.order_type === "catering" ? `/catering/${order.id}` : `/orders/${order.id}`}
+                  className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06] transition hover:ring-white/20"
+                >
+                  <div>
+                    <p className="font-semibold text-white">
+                      {order.order_number}
+                      {order.order_type === "catering" && <span className="ml-2 text-xs text-gold">CATERING</span>}
+                    </p>
+                    <p className="mt-0.5 text-sm text-white/50">{formatDate.format(new Date(order.created_at))}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusTone(order.status)}`}>
+                      {ORDER_STATUS_LABEL[order.status]}
+                    </span>
+                    <span className="font-bold text-white">{order.total_mdl} MDL</span>
+                  </div>
+                </Link>
+                {canReorder && (
+                  <ReorderButton
+                    restaurantId={order.restaurant_id}
+                    restaurantName={order.restaurants?.name ?? "Restaurant"}
+                    items={reorderItems}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </main>
