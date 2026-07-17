@@ -38,16 +38,44 @@ export function OpsLive({
 
   useEffect(() => {
     const supabase = createClient();
+    let stopped = false;
     let poll: ReturnType<typeof setInterval> | null = null;
-    const startPolling = () => {
-      if (!poll) poll = setInterval(refetch, 30_000);
+    const degraded = new Set<string>();
+
+    const startPolling = (key: string) => {
+      degraded.add(key);
+      // #7: a CLOSED ack that arrives after unmount must not resurrect the interval.
+      if (stopped || poll) return;
+      poll = setInterval(refetch, 30_000);
     };
-    const unsubs = [
-      subscribeTable(supabase, "ops-orders", "orders", undefined, refetch, startPolling),
-      subscribeTable(supabase, "ops-couriers", "couriers", undefined, refetch, startPolling),
-      subscribeTable(supabase, "ops-locations", "courier_locations", undefined, refetch, startPolling),
+    const stopPollingIfHealthy = (key: string) => {
+      degraded.delete(key);
+      // #9: only stop the shared poll once EVERY channel has recovered.
+      if (degraded.size === 0 && poll) {
+        clearInterval(poll);
+        poll = null;
+      }
+    };
+
+    const channels: [string, string][] = [
+      ["ops-orders", "orders"],
+      ["ops-couriers", "couriers"],
+      ["ops-locations", "courier_locations"],
     ];
+    const unsubs = channels.map(([purpose, table]) =>
+      subscribeTable(
+        supabase,
+        purpose,
+        table,
+        undefined,
+        refetch,
+        () => startPolling(purpose),
+        () => stopPollingIfHealthy(purpose),
+      ),
+    );
+
     return () => {
+      stopped = true;
       unsubs.forEach((u) => u());
       if (poll) clearInterval(poll);
       if (timer.current) clearTimeout(timer.current);

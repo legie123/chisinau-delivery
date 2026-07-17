@@ -17,6 +17,7 @@ export function subscribeTable<T extends { [key: string]: any }>(
   filter: string | undefined,
   onChange: (payload: RealtimePostgresChangesPayload<T>) => void,
   onDegraded?: () => void,
+  onHealthy?: () => void,
 ) {
   const channelName = `${purpose}:${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const channel = supabase
@@ -32,6 +33,8 @@ export function subscribeTable<T extends { [key: string]: any }>(
       if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
         console.error(`[realtime] ${purpose} ${status}`, err ?? "");
         onDegraded?.();
+      } else if (status === "SUBSCRIBED") {
+        onHealthy?.(); // recovery signal — lets a caller stop its polling fallback
       }
     });
 
