@@ -164,6 +164,23 @@ export interface CateringDetails {
   created_at: string;
 }
 
+export type DispatchOfferStatus = "offered" | "accepted" | "declined" | "expired" | "cancelled";
+
+export interface DispatchOffer {
+  id: string;
+  order_id: string;
+  courier_id: string;
+  wave: number;
+  score: number;
+  distance_km: number | null;
+  status: DispatchOfferStatus;
+  offered_at: string;
+  expires_at: string;
+  responded_at: string | null;
+  created_at: string;
+  orders?: Order | null;
+}
+
 export interface Rating {
   id: string;
   order_id: string;

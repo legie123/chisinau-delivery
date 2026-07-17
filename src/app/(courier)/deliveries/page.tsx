@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { OnlineToggle } from "@/components/courier/OnlineToggle";
 import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
 import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
-import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
+import { OfferCard } from "@/components/courier/OfferCard";
+import { OffersLive } from "@/components/courier/OffersLive";
+import { ORDER_STATUS_LABEL, type DispatchOffer, type Order } from "@/lib/types/domain";
 
 export default async function DeliveriesPage() {
   const supabase = await createClient();
@@ -26,21 +28,35 @@ export default async function DeliveriesPage() {
     );
   }
 
-  const [{ data: activeOrders }, { data: availableOrders }] = await Promise.all([
+  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }] = await Promise.all([
     supabase
       .from("orders")
       .select("*")
       .eq("courier_id", courier.id)
       .in("status", ["courier_assigned", "picked_up", "en_route"]),
     supabase.from("orders").select("*").eq("status", "ready_for_pickup").is("courier_id", null).order("created_at"),
+    // WS2 — the courier's single live push offer (RLS also scopes it to them).
+    supabase
+      .from("dispatch_offers")
+      .select("*, orders(*)")
+      .eq("courier_id", courier.id)
+      .eq("status", "offered")
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle(),
   ]);
 
   const active = (activeOrders ?? []) as Order[];
   const available = (availableOrders ?? []) as Order[];
+  const offer = (liveOffer as DispatchOffer | null) ?? null;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
       <AvailableOrdersLive />
+      <OffersLive courierId={courier.id} />
+
+      {/* WS2 — push-dispatch offer takes the top slot when one is live. */}
+      {offer && <OfferCard offer={offer} />}
+
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Salut, {courier.full_name.split(" ")[0]} 👋</h1>

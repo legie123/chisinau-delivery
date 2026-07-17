@@ -58,3 +58,36 @@ export async function advanceStatus(
   revalidatePath(`/deliveries/${orderId}`);
   return { error: null };
 }
+
+// WS2 — push-dispatch offer response. The RPCs authorize via couriers.user_id
+// = auth.uid(); accept does the atomic claim, decline cascades to the next
+// candidate. Both are idempotent on retry.
+export async function acceptOffer(offerId: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+
+  const { error } = await supabase.rpc("accept_dispatch_offer", { p_offer_id: offerId });
+  if (error) return { error: error.message };
+
+  revalidatePath("/deliveries");
+  return { error: null };
+}
+
+export async function declineOffer(offerId: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+
+  const { error } = await supabase.rpc("decline_dispatch_offer", { p_offer_id: offerId });
+  if (error) return { error: error.message };
+
+  revalidatePath("/deliveries");
+  return { error: null };
+}
