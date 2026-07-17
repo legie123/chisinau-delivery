@@ -15,8 +15,8 @@ begin
   for r in
     select * from (values
       (v_cust,  'client@test.md',  'customer',           'Client Test'),
-      (v_cour,  'courier@test.md', 'courier',            'Curier Test'),
-      (v_part,  'partner@test.md', 'restaurant_partner', 'Partener Test'),
+      (v_cour,  'curier@test.md', 'courier',            'Curier Test'),
+      (v_part,  'partener@test.md', 'restaurant_partner', 'Partener Test'),
       (v_admin, 'admin@test.md',   'platform_admin',     'Admin Test')
     ) as t(id, email, role, full_name)
   loop

@@ -18,8 +18,8 @@ export default async function OrdersPage() {
     return (
       <main className="flex-1 px-5 py-16 text-center">
         <p className="text-white/60">
-          <Link href="/login?next=/orders" className="text-primary underline underline-offset-4">
-            Autentifică-te
+          <Link href="/" className="text-primary underline underline-offset-4">
+            Intră din sectorul Clienți
           </Link>{" "}
           ca să vezi comenzile tale.
         </p>

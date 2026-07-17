@@ -123,7 +123,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: CateringRest
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
-        router.push("/login?next=/catering");
+        router.push("/");
         return;
       }
 

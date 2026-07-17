@@ -1,7 +1,6 @@
-import Link from "next/link";
-
 // Central hub — three sectors, no login friction (dev/demo doorway via
-// /enter/[role] which signs in the seeded account for that surface).
+// /enter/[role] which signs in the seeded account for that surface). No login
+// form anywhere for now (per product decision) — every entry is passwordless.
 const SECTORS = [
   {
     href: "/enter/client",
@@ -77,10 +76,7 @@ export default function HubPage() {
       </div>
 
       <p className="pb-6 text-center text-xs text-white/30">
-        Mod demonstrație — intrare directă, fără parolă ·{" "}
-        <Link href="/login" className="underline underline-offset-4 hover:text-white/60">
-          autentificare clasică
-        </Link>
+        Mod demonstrație — intrare directă, fără parolă
       </p>
     </main>
   );

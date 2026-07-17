@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CheckoutForm } from "@/components/customer/CheckoutForm";
 import type { Address } from "@/lib/types/domain";
@@ -13,10 +14,10 @@ export default async function CheckoutPage() {
       <main className="flex-1 px-6 py-10">
         <h1 className="mb-2 text-2xl font-semibold">Finalizare comandă</h1>
         <p className="text-white/50">
-          Trebuie să te autentifici înainte de a plasa o comandă.{" "}
-          <a href="/login?next=/checkout" className="underline underline-offset-4">
-            Autentificare
-          </a>
+          Intră mai întâi din sectorul Clienți.{" "}
+          <Link href="/" className="underline underline-offset-4">
+            Înapoi la pagina principală
+          </Link>
         </p>
       </main>
     );

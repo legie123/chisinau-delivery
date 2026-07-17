@@ -27,9 +27,9 @@ export async function proxy(request: NextRequest) {
   if (!requiredRoles) return response;
 
   if (!user) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return redirectWithSessionCookies(request, response, loginUrl);
+    // No login form for now — an unauthenticated hit on a gated surface goes
+    // back to the hub, where the three sectors enter passwordlessly.
+    return redirectWithSessionCookies(request, response, new URL("/", request.url));
   }
 
   const role = await fetchRole(supabase, user.id);

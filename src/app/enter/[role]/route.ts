@@ -48,11 +48,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (error) {
     // Keep the signOut cookie deletions — they were written onto `response`;
     // without copying them the browser retains cookies for a token that was
-    // just revoked server-side.
-    const errorResponse = NextResponse.redirect(
-      new URL(`/login?next=${encodeURIComponent(sector.to)}`, request.url),
-      303,
-    );
+    // just revoked server-side. No login form for now → fall back to the hub.
+    const errorResponse = NextResponse.redirect(new URL("/", request.url), 303);
     response.cookies.getAll().forEach((cookie) => errorResponse.cookies.set(cookie));
     return errorResponse;
   }
