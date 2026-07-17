@@ -62,6 +62,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               Toate comenzile
             </Link>
           </RoleGate>
+          <RoleGate role={role} allow={["platform_admin"]}>
+            <Link href="/platform/fraud" className="transition hover:text-white">
+              Semnalări
+            </Link>
+          </RoleGate>
           <SignOutButton />
         </nav>
       </header>
