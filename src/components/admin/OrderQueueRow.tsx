@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { acceptOrder, markReadyForPickup, rejectOrder } from "@/app/(admin)/restaurant/orders/actions";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
+import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 
 const STATUS_EMOJI: Record<string, string> = {
@@ -70,6 +71,11 @@ export function OrderQueueRow({ order, acceptSlaMinutes }: { order: Order; accep
           {order.status === "pending_restaurant" && (
             <div className="mt-1.5">
               <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="partner" />
+            </div>
+          )}
+          {order.status === "accepted" && order.estimated_ready_at && (
+            <div className="mt-1.5">
+              <ReadyTargetBadge estimatedReadyAt={order.estimated_ready_at} />
             </div>
           )}
           {error && <p className="mt-1 text-xs text-primary">{error}</p>}

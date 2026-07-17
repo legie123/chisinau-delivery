@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CoverImage } from "@/components/customer/CoverImage";
 import { MenuBrowser } from "@/components/customer/MenuBrowser";
-import type { MenuCategory, MenuItem, Restaurant } from "@/lib/types/domain";
+import type { MenuCategory, MenuItem, PrepEstimate, Restaurant } from "@/lib/types/domain";
+import { formatPrepRange } from "@/lib/orders/eta";
 
 export default async function RestaurantMenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -27,6 +28,13 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   const categories = typedRestaurant.menu_categories;
   const items = typedRestaurant.menu_items;
 
+  // WS4 — live prep estimate for this one restaurant (falls back to static column).
+  const { data: prepRows } = await supabase.rpc("get_prep_estimates", {
+    p_restaurant_ids: [typedRestaurant.id],
+  });
+  const prepMinutes =
+    ((prepRows ?? []) as PrepEstimate[])[0]?.prep_minutes ?? typedRestaurant.avg_prep_minutes;
+
   return (
     <main className="flex-1 px-5 pb-24 pt-6">
       {/* Cover banner with overlaid identity — Bolt restaurant header */}
@@ -43,9 +51,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
             <span className="flex items-center gap-1 rounded-full bg-[#fdf6e3] px-2 py-0.5 text-xs font-bold text-zinc-900">
               <span className="text-gold" aria-hidden>★</span> Nou
             </span>
-            <span>
-              {typedRestaurant.avg_prep_minutes}–{typedRestaurant.avg_prep_minutes + 15} min
-            </span>
+            <span>{formatPrepRange(prepMinutes)}</span>
             <span>·</span>
             <span>
               {Number(typedRestaurant.delivery_fee_mdl) === 0

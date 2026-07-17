@@ -123,9 +123,17 @@ export interface Order {
   courier_id: string | null;
   notes: string | null;
   cancellation_reason: string | null;
+  estimated_ready_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type PrepEstimate = {
+  restaurant_id: string;
+  prep_minutes: number;
+  source: "hourly" | "overall" | "static";
+  sample_count: number;
+};
 
 export interface OrderItem {
   id: string;

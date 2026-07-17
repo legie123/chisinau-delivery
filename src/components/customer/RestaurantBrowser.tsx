@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { Restaurant } from "@/lib/types/domain";
+import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
+import { formatPrepRange } from "@/lib/orders/eta";
 
 const CATEGORIES: { key: string; label: string; emoji: string }[] = [
   { key: "all", label: "Toate", emoji: "🔥" },
@@ -25,7 +26,13 @@ const CUISINE_LABEL: Record<string, string> = {
   other: "Restaurant",
 };
 
-export function RestaurantBrowser({ restaurants }: { restaurants: Restaurant[] }) {
+export function RestaurantBrowser({
+  restaurants,
+  estimates = {},
+}: {
+  restaurants: Restaurant[];
+  estimates?: Record<string, PrepEstimate>;
+}) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
 
@@ -107,7 +114,7 @@ export function RestaurantBrowser({ restaurants }: { restaurants: Restaurant[] }
                     <span className="font-semibold text-gold">★ Nou</span>
                     <span className="text-white/40">·</span>
                     <span className="text-white/70">
-                      {r.avg_prep_minutes}–{r.avg_prep_minutes + 15} min
+                      {formatPrepRange(estimates[r.id]?.prep_minutes ?? r.avg_prep_minutes)}
                     </span>
                   </p>
                   <span

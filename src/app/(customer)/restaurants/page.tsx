@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { RestaurantBrowser } from "@/components/customer/RestaurantBrowser";
-import type { Restaurant } from "@/lib/types/domain";
+import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 
 export default async function RestaurantsPage() {
   const supabase = await createClient();
@@ -9,6 +9,16 @@ export default async function RestaurantsPage() {
     .select("*")
     .eq("is_active", true)
     .order("name");
+
+  // WS4 — one RPC call for live prep estimates across the whole list (anon-safe).
+  const restaurantList = (restaurants ?? []) as Restaurant[];
+  const { data: prepRows } = await supabase.rpc("get_prep_estimates", {
+    p_restaurant_ids: restaurantList.map((r) => r.id),
+  });
+  const estimates: Record<string, PrepEstimate> = {};
+  for (const row of (prepRows ?? []) as PrepEstimate[]) {
+    estimates[row.restaurant_id] = row;
+  }
 
   if (error) {
     return (
@@ -29,7 +39,7 @@ export default async function RestaurantsPage() {
         </p>
       </div>
 
-      <RestaurantBrowser restaurants={(restaurants ?? []) as Restaurant[]} />
+      <RestaurantBrowser restaurants={restaurantList} estimates={estimates} />
     </main>
   );
 }

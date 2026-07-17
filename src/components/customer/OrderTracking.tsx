@@ -3,6 +3,7 @@
 import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 import { useCourierLocation } from "@/hooks/useCourierLocation";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
+import { PrepCountdown } from "@/components/customer/PrepCountdown";
 import {
   ORDER_STATUS_LABEL,
   PAYMENT_METHOD_LABEL,
@@ -78,7 +79,14 @@ export function OrderTracking({
                 <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="customer" />
               </div>
             )}
-            {order.status !== "pending_restaurant" && <div className="mb-4" />}
+            {order.estimated_ready_at &&
+            ["accepted", "ready_for_pickup", "courier_assigned"].includes(order.status) ? (
+              <div className="mb-4">
+                <PrepCountdown estimatedReadyAt={order.estimated_ready_at} status={order.status} />
+              </div>
+            ) : (
+              order.status !== "pending_restaurant" && <div className="mb-4" />
+            )}
             <div className="flex items-start justify-between">
               {STEPS.map((step, i) => {
                 const done = i <= current;
