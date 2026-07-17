@@ -30,7 +30,9 @@ export function useBroadcastCourierLocation(orderId: string, courierId: string |
           lastUpsertRef.current = now;
           supabase
             .from("courier_locations")
-            .upsert({ courier_id: courierId, ...point })
+            // WS3: accuracy_m feeds the DB plausibility guard; the geo column is
+            // generated server-side, so the upsert shape is otherwise unchanged.
+            .upsert({ courier_id: courierId, ...point, accuracy_m: pos.coords.accuracy })
             .then(({ error: upsertError }) => {
               if (upsertError) {
                 // Retry on the next GPS tick instead of going stale for 45s.

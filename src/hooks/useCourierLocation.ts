@@ -17,13 +17,16 @@ export function useCourierLocation(orderId: string, courierId: string | null, ac
 
     supabase
       .from("courier_locations")
-      .select("lat, lng")
+      .select("lat, lng, updated_at")
       .eq("courier_id", courierId)
       .maybeSingle()
       .then(({ data }) => {
         // Seed only fills the blank-map gap — never overwrite a fresher
-        // broadcast position that may have arrived first.
-        if (!cancelled && data) setPosition((p) => p ?? { lat: data.lat, lng: data.lng });
+        // broadcast position that may have arrived first. WS3: mirror the 2-min
+        // DB TTL so a customer never sees a pin from a previous shift.
+        if (cancelled || !data) return;
+        const fresh = Date.now() - Date.parse(data.updated_at) < 120_000;
+        if (fresh) setPosition((p) => p ?? { lat: data.lat, lng: data.lng });
       });
 
     const unsubscribe = subscribeCourierLocation(supabase, orderId, setPosition);

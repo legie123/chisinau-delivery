@@ -4,6 +4,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
+import { useNearbyRestaurants } from "@/hooks/useNearbyRestaurants";
+
+// WS3 — "480 m" / "1,4 km" (Romanian comma), snapped to 50 m under 1 km.
+function distanceLabel(d: number | null): string | null {
+  if (d == null) return null;
+  if (d < 950) return `${Math.round(d / 50) * 50} m`;
+  return `${(d / 1000).toFixed(1).replace(".", ",")} km`;
+}
 
 const CATEGORIES: { key: string; label: string; emoji: string }[] = [
   { key: "all", label: "Toate", emoji: "🔥" },
@@ -35,16 +43,18 @@ export function RestaurantBrowser({
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  // WS3 — soft geolocation reorders by proximity; fails open to the SSR list.
+  const { restaurants: located, locating, located: hasLocation } = useNearbyRestaurants(restaurants);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return restaurants.filter((r) => {
+    return located.filter((r) => {
       if (category === "catering" && !r.accepts_catering) return false;
       if (category !== "all" && category !== "catering" && r.cuisine_type !== category) return false;
       if (q && !r.name.toLowerCase().includes(q) && !(r.description ?? "").toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [restaurants, query, category]);
+  }, [located, query, category]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -81,8 +91,12 @@ export function RestaurantBrowser({
       </div>
 
       <div className="flex items-center justify-between">
-        <h2 className="font-serif text-lg font-semibold text-white">Restaurante alese</h2>
-        <span className="text-sm text-white/40">{filtered.length} disponibile</span>
+        <h2 className="font-serif text-lg font-semibold text-white">
+          {hasLocation ? "Aproape de tine" : "Restaurante alese"}
+        </h2>
+        <span className="text-sm text-white/40">
+          {locating ? "Te localizăm…" : `${filtered.length} disponibile`}
+        </span>
       </div>
 
       {/* Luxury horizontal cards */}
@@ -118,6 +132,12 @@ export function RestaurantBrowser({
                     <span className="text-white/70">
                       {formatPrepRange(estimates[r.id]?.prep_minutes ?? r.avg_prep_minutes)}
                     </span>
+                    {distanceLabel(r.distance_m) && (
+                      <>
+                        <span className="text-white/40">·</span>
+                        <span className="font-medium text-gold/90">📍 {distanceLabel(r.distance_m)}</span>
+                      </>
+                    )}
                   </p>
                   <span
                     className={`mt-3 inline-block rounded-md border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${

@@ -37,8 +37,16 @@ export interface Restaurant {
   accept_sla_minutes: number;
   rating_avg: number | null;
   rating_count: number;
+  lat: number | null;
+  lng: number | null;
   created_at: string;
   updated_at: string;
+}
+
+// WS3 — nearby_restaurants RPC row (Restaurant projection + great-circle distance).
+export interface NearbyRestaurant {
+  id: string;
+  distance_m: number | null;
 }
 
 export interface MenuCategory {
