@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DeliveryStatusControls } from "@/components/courier/DeliveryStatusControls";
 import { DeliveryProgress } from "@/components/courier/DeliveryProgress";
+import { CourierDeliveryMap } from "@/components/courier/CourierDeliveryMap";
 import type { Address, Order, OrderItem } from "@/lib/types/domain";
 
 export default async function DeliveryDetailPage({ params }: { params: Promise<{ deliveryId: string }> }) {
@@ -28,7 +29,7 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
   // would show "Fără adresă atașată" for every catering delivery.
   const [{ data: items }, { data: restaurant }, { data: address }, { data: catering }] = await Promise.all([
     supabase.from("order_items").select("*").eq("order_id", deliveryId),
-    supabase.from("restaurants").select("name, address, phone").eq("id", typedOrder.restaurant_id).single(),
+    supabase.from("restaurants").select("name, address, phone, lat, lng").eq("id", typedOrder.restaurant_id).single(),
     typedOrder.delivery_address_id
       ? supabase.from("addresses").select("*").eq("id", typedOrder.delivery_address_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -42,6 +43,13 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
   ]);
 
   const typedAddress = address as Address | null;
+  const typedRestaurant = restaurant as { name: string; address: string; phone: string; lat: number | null; lng: number | null } | null;
+  const pickupPoint = typedRestaurant?.lat != null && typedRestaurant?.lng != null
+    ? { lat: typedRestaurant.lat, lng: typedRestaurant.lng }
+    : null;
+  const dropoffPoint = typedAddress?.lat != null && typedAddress?.lng != null
+    ? { lat: typedAddress.lat, lng: typedAddress.lng }
+    : null;
   const destinationText = typedAddress?.street_address ?? catering?.event_address_text ?? null;
   const mapsUrl = typedAddress?.lat
     ? `https://www.google.com/maps/dir/?api=1&destination=${typedAddress.lat},${typedAddress.lng}`
@@ -54,6 +62,9 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
       <h1 className="mb-5 text-2xl font-bold text-white">Livrare {typedOrder.order_number}</h1>
 
       <DeliveryProgress status={typedOrder.status} />
+
+      {/* Live GPS route map — your position, pickup, dropoff + one-tap navigation. */}
+      <CourierDeliveryMap pickup={pickupPoint} dropoff={dropoffPoint} />
 
       {/* Route: pickup -> dropoff, Bolt driver two-stop card */}
       <div className="mb-4 flex flex-col gap-3">
