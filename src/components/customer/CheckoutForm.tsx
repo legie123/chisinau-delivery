@@ -174,6 +174,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         {selectedAddressId === "new" && (
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <input
+              aria-label="Stradă și număr"
               placeholder="Stradă, număr"
               required
               value={newAddress.street_address}
@@ -181,24 +182,28 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               className={`sm:col-span-2 ${inputClass}`}
             />
             <input
+              aria-label="Sector"
               placeholder="Sector"
               value={newAddress.sector}
               onChange={(e) => setNewAddress({ ...newAddress, sector: e.target.value })}
               className={inputClass}
             />
             <input
+              aria-label="Bloc"
               placeholder="Bloc"
               value={newAddress.building}
               onChange={(e) => setNewAddress({ ...newAddress, building: e.target.value })}
               className={inputClass}
             />
             <input
+              aria-label="Apartament"
               placeholder="Apartament"
               value={newAddress.apartment}
               onChange={(e) => setNewAddress({ ...newAddress, apartment: e.target.value })}
               className={inputClass}
             />
             <input
+              aria-label="Note pentru curier"
               placeholder="Note pentru curier (interfon, etaj...)"
               value={newAddress.notes}
               onChange={(e) => setNewAddress({ ...newAddress, notes: e.target.value })}
