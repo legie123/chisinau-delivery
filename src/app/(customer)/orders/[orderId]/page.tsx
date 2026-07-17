@@ -8,13 +8,15 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   const supabase = await createClient();
 
   const [{ data: order }, { data: items }, { data: events }] = await Promise.all([
-    supabase.from("orders").select("*").eq("id", orderId).single(),
+    supabase.from("orders").select("*, restaurants(accept_sla_minutes)").eq("id", orderId).single(),
     supabase.from("order_items").select("*").eq("order_id", orderId),
     supabase.from("delivery_status_events").select("*").eq("order_id", orderId).order("created_at"),
   ]);
   if (!order) notFound();
 
   const typedOrder = order as Order;
+  const acceptSlaMinutes =
+    (order as unknown as { restaurants: { accept_sla_minutes: number } | null }).restaurants?.accept_sla_minutes ?? 7;
 
   return (
     <main className="flex-1 px-6 py-10">
@@ -23,6 +25,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
         initialOrder={typedOrder}
         initialEvents={(events ?? []) as DeliveryStatusEvent[]}
         items={(items ?? []) as OrderItem[]}
+        acceptSlaMinutes={acceptSlaMinutes}
       />
     </main>
   );

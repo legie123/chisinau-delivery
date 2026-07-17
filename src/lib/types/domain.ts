@@ -34,6 +34,7 @@ export interface Restaurant {
   min_order_amount_mdl: number;
   catering_min_amount_mdl: number | null;
   avg_prep_minutes: number;
+  accept_sla_minutes: number;
   created_at: string;
   updated_at: string;
 }

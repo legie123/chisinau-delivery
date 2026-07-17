@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { acceptOrder, markReadyForPickup, rejectOrder } from "@/app/(admin)/restaurant/orders/actions";
+import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 
 const STATUS_EMOJI: Record<string, string> = {
@@ -13,7 +14,7 @@ const STATUS_EMOJI: Record<string, string> = {
   en_route: "🛵",
 };
 
-export function OrderQueueRow({ order }: { order: Order }) {
+export function OrderQueueRow({ order, acceptSlaMinutes }: { order: Order; acceptSlaMinutes: number }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +67,11 @@ export function OrderQueueRow({ order }: { order: Order }) {
           <p className="mt-0.5 text-sm text-white/50">
             {ORDER_STATUS_LABEL[order.status]} · <span className="font-semibold text-white/80">{order.total_mdl} MDL</span>
           </p>
+          {order.status === "pending_restaurant" && (
+            <div className="mt-1.5">
+              <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="partner" />
+            </div>
+          )}
           {error && <p className="mt-1 text-xs text-primary">{error}</p>}
         </div>
       </div>

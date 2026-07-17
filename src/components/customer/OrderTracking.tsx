@@ -2,6 +2,7 @@
 
 import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 import { useCourierLocation } from "@/hooks/useCourierLocation";
+import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import {
   ORDER_STATUS_LABEL,
   PAYMENT_METHOD_LABEL,
@@ -41,10 +42,12 @@ export function OrderTracking({
   initialOrder,
   initialEvents,
   items,
+  acceptSlaMinutes,
 }: {
   initialOrder: Order;
   initialEvents: DeliveryStatusEvent[];
   items: OrderItem[];
+  acceptSlaMinutes: number;
 }) {
   const { order, events } = useOrderRealtime(initialOrder.id, initialOrder, initialEvents);
   const tracking = order.status === "picked_up" || order.status === "en_route";
@@ -65,11 +68,17 @@ export function OrderTracking({
           </div>
         ) : (
           <>
-            <p className="mb-5 text-center text-lg font-semibold text-white">
+            <p className="mb-1 text-center text-lg font-semibold text-white">
               {order.status === "pending_restaurant"
                 ? "Așteptăm confirmarea restaurantului..."
                 : ORDER_STATUS_LABEL[order.status]}
             </p>
+            {order.status === "pending_restaurant" && (
+              <div className="mb-4 text-center">
+                <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="customer" />
+              </div>
+            )}
+            {order.status !== "pending_restaurant" && <div className="mb-4" />}
             <div className="flex items-start justify-between">
               {STEPS.map((step, i) => {
                 const done = i <= current;

@@ -13,9 +13,12 @@ export default async function RestaurantOrdersPage() {
 
   const { data: staffRow } = await supabase
     .from("restaurant_staff")
-    .select("restaurant_id")
+    .select("restaurant_id, restaurants(accept_sla_minutes)")
     .eq("user_id", user?.id ?? "")
     .maybeSingle();
+
+  const acceptSlaMinutes =
+    (staffRow?.restaurants as unknown as { accept_sla_minutes: number }[] | null)?.[0]?.accept_sla_minutes ?? 7;
 
   // RLS (orders_partner_scope) already restricts this to the caller's own
   // restaurant. Catering orders are excluded — accepting one here would skip
@@ -41,7 +44,7 @@ export default async function RestaurantOrdersPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {orderList.map((order) => (
-            <OrderQueueRow key={order.id} order={order} />
+            <OrderQueueRow key={order.id} order={order} acceptSlaMinutes={acceptSlaMinutes} />
           ))}
         </ul>
       )}
