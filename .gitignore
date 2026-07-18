@@ -47,3 +47,6 @@ next-env.d.ts
 .bucla/
 .swarm/
 ruvector.db
+
+# local-only push-drain secret (do not commit)
+supabase/seeds/local_secrets.sql

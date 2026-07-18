@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require";
-import { notifyOrderCustomer, notifyDispatchedCourier } from "@/lib/push/notify";
+import { notifyOrderCustomer } from "@/lib/push/notify";
 
 export type ActionResult = { error: string | null };
 
@@ -50,14 +50,9 @@ export async function rejectOrder(orderId: string, reason: string): Promise<Acti
 export async function markReadyForPickup(orderId: string): Promise<ActionResult> {
   const result = await callOrderRpc("mark_ready_for_pickup", { p_order_id: orderId });
   if (!result.error) {
-    // The RPC fired the first dispatch in-line — alert the offered courier (push,
-    // so it lands even with the app backgrounded) and tell the customer.
-    void notifyDispatchedCourier(orderId, {
-      title: "Comandă nouă de livrat 🛵",
-      body: "Ai o ofertă de livrare — acceptă înainte să expire!",
-      url: "/deliveries",
-      tag: "dispatch-offer",
-    });
+    // Courier offer pushes are owned by the dispatch_offers outbox trigger now —
+    // uniform across the initial dispatch AND both cascade paths (decline + the
+    // pg_cron expiry sweeper). Here we only tell the customer their food is ready.
     void notifyOrderCustomer(orderId, {
       title: "Comanda e gata 🥡",
       body: "Comanda ta e gata și așteaptă curierul.",
