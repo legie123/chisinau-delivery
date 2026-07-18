@@ -2,12 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
-import type { Map as LeafletMap, Marker } from "leaflet";
+import type { Map as LeafletMap, Marker, Polyline } from "leaflet";
 
 export type MapPoint = { lat: number; lng: number };
 
 // Chișinău center — fallback when we have no points yet.
 const CHISINAU: [number, number] = [47.0245, 28.8322];
+
+// Road route polyline styling — gold, matching the Dragons theme.
+const ROUTE_STYLE = { color: "#f5a623", weight: 4, opacity: 0.7 } as const;
 
 // Emoji pin as a Leaflet divIcon (avoids the classic webpack marker-image path
 // break, and matches the Dragons dark/gold theme better than default markers).
@@ -21,22 +24,28 @@ function pin(L: typeof import("leaflet"), emoji: string, ring: string) {
 }
 
 // Real interactive map: pickup (restaurant), dropoff (customer address), and the
-// courier's LIVE position. Vanilla Leaflet, imported dynamically so it never runs
-// during SSR. The courier marker moves in place as the `courier` prop updates.
+// courier's LIVE position. Optionally draws a road route polyline and an ETA
+// chip. Vanilla Leaflet, imported dynamically so it never runs during SSR. The
+// courier marker and the route polyline both move in place as their props update.
 export function DeliveryMap({
   pickup,
   dropoff,
   courier,
+  routeLine,
+  etaLabel,
   heightClass = "h-64",
 }: {
   pickup?: MapPoint | null;
   dropoff?: MapPoint | null;
   courier?: MapPoint | null;
+  routeLine?: [number, number][];
+  etaLabel?: string;
   heightClass?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const courierMarkerRef = useRef<Marker | null>(null);
+  const routeLineRef = useRef<Polyline | null>(null);
   const leafletRef = useRef<typeof import("leaflet") | null>(null);
 
   // Init once.
@@ -55,6 +64,11 @@ export function DeliveryMap({
       mapRef.current = map;
 
       const bounds: [number, number][] = [];
+      // Draw the route first so the pins render above it.
+      if (routeLine && routeLine.length > 1) {
+        routeLineRef.current = L.polyline(routeLine, ROUTE_STYLE).addTo(map);
+        for (const pt of routeLine) bounds.push(pt);
+      }
       if (pickup) {
         L.marker([pickup.lat, pickup.lng], { icon: pin(L, "🏪", "#f5a623") }).addTo(map);
         bounds.push([pickup.lat, pickup.lng]);
@@ -79,9 +93,10 @@ export function DeliveryMap({
         mapRef.current.remove();
         mapRef.current = null;
         courierMarkerRef.current = null;
+        routeLineRef.current = null;
       }
     };
-    // Init with the first props; live movement is handled by the effect below.
+    // Init with the first props; live movement is handled by the effects below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -101,5 +116,33 @@ export function DeliveryMap({
     }
   }, [cLat, cLng]);
 
-  return <div ref={containerRef} className={`z-0 w-full overflow-hidden rounded-2xl ring-1 ring-white/10 ${heightClass}`} />;
+  // Live route re-draw: update the polyline in place when the route changes,
+  // without re-initialising the map. Keyed on a stable serialization (length +
+  // endpoints) rather than the array identity, which churns every render.
+  const routeKey =
+    routeLine && routeLine.length > 1
+      ? `${routeLine.length}:${routeLine[0][0]},${routeLine[0][1]}:${routeLine[routeLine.length - 1][0]},${routeLine[routeLine.length - 1][1]}`
+      : "";
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (!L || !map || !routeLine || routeLine.length < 2) return;
+    if (routeLineRef.current) {
+      routeLineRef.current.setLatLngs(routeLine);
+    } else {
+      routeLineRef.current = L.polyline(routeLine, ROUTE_STYLE).addTo(map);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
+
+  return (
+    <div className="relative">
+      <div ref={containerRef} className={`z-0 w-full overflow-hidden rounded-2xl ring-1 ring-white/10 ${heightClass}`} />
+      {etaLabel && (
+        <div className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-[#0d0d1f] px-3 py-1 text-xs font-semibold text-[#f5a623] shadow ring-1 ring-white/10">
+          {etaLabel}
+        </div>
+      )}
+    </div>
+  );
 }

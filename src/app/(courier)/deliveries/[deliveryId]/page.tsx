@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DeliveryStatusControls } from "@/components/courier/DeliveryStatusControls";
 import { DeliveryProgress } from "@/components/courier/DeliveryProgress";
-import { CourierDeliveryMap } from "@/components/courier/CourierDeliveryMap";
+import { CourierRouteMap } from "@/components/courier/CourierRouteMap";
 import type { Address, Order, OrderItem } from "@/lib/types/domain";
 
 export default async function DeliveryDetailPage({ params }: { params: Promise<{ deliveryId: string }> }) {
@@ -63,8 +63,9 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
 
       <DeliveryProgress status={typedOrder.status} />
 
-      {/* Live GPS route map — your position, pickup, dropoff + one-tap navigation. */}
-      <CourierDeliveryMap pickup={pickupPoint} dropoff={dropoffPoint} />
+      {/* Live GPS route map — your position, pickup, dropoff, real road route +
+          ETA toward the active leg, and one-tap navigation. */}
+      <CourierRouteMap pickup={pickupPoint} dropoff={dropoffPoint} status={typedOrder.status} />
 
       {/* Route: pickup -> dropoff, Bolt driver two-stop card */}
       <div className="mb-4 flex flex-col gap-3">

@@ -2,6 +2,7 @@
 
 import { useOrderRealtime } from "@/hooks/useOrderRealtime";
 import { useCourierLocation } from "@/hooks/useCourierLocation";
+import { useRoute } from "@/hooks/useRoute";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { PrepCountdown } from "@/components/customer/PrepCountdown";
 import { RatingForm } from "@/components/customer/RatingForm";
@@ -62,6 +63,16 @@ export function OrderTracking({
   const { order, events } = useOrderRealtime(initialOrder.id, initialOrder, initialEvents);
   const tracking = order.status === "picked_up" || order.status === "en_route";
   const position = useCourierLocation(order.id, order.courier_id, tracking);
+
+  // Real road route toward the customer: courier → dropoff once we have a live
+  // GPS fix, otherwise a pickup → dropoff preview.
+  const { line: routeLine, minutes } = useRoute(position ?? pickup, dropoff);
+  const etaLabel =
+    minutes == null
+      ? undefined
+      : position
+        ? `Sosire ~${minutes} min`
+        : `~${minutes} min de livrare`;
 
   const current = stepIndex(order.status);
   const isTerminalBad = order.status === "cancelled" || order.status === "rejected";
@@ -137,7 +148,14 @@ export function OrderTracking({
 
       {/* Live GPS map — the courier moving toward you, with pickup + dropoff. */}
       {tracking && (position || dropoff || pickup) && (
-        <DeliveryMap pickup={pickup} dropoff={dropoff} courier={position} heightClass="h-60" />
+        <DeliveryMap
+          pickup={pickup}
+          dropoff={dropoff}
+          courier={position}
+          routeLine={routeLine}
+          etaLabel={etaLabel}
+          heightClass="h-60"
+        />
       )}
 
       {/* Courier live card */}

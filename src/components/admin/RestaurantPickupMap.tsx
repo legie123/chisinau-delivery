@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
+import { useRoute } from "@/hooks/useRoute";
 import { DeliveryMap, type MapPoint } from "@/components/shared/DeliveryMap";
 
 // Restaurant-side pickup coordination: the assigned courier heading to the
@@ -20,6 +21,10 @@ export function RestaurantPickupMap({
   initialCourier: MapPoint | null;
 }) {
   const [pos, setPos] = useState<MapPoint | null>(initialCourier);
+
+  // Route the courier's approach to the restaurant. No courier fix yet → no route.
+  const { line: routeLine, minutes } = useRoute(pos, restaurant);
+  const etaLabel = pos && minutes != null ? `Curier la ridicare ~${minutes} min` : undefined;
 
   useEffect(() => {
     const supabase = createClient();
@@ -39,7 +44,7 @@ export function RestaurantPickupMap({
       <p className="text-sm font-semibold text-white">
         🛵 {courierName ?? "Curierul"} vine să ridice comanda
       </p>
-      <DeliveryMap pickup={restaurant} courier={pos} heightClass="h-48" />
+      <DeliveryMap pickup={restaurant} courier={pos} routeLine={routeLine} etaLabel={etaLabel} heightClass="h-48" />
     </section>
   );
 }
