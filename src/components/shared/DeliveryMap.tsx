@@ -47,6 +47,7 @@ export function DeliveryMap({
   const courierMarkerRef = useRef<Marker | null>(null);
   const routeLineRef = useRef<Polyline | null>(null);
   const leafletRef = useRef<typeof import("leaflet") | null>(null);
+  const moveAnimRef = useRef<number | null>(null);
 
   // Init once.
   useEffect(() => {
@@ -89,6 +90,8 @@ export function DeliveryMap({
 
     return () => {
       cancelled = true;
+      if (moveAnimRef.current) cancelAnimationFrame(moveAnimRef.current);
+      moveAnimRef.current = null;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -109,11 +112,50 @@ export function DeliveryMap({
     const L = leafletRef.current;
     const map = mapRef.current;
     if (!L || !map || cLat == null || cLng == null) return;
-    if (courierMarkerRef.current) {
-      courierMarkerRef.current.setLatLng([cLat, cLng]);
-    } else {
+
+    // First fix: just place the marker.
+    if (!courierMarkerRef.current) {
       courierMarkerRef.current = L.marker([cLat, cLng], { icon: pin(L, "🛵", "#34d399") }).addTo(map);
+      return;
     }
+
+    const marker = courierMarkerRef.current;
+    const from = marker.getLatLng();
+    const dLat = cLat - from.lat;
+    const dLng = cLng - from.lng;
+
+    // GPS ticks arrive ~every 10s. Snapping setLatLng() made the courier visibly
+    // teleport each tick (audit #12). Glide from the last position to the new one
+    // so it reads as movement — unless the user prefers reduced motion, or the move
+    // is negligible/huge (jitter or a re-anchor), in which case snap.
+    const reduce =
+      typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const tiny = Math.abs(dLat) < 1e-6 && Math.abs(dLng) < 1e-6;
+    if (reduce || tiny) {
+      if (moveAnimRef.current) cancelAnimationFrame(moveAnimRef.current);
+      moveAnimRef.current = null;
+      marker.setLatLng([cLat, cLng]);
+      return;
+    }
+
+    if (moveAnimRef.current) cancelAnimationFrame(moveAnimRef.current);
+    const fromLat = from.lat;
+    const fromLng = from.lng;
+    const DURATION = 1200; // ms — smooth glide, completes well before the next tick
+    const easeOutCubic = (p: number) => 1 - Math.pow(1 - p, 3);
+    let t0: number | null = null;
+    const step = (ts: number) => {
+      if (t0 == null) t0 = ts;
+      const p = Math.min((ts - t0) / DURATION, 1);
+      const e = easeOutCubic(p);
+      marker.setLatLng([fromLat + dLat * e, fromLng + dLng * e]);
+      if (p < 1) {
+        moveAnimRef.current = requestAnimationFrame(step);
+      } else {
+        moveAnimRef.current = null;
+      }
+    };
+    moveAnimRef.current = requestAnimationFrame(step);
   }, [cLat, cLng]);
 
   // Live route re-draw: update the polyline in place when the route changes,
