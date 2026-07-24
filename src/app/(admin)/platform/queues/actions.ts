@@ -1,12 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth/require";
+import { requirePlatformAdmin } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
 
+// Defense in depth: these ops actions are a platform_admin surface. The underlying
+// RPCs already authorize, but gate here too so a non-admin can never even reach them
+// (audit #64) rather than relying solely on downstream RLS/RPC checks.
 async function client() {
-  const { supabase } = await requireUser();
+  const { supabase } = await requirePlatformAdmin();
   return supabase;
 }
 

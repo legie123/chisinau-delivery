@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
+import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUser } from "@/lib/push/send";
+
+// Constant-time secret comparison — avoids leaking the drain secret via response
+// timing (audit #66). Length-guarded because timingSafeEqual throws on length mismatch.
+function secretMatches(provided: string, expected: string): boolean {
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 // Drains the notification_outbox: sends any pending Web Push, marks rows handled.
 // Called every ~10s by the pg_cron `drain-push-outbox` job (via pg_net) — that's
@@ -18,7 +27,7 @@ export async function POST(req: Request) {
   if (!secret) {
     return NextResponse.json({ error: "drain not configured" }, { status: 503 });
   }
-  if (req.headers.get("x-drain-secret") !== secret) {
+  if (!secretMatches(req.headers.get("x-drain-secret") ?? "", secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
