@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
 import { useNearbyRestaurants } from "@/hooks/useNearbyRestaurants";
 import { FavoriteButton } from "@/components/customer/FavoriteButton";
+import type { MenuSearchHit } from "@/app/api/menu-search/route";
 
 type SortKey = "recommended" | "distance" | "rating";
 
@@ -66,6 +67,31 @@ export function RestaurantBrowser({
   const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const openNowSet = useMemo(() => new Set(openNowIds), [openNowIds]);
 
+  // Bolt-Food-style mixed results: a query also surfaces dishes from
+  // restaurants whose name doesn't match (e.g. "somon" finds Philadelphia
+  // Roll at Sakura). Debounced + abortable so fast typing doesn't race.
+  const [dishHits, setDishHits] = useState<MenuSearchHit[]>([]);
+  useEffect(() => {
+    const q = query.trim();
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      if (q.length < 2) {
+        setDishHits([]);
+        return;
+      }
+      fetch(`/api/menu-search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+        .then((res) => (res.ok ? res.json() : { items: [] }))
+        .then((data) => setDishHits(data.items ?? []))
+        .catch(() => {
+          /* aborted or offline — keep last known results */
+        });
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = located.filter((r) => {
@@ -107,6 +133,28 @@ export function RestaurantBrowser({
           className="w-full bg-transparent text-[15px] text-white placeholder-white/40 outline-none"
         />
       </div>
+
+      {/* Dish search results — cross-restaurant, shown while the query matches items */}
+      {dishHits.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-serif text-sm font-semibold uppercase tracking-wide text-white/50">
+            Preparate găsite
+          </h2>
+          <div className="flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {dishHits.map((hit) => (
+              <Link
+                key={hit.item_id}
+                href={`/restaurants/${hit.restaurant_slug}`}
+                className="flex w-56 shrink-0 flex-col gap-1 rounded-xl bg-white/5 p-3 ring-1 ring-white/10 transition hover:ring-gold/40"
+              >
+                <span className="truncate text-sm font-semibold text-white">{hit.item_name}</span>
+                <span className="truncate text-xs text-white/50">{hit.restaurant_name}</span>
+                <span className="text-sm font-semibold text-gold">{Number(hit.price_mdl)} MDL</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Category chips */}
       <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
