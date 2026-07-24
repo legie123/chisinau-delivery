@@ -160,18 +160,25 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       if (rpcError) throw new Error(rpcError.message);
 
       if (paymentMethod === "online_gateway") {
-        // Open a pending intent, record the tip on the order, then hand off to the
-        // mock confirm step. Keep the cart until the payment actually settles.
+        // Record the tip FIRST so the payment intent is opened for the tip-inclusive
+        // total (otherwise the tip is charged short). Surface tip failures instead of
+        // swallowing them. Keep the cart until the payment actually settles.
+        if (tip > 0) {
+          const { error: tipError } = await supabase.rpc("set_order_tip", { p_order_id: orderId, p_tip_mdl: tip });
+          if (tipError) throw new Error(tipError.message);
+        }
         const { data: intentId, error: payError } = await supabase.rpc("start_online_payment", {
           p_order_id: orderId,
         });
         if (payError) throw new Error(payError.message);
-        if (tip > 0) await supabase.rpc("set_order_tip", { p_order_id: orderId, p_tip_mdl: tip });
         setPayStep({ orderId: orderId as string, intentId: intentId as string });
         return;
       }
 
-      if (tip > 0) await supabase.rpc("set_order_tip", { p_order_id: orderId, p_tip_mdl: tip });
+      if (tip > 0) {
+        const { error: tipError } = await supabase.rpc("set_order_tip", { p_order_id: orderId, p_tip_mdl: tip });
+        if (tipError) throw new Error(tipError.message);
+      }
       clear();
       router.push(`/orders/${orderId}`);
     } catch (err) {

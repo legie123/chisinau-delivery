@@ -50,7 +50,8 @@ export default async function CourierEarningsPage() {
       .select("delivery_fee_mdl, tip_mdl")
       .eq("courier_id", courier.id)
       .eq("status", "delivered")
-      .gte("created_at", weekAgo),
+      .eq("payment_status", "paid")
+      .gte("delivered_at", weekAgo),
     supabase
       .from("payouts")
       .select("*")
