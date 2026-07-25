@@ -46,10 +46,12 @@ begin
     end if;
   end loop;
 
-  -- courier row (RPCs look up couriers, not profiles)
-  insert into public.couriers (user_id, full_name, phone, vehicle_type, status, is_active)
-  values (v_cour, 'Curier Test', '+37360000002', 'car', 'online', true)
-  on conflict do nothing;
+  -- courier row (RPCs look up couriers, not profiles). Pinned id — the rich demo
+  -- seed + RPC tests reference this exact courier ('Curier Test') by c9a68659…,
+  -- so it must be deterministic across a fresh db reset, not a random uuid.
+  insert into public.couriers (id, user_id, full_name, phone, vehicle_type, status, is_active)
+  values ('c9a68659-0734-413e-95d0-87cd21f4a0f7', v_cour, 'Curier Test', '+37360000002', 'car', 'online', true)
+  on conflict (user_id) do update set id = excluded.id;
 
   -- partner staffed on sakura-sushi
   insert into public.restaurant_staff (user_id, restaurant_id)

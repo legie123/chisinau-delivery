@@ -285,3 +285,10 @@ insert into public.delivery_status_events (order_id, status, actor_role, actor_i
   ('e0000000-0000-0000-0000-000000000022', 'pending_restaurant', 'customer', 'b0000000-0000-0000-0000-000000000009', null, now() - interval '25 minutes'),
   ('e0000000-0000-0000-0000-000000000022', 'accepted', 'restaurant_partner', null, null, now() - interval '20 minutes'),
   ('e0000000-0000-0000-0000-000000000022', 'ready_for_pickup', 'restaurant_partner', null, null, now() - interval '12 minutes');
+
+-- audit #9/#18: stamp delivered_at from the delivered event trail so the payout +
+-- earnings pipeline (which keys off delivered_at) sees these historical orders.
+update public.orders o
+set delivered_at = e.t
+from (select order_id, max(created_at) as t from public.delivery_status_events where status = 'delivered' group by order_id) e
+where e.order_id = o.id and o.status = 'delivered' and o.delivered_at is null;

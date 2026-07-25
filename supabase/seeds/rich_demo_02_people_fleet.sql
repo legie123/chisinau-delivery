@@ -87,6 +87,9 @@ insert into public.courier_locations (courier_id, lat, lng, accuracy_m) values
 -- Delivery addresses — one per new demo customer, sector-matched.
 -- ============================================================================
 insert into public.addresses (id, customer_id, label, street_address, sector, building, apartment, lat, lng, is_default) values
+  -- existing client@test.md (a0…001) home address — orders F & L reference it by this
+  -- pinned id, so it must exist on a fresh reset (was previously a live-DB-only row).
+  ('c5947686-a7a9-49a1-a6d4-f8a9a6c79c97', 'a0000000-0000-0000-0000-000000000001', 'Acasă', 'Str. Bănulescu-Bodoni 25', 'Centru', '1', '3', 47.023500, 28.831500, true),
   ('f0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Acasă', 'Str. Ismail 40', 'Centru', '12', '5', 47.021000, 28.834000, true),
   ('f0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'Acasă', 'Str. Independenței 55', 'Botanica', '3', '22', 47.000500, 28.851500, true),
   ('f0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000003', 'Acasă', 'Str. Kiev 27', 'Râșcani', '6', '14', 47.067000, 28.859000, true),

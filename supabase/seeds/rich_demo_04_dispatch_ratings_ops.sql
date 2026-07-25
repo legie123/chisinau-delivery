@@ -65,19 +65,16 @@ where c.id = v.id;
 -- ============================================================================
 -- Payouts — a closed "paid" week + the current, still-open "pending" day.
 -- ============================================================================
-insert into public.payouts (recipient_type, recipient_id, period_start, period_end, orders_count, gross_mdl, commission_mdl, net_mdl, status, paid_at) values
-  ('restaurant', 'd0000000-0000-0000-0000-000000000003', current_date - 7, current_date - 1, 1, 1580, 316.00, 1264.00, 'paid', now() - interval '1 day'),
-  ('restaurant', 'd0000000-0000-0000-0000-000000000005', current_date - 7, current_date - 1, 1, 380, 76.00, 304.00, 'paid', now() - interval '1 day'),
-  ('restaurant', 'd0000000-0000-0000-0000-000000000006', current_date - 7, current_date - 1, 1, 750, 150.00, 600.00, 'paid', now() - interval '1 day'),
-  ('restaurant', 'd0000000-0000-0000-0000-000000000001', current_date - 7, current_date - 1, 1, 960, 192.00, 768.00, 'paid', now() - interval '1 day'),
-  ('restaurant', '33333333-3333-3333-3333-333333333333', current_date - 7, current_date - 1, 1, 630, 126.00, 504.00, 'paid', now() - interval '1 day'),
-  ('restaurant', 'd0000000-0000-0000-0000-000000000008', current_date, current_date, 1, 310, 62.00, 248.00, 'pending', null),
-  ('courier', 'c1000000-0000-0000-0000-000000000001', current_date - 7, current_date - 1, 1, 70.00, 10.50, 59.50, 'paid', now() - interval '1 day'),
-  ('courier', 'c1000000-0000-0000-0000-000000000002', current_date - 7, current_date - 1, 1, 50.00, 7.50, 42.50, 'paid', now() - interval '1 day'),
-  ('courier', 'c1000000-0000-0000-0000-000000000003', current_date - 7, current_date - 1, 1, 38.00, 5.70, 32.30, 'paid', now() - interval '1 day'),
-  ('courier', 'c1000000-0000-0000-0000-000000000009', current_date - 7, current_date - 1, 1, 40.00, 6.00, 34.00, 'paid', now() - interval '1 day'),
-  ('courier', 'c1000000-0000-0000-0000-000000000008', current_date - 7, current_date - 1, 1, 60.00, 6.00, 54.00, 'paid', now() - interval '1 day'),
-  ('courier', 'c1000000-0000-0000-0000-000000000006', current_date, current_date, 1, 60.00, 6.75, 53.25, 'pending', null);
+-- audit #2: generate payouts through the REAL RPC so each carries its payout_orders
+-- ledger rows (gross+net per order). Raw inserts left every delivered order unsettled,
+-- so the first admin "Generează plăți" click double-paid the whole demo dataset.
+-- Historical week: settle everything delivered through yesterday, then mark paid.
+-- Current day: settle today's deliveries, leave pending. (delivered_at was stamped in file 03.)
+select set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, false);
+select public.admin_generate_payouts((current_date - 7)::date, (current_date - 1)::date);
+update public.payouts set status = 'paid', paid_at = now() - interval '1 day' where status = 'pending';
+select public.admin_generate_payouts(current_date, current_date);
+select set_config('request.jwt.claims', '', false);
 
 -- ============================================================================
 -- Payment intents — every status the check constraint allows.
