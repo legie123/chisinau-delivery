@@ -321,7 +321,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: CateringRest
         <button
           type="submit"
           disabled={pending || belowMinimum}
-          className="w-fit rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
+          className="w-fit rounded-full bg-primary-dark px-6 py-3 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
         >
           {pending ? "Se trimite..." : "Trimite cererea de ofertă"}
         </button>

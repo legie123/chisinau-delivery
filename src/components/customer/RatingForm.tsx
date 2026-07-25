@@ -98,7 +98,7 @@ function RatingBlock({
         type="button"
         onClick={handleSubmit}
         disabled={pending}
-        className="mt-3 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
+        className="mt-3 rounded-full bg-primary-dark px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
       >
         {pending ? "Se trimite..." : "Trimite evaluarea"}
       </button>

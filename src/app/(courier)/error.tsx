@@ -17,7 +17,7 @@ export default function ErrorBoundary({
       <button
         type="button"
         onClick={reset}
-        className="rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark"
+        className="rounded-full bg-primary-dark px-6 py-3 text-sm text-white transition hover:bg-primary-darker"
       >
         Încearcă din nou
       </button>

@@ -83,7 +83,7 @@ export function OfferCard({ offer }: { offer: DispatchOffer }) {
           type="button"
           onClick={handleAccept}
           disabled={pending || secs === 0}
-          className="flex-1 rounded-full bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-dark disabled:opacity-50"
+          className="flex-1 rounded-full bg-primary-dark px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-darker disabled:opacity-50"
         >
           Acceptă
         </button>

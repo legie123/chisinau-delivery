@@ -372,7 +372,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
                 m.full ? "col-span-2" : ""
               } ${
                 paymentMethod === m.key
-                  ? "bg-primary text-white"
+                  ? "bg-primary-dark text-white"
                   : "bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10"
               }`}
             >
@@ -455,7 +455,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         <button
           type="submit"
           disabled={pending || belowMinimum || restaurantState !== "ready"}
-          className="rounded-full bg-primary py-4 text-[15px] font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-full bg-primary-dark py-4 text-[15px] font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending
             ? "Se trimite..."

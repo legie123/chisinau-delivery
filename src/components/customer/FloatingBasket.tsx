@@ -34,7 +34,7 @@ export function FloatingBasket() {
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-6">
       <Link
         href="/cart"
-        className="pointer-events-auto flex w-full max-w-md items-center justify-between rounded-full bg-primary px-6 py-4 text-white shadow-2xl shadow-primary/30 transition hover:bg-primary-dark"
+        className="pointer-events-auto flex w-full max-w-md items-center justify-between rounded-full bg-primary-dark px-6 py-4 text-white shadow-2xl shadow-primary/30 transition hover:bg-primary-darker"
       >
         <span className="flex items-center gap-3">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-sm font-bold">

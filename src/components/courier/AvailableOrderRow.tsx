@@ -34,7 +34,7 @@ export function AvailableOrderRow({ order }: { order: Order }) {
         type="button"
         onClick={handleAccept}
         disabled={pending}
-        className="rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
+        className="rounded-full bg-primary-dark px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
       >
         {pending ? "..." : "Acceptă"}
       </button>

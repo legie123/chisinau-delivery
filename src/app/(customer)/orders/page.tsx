@@ -59,7 +59,7 @@ export default async function OrdersPage() {
           <p className="text-white/60">Nu ai plasat nicio comandă încă.</p>
           <Link
             href="/restaurants"
-            className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
+            className="rounded-full bg-primary-dark px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-darker"
           >
             Comandă acum
           </Link>

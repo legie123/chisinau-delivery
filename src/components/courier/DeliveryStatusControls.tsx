@@ -61,7 +61,7 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
           type="button"
           onClick={handleAdvance}
           disabled={pending}
-          className="flex items-center justify-center gap-2.5 rounded-full bg-primary py-4 text-[15px] font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
+          className="flex items-center justify-center gap-2.5 rounded-full bg-primary-dark py-4 text-[15px] font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
         >
           <span aria-hidden>{step.emoji}</span>
           {pending ? "Se actualizează..." : step.label}

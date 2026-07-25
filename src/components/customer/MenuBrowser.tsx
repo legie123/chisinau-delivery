@@ -37,7 +37,7 @@ export function MenuBrowser({
             type="button"
             onClick={() => setSelected("all")}
             className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
-              selected === "all" ? "bg-primary text-white" : "bg-white/5 text-white/70 ring-1 ring-white/10"
+              selected === "all" ? "bg-primary-dark text-white" : "bg-white/5 text-white/70 ring-1 ring-white/10"
             }`}
           >
             Tot meniul
@@ -48,7 +48,7 @@ export function MenuBrowser({
               type="button"
               onClick={() => setSelected(c.id)}
               className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
-                selected === c.id ? "bg-primary text-white" : "bg-white/5 text-white/70 ring-1 ring-white/10"
+                selected === c.id ? "bg-primary-dark text-white" : "bg-white/5 text-white/70 ring-1 ring-white/10"
               }`}
             >
               {c.name}
@@ -76,7 +76,7 @@ export function MenuBrowser({
                     type="button"
                     onClick={() => addItem(restaurant.id, restaurant.name, item)}
                     disabled={!restaurant.accepting_orders}
-                    className="flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex items-center gap-1.5 rounded-full bg-primary-dark px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {inCart > 0 ? (
                       <>

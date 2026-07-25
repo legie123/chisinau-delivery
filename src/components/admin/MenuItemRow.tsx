@@ -82,7 +82,7 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
                 type="button"
                 onClick={handleDelete}
                 disabled={pending}
-                className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                className="rounded-full bg-primary-dark px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
               >
                 Confirmă
               </button>

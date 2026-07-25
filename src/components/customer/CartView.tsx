@@ -17,7 +17,7 @@ export function CartView() {
         <p className="text-white/60">Coșul tău este gol.</p>
         <Link
           href="/restaurants"
-          className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-dark"
+          className="rounded-full bg-primary-dark px-6 py-3 text-sm font-semibold text-white transition hover:bg-primary-darker"
         >
           Vezi restaurantele
         </Link>
@@ -83,7 +83,7 @@ export function CartView() {
 
       <Link
         href="/checkout"
-        className="rounded-full bg-primary py-4 text-center text-[15px] font-semibold text-white transition hover:bg-primary-dark"
+        className="rounded-full bg-primary-dark py-4 text-center text-[15px] font-semibold text-white transition hover:bg-primary-darker"
       >
         Continuă spre plată · {subtotal} MDL
       </Link>

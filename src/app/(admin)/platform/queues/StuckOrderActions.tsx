@@ -47,7 +47,7 @@ export function StuckOrderActions({ orderId }: { orderId: string }) {
           type="button"
           onClick={handleCancel}
           disabled={pending || !reason.trim()}
-          className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white disabled:opacity-40"
+          className="rounded-full bg-primary-dark px-3 py-1 text-xs font-semibold text-white disabled:opacity-40"
         >
           Confirmă
         </button>

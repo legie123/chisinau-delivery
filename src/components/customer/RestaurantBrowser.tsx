@@ -165,7 +165,7 @@ export function RestaurantBrowser({
             onClick={() => setCategory(c.key)}
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
               category === c.key
-                ? "bg-primary text-white"
+                ? "bg-primary-dark text-white"
                 : "bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10"
             }`}
           >
@@ -199,7 +199,7 @@ export function RestaurantBrowser({
               onClick={() => setSort(s.key)}
               aria-pressed={sort === s.key}
               className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                sort === s.key ? "bg-primary text-white" : "text-white/60 hover:text-white"
+                sort === s.key ? "bg-primary-dark text-white" : "text-white/60 hover:text-white"
               }`}
             >
               {s.label}

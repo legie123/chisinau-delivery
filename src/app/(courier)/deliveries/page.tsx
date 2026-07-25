@@ -80,7 +80,7 @@ export default async function DeliveriesPage() {
             <Link
               key={order.id}
               href={`/deliveries/${order.id}`}
-              className="flex items-center justify-between gap-4 rounded-2xl bg-primary p-5 text-white shadow-lg shadow-primary/25 transition hover:bg-primary-dark"
+              className="flex items-center justify-between gap-4 rounded-2xl bg-primary-dark p-5 text-white shadow-lg shadow-primary/25 transition hover:bg-primary-darker"
             >
               <div className="flex items-center gap-4">
                 <span className="flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-white/20 text-xl" aria-hidden>

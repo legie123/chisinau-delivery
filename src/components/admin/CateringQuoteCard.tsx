@@ -108,7 +108,7 @@ export function CateringQuoteCard({
           <button
             type="submit"
             disabled={pending}
-            className="rounded-full bg-primary px-5 py-2 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
+            className="rounded-full bg-primary-dark px-5 py-2 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
           >
             {pending ? "..." : "Trimite oferta"}
           </button>
@@ -135,7 +135,7 @@ export function CateringQuoteCard({
             type="button"
             onClick={handleDecline}
             disabled={pending || !declineReason.trim()}
-            className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+            className="rounded-full bg-primary-dark px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
           >
             Trimite refuzul
           </button>

@@ -14,8 +14,11 @@ export async function updateHours(_prev: ActionState, formData: FormData): Promi
     const rows = DAYS.map((day) => ({
       restaurant_id: restaurantId,
       day_of_week: day,
-      opens_at: String(formData.get(`day_${day}_opens`) ?? "11:00"),
-      closes_at: String(formData.get(`day_${day}_closes`) ?? "22:00"),
+      // HoursForm no longer pre-fills these visually (an unconfigured day
+      // must look unconfigured, not already-set) — so a field left blank
+      // submits "" here, not undefined. `||` catches that; `??` wouldn't.
+      opens_at: String(formData.get(`day_${day}_opens`) || "11:00"),
+      closes_at: String(formData.get(`day_${day}_closes`) || "22:00"),
       is_closed: formData.get(`day_${day}_closed`) === "on",
     }));
 

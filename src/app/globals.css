@@ -12,6 +12,13 @@
   --card: #1e1e35;
   --primary: #e94560;
   --primary-dark: #c73050;
+  /* CTA-only: white text sits directly on this fill (buttons), so it needs
+     AA contrast (>=4.5:1) that --primary alone doesn't hit (3.83:1). Reuses
+     --primary-dark as the resting state (5.29:1) and adds a darker hover so
+     the two states stay visually distinct. Do NOT use for text/badges/
+     decorative accents — those read --primary directly and rely on it
+     staying vivid against the dark background (already >=4.5:1 there). */
+  --primary-darker: #a8253e;
   --gold: #f5a623;
   --gold-light: #ffd700;
 }
@@ -23,6 +30,7 @@
   --color-card: var(--card);
   --color-primary: var(--primary);
   --color-primary-dark: var(--primary-dark);
+  --color-primary-darker: var(--primary-darker);
   --color-gold: var(--gold);
   --color-gold-light: var(--gold-light);
   --font-sans: var(--font-geist-sans);
@@ -34,4 +42,15 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Hides the scrollbar on the admin header's horizontally-scrollable nav
+   (the row still scrolls via touch/trackpad/wheel — this only hides the
+   track so a compact single-row header doesn't grow a visible bar). */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

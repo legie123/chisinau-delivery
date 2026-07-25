@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Livrare sushi și fine dining în Chișinău.",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
+    background_color: "#0d0d1f",
     theme_color: "#0d0d1f",
     icons: [
       {

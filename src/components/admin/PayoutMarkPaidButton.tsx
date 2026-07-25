@@ -23,7 +23,7 @@ export function PayoutMarkPaidButton({ payoutId }: { payoutId: string }) {
         type="button"
         onClick={handleMarkPaid}
         disabled={pending}
-        className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white transition hover:bg-primary-dark disabled:opacity-40"
+        className="rounded-full bg-primary-dark px-3 py-1 text-xs font-semibold text-white transition hover:bg-primary-darker disabled:opacity-40"
       >
         {pending ? "Se salvează..." : "Marchează plătit"}
       </button>

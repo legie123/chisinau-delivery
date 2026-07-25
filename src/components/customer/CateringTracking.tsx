@@ -158,7 +158,7 @@ export function CateringTracking({
               type="button"
               onClick={handleConfirm}
               disabled={pending}
-              className="rounded-full bg-primary px-6 py-3 text-sm text-white transition hover:bg-primary-dark disabled:opacity-50"
+              className="rounded-full bg-primary-dark px-6 py-3 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
             >
               {pending ? "..." : `Confirmă oferta — ${details.quoted_total_mdl} MDL`}
             </button>
@@ -189,7 +189,7 @@ export function CateringTracking({
               type="button"
               onClick={handleCancel}
               disabled={pending}
-              className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-full bg-primary-dark px-5 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               Confirmă anularea
             </button>

@@ -69,7 +69,7 @@ export default async function DevinoPartenerPage() {
           <p className="text-white/70">Intră în cont ca să depui o cerere de parteneriat.</p>
           <Link
             href="/"
-            className="mt-4 inline-block rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark"
+            className="mt-4 inline-block rounded-full bg-primary-dark px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-darker"
           >
             Intră în cont
           </Link>

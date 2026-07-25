@@ -85,7 +85,7 @@ export function DocumentUpload({
         aria-label={label}
         disabled={status === "uploading"}
         onChange={handleFile}
-        className="block w-full text-sm text-white/70 file:mr-4 file:rounded-full file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-dark disabled:opacity-50"
+        className="block w-full text-sm text-white/70 file:mr-4 file:rounded-full file:border-0 file:bg-primary-dark file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary-darker disabled:opacity-50"
       />
       {status === "uploading" && <p className="mt-2 text-xs text-white/50">Se încarcă...</p>}
       {status === "error" && error && <p className="mt-2 text-xs text-primary">{error}</p>}

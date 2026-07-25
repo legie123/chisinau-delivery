@@ -12,7 +12,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   return (
     <div className="flex flex-1 flex-col bg-[#0a0a14] text-white">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a14]/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
           <div className="flex items-center gap-5">
             <Link href="/" className="font-semibold">
               <span className="text-gold">Dragons</span> Delivery
@@ -24,7 +24,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
               Chișinău
             </span>
           </div>
-          <nav className="flex items-center gap-4 text-sm text-white/70">
+          <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white/70 sm:gap-4">
             <Link href="/restaurants" className="transition hover:text-white">
               Restaurante
             </Link>
