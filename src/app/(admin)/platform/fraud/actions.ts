@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireUser } from "@/lib/auth/require";
+import { requirePlatformAdmin } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
 
@@ -11,7 +11,7 @@ export async function markFlagReviewed(flagId: string): Promise<ActionResult> {
   let supabase;
   let user;
   try {
-    ({ supabase, user } = await requireUser());
+    ({ supabase, user } = await requirePlatformAdmin());
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }

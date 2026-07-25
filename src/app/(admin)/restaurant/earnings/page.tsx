@@ -46,13 +46,15 @@ export default async function RestaurantEarningsPage() {
   const weekAgo = daysAgoIso(7);
 
   const [{ data: weekOrders }, { data: payoutRows }] = await Promise.all([
+    // Money basis matches the Wave-1 payout logic: paid + keyed off delivered_at,
+    // and catering counts too (its food value = total - fee - tip). (audit #8/#13)
     supabase
       .from("orders")
-      .select("subtotal_mdl")
+      .select("order_type, subtotal_mdl, total_mdl, delivery_fee_mdl, tip_mdl")
       .eq("restaurant_id", staffRow.restaurant_id)
-      .eq("order_type", "standard")
       .eq("status", "delivered")
-      .gte("created_at", weekAgo),
+      .eq("payment_status", "paid")
+      .gte("delivered_at", weekAgo),
     supabase
       .from("payouts")
       .select("*")
@@ -61,9 +63,26 @@ export default async function RestaurantEarningsPage() {
       .order("created_at", { ascending: false }),
   ]);
 
-  const week = (weekOrders ?? []) as { subtotal_mdl: number }[];
+  const week = (weekOrders ?? []) as {
+    order_type: string;
+    subtotal_mdl: number;
+    total_mdl: number;
+    delivery_fee_mdl: number;
+    tip_mdl: number;
+  }[];
   const weekCount = week.length;
-  const weekGross = round2(week.reduce((s, o) => s + Number(o.subtotal_mdl), 0));
+  // Restaurant food value: standard → subtotal; catering → total - fee - tip
+  // (the quoted food/service charge), matching admin_generate_payouts.
+  const weekGross = round2(
+    week.reduce(
+      (s, o) =>
+        s +
+        (o.order_type === "standard"
+          ? Number(o.subtotal_mdl)
+          : Math.max(Number(o.total_mdl) - Number(o.delivery_fee_mdl) - Number(o.tip_mdl ?? 0), 0)),
+      0,
+    ),
+  );
   const payouts = (payoutRows ?? []) as Payout[];
 
   return (

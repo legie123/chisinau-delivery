@@ -81,7 +81,7 @@ export const useCartStore = create<CartState>()(
               : state.lines.map((l) => (l.menuItemId === menuItemId ? { ...l, quantity } : l)),
         })),
 
-      clear: () => set({ restaurantId: null, restaurantName: null, lines: [] }),
+      clear: () => set({ restaurantId: null, restaurantName: null, lines: [], pendingSwitch: null }),
     }),
     {
       name: "chisinau-delivery-cart",

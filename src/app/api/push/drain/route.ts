@@ -50,24 +50,26 @@ export async function POST(req: Request) {
 
   const now = new Date().toISOString();
   let drained = 0;
+  let failed = 0;
   await Promise.allSettled(
     rows.map(async (r) => {
-      // sendPushToUser is best-effort (never throws; prunes dead endpoints). A
-      // user with no subscriptions is legitimately "done" — mark handled either
-      // way so we don't reprocess. attempts is a safety net for the rare throw.
-      await sendPushToUser(r.user_id, {
-        title: r.title,
-        body: r.body,
-        url: r.url,
-        tag: r.tag ?? undefined,
-      });
-      await admin
-        .from("notification_outbox")
-        .update({ sent_at: now, attempts: (r.attempts ?? 0) + 1 })
-        .eq("id", r.id);
-      drained++;
+      const attempts = (r.attempts ?? 0) + 1;
+      try {
+        // sendPushToUser is best-effort (prunes dead endpoints, resolves for a user
+        // with no subscriptions — legitimately "done"). If it DOES throw (audit
+        // #5/#10/#16), bump attempts WITHOUT sent_at so the row is retried until
+        // MAX_ATTEMPTS, then the claim RPC (attempts < 5) stops picking it up.
+        await sendPushToUser(r.user_id, { title: r.title, body: r.body, url: r.url, tag: r.tag ?? undefined });
+        await admin.from("notification_outbox").update({ sent_at: now, attempts }).eq("id", r.id);
+        drained++;
+      } catch {
+        // record the failed attempt; clear claimed_at so it's eligible before the
+        // 60s reclaim window would otherwise strand it.
+        await admin.from("notification_outbox").update({ attempts, claimed_at: null }).eq("id", r.id);
+        failed++;
+      }
     }),
   );
 
-  return NextResponse.json({ drained });
+  return NextResponse.json({ drained, failed });
 }

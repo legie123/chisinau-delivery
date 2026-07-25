@@ -51,17 +51,24 @@ export default async function RestaurantsPage() {
 
   // "Deschis acum" — compute server-side from today's hours in service time.
   const { dow, time } = chisinauNow();
+  const prevDow = (dow + 6) % 7;
+  // Fetch today's AND yesterday's rows — an overnight window (e.g. 22:00–02:00) is
+  // stored under the day it STARTS, so at 01:00 today it lives on yesterday's row.
+  // (audit #15 — mirrors the SQL restaurant_open_at fix.)
   const { data: hoursRows } = await supabase
     .from("restaurant_hours")
-    .select("restaurant_id, opens_at, closes_at, is_closed")
-    .eq("day_of_week", dow);
-  const openNowIds = ((hoursRows ?? []) as HoursRow[])
+    .select("restaurant_id, day_of_week, opens_at, closes_at, is_closed")
+    .in("day_of_week", [dow, prevDow]);
+  const openNowIds = ((hoursRows ?? []) as (HoursRow & { day_of_week: number })[])
     .filter((h) => {
       if (h.is_closed) return false;
-      // Overnight span (closes past midnight) → open if before close OR after open.
-      return h.closes_at > h.opens_at
-        ? time >= h.opens_at && time <= h.closes_at
-        : time >= h.opens_at || time <= h.closes_at;
+      const overnight = h.closes_at <= h.opens_at;
+      if (h.day_of_week === dow) {
+        // today's window: same-day range, or the evening part of an overnight span
+        return overnight ? time >= h.opens_at : time >= h.opens_at && time <= h.closes_at;
+      }
+      // yesterday's overnight window still running after midnight
+      return overnight && time <= h.closes_at;
     })
     .map((h) => h.restaurant_id);
 
