@@ -10,6 +10,12 @@ const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", timeZone: "UTC" });
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+// Signed MDL — avoids the "−-200" double-minus and shows clawbacks (negative rows)
+// with an explicit sign. (audit #12)
+const signedMdl = (n: number) => `${n < 0 ? "−" : ""}${round2(Math.abs(n))} MDL`;
+// A commission line is shown as a deduction; for a clawback it's a positive
+// give-back, so flip the displayed sign consistently with the net.
+const deductionMdl = (n: number) => `${n >= 0 ? "−" : "+"}${round2(Math.abs(n))} MDL`;
 
 const RECIPIENT_LABEL: Record<Payout["recipient_type"], string> = {
   courier: "Curier",
@@ -106,29 +112,43 @@ export default async function PlatformPayoutsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-white/5 align-top">
-                  <td className="py-3 font-medium text-white">{nameMap.get(r.recipient_id) ?? "—"}</td>
-                  <td className="py-3 text-white/60">{RECIPIENT_LABEL[r.recipient_type]}</td>
-                  <td className="py-3 whitespace-nowrap text-white/70">
-                    {fmtDate(r.period_start)} – {fmtDate(r.period_end)}
-                  </td>
-                  <td className="py-3 text-right text-white/70">{r.orders_count}</td>
-                  <td className="py-3 text-right whitespace-nowrap text-white/70">{r.gross_mdl} MDL</td>
-                  <td className="py-3 text-right whitespace-nowrap text-white/60">−{r.commission_mdl} MDL</td>
-                  <td className="py-3 text-right whitespace-nowrap font-semibold text-gold">{r.net_mdl} MDL</td>
-                  <td className="py-3">
-                    <PayoutStatusBadge status={r.status} />
-                  </td>
-                  <td className="py-3 text-right">
-                    {r.status === "pending" ? (
-                      <PayoutMarkPaidButton payoutId={r.id} />
-                    ) : (
-                      <span className="text-white/30">—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                  // A clawback (refund reversal) is a negative payout: recover money,
+                  // not pay it. Render it distinctly instead of as gold earnings.
+                  const isClawback = Number(r.net_mdl) < 0;
+                  return (
+                    <tr key={r.id} className="border-b border-white/5 align-top">
+                      <td className="py-3 font-medium text-white">
+                        {nameMap.get(r.recipient_id) ?? "—"}
+                        {isClawback && (
+                          <span className="ml-2 rounded bg-red-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-red-300">
+                            Recuperare
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 text-white/60">{RECIPIENT_LABEL[r.recipient_type]}</td>
+                      <td className="py-3 whitespace-nowrap text-white/70">
+                        {fmtDate(r.period_start)} – {fmtDate(r.period_end)}
+                      </td>
+                      <td className="py-3 text-right text-white/70">{r.orders_count}</td>
+                      <td className="py-3 text-right whitespace-nowrap text-white/70">{signedMdl(Number(r.gross_mdl))}</td>
+                      <td className="py-3 text-right whitespace-nowrap text-white/60">{deductionMdl(Number(r.commission_mdl))}</td>
+                      <td className={`py-3 text-right whitespace-nowrap font-semibold ${isClawback ? "text-red-300" : "text-gold"}`}>
+                        {signedMdl(Number(r.net_mdl))}
+                      </td>
+                      <td className="py-3">
+                        <PayoutStatusBadge status={r.status} />
+                      </td>
+                      <td className="py-3 text-right">
+                        {r.status === "pending" ? (
+                          <PayoutMarkPaidButton payoutId={r.id} clawback={isClawback} />
+                        ) : (
+                          <span className="text-white/30">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
             <tfoot>
               <tr className="border-t border-white/10 font-semibold text-white">

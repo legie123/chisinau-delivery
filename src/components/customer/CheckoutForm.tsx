@@ -200,11 +200,13 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         ? "Comanda nu atinge minimul restaurantului."
         : raw.includes("not currently accepting")
           ? "Restaurantul nu acceptă comenzi momentan."
-          : raw.includes("menu item unavailable")
-            ? "Un articol din coș nu mai este disponibil — reîncarcă meniul."
-            : raw.includes("obligatorie") || raw.includes("autentificat") || raw.includes("livrării")
-              ? raw
-              : "Nu am putut trimite comanda. Încearcă din nou.";
+          : raw.includes("închis la ora") // #31: the place_order hours gate
+            ? "Restaurantul este închis la ora selectată. Alege alt restaurant sau altă oră."
+            : raw.includes("menu item unavailable")
+              ? "Un articol din coș nu mai este disponibil — reîncarcă meniul."
+              : raw.includes("obligatorie") || raw.includes("autentificat") || raw.includes("livrării") || raw.includes("adresa")
+                ? raw
+                : "Nu am putut trimite comanda. Încearcă din nou.";
       setError(friendly);
     } finally {
       setPending(false);

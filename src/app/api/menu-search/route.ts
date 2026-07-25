@@ -20,7 +20,9 @@ export type MenuSearchHit = {
 // browser hits this while typing so a query can surface dishes from
 // restaurants whose name doesn't match, not just name/description filtering.
 export async function GET(request: NextRequest) {
-  const q = request.nextUrl.searchParams.get("q")?.trim() ?? "";
+  // Cap the query length (audit #27) — a dish name is short; anything longer is
+  // abuse. Slice instead of reject so the typeahead still returns something useful.
+  const q = (request.nextUrl.searchParams.get("q")?.trim() ?? "").slice(0, 80);
   if (q.length < 2) {
     return NextResponse.json({ items: [] satisfies MenuSearchHit[] });
   }
@@ -28,7 +30,9 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("search_menu_items", { p_query: q });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Don't leak the raw Postgres error to the client (audit #27).
+    console.error("menu-search rpc error:", error.message);
+    return NextResponse.json({ error: "search unavailable" }, { status: 500 });
   }
 
   return NextResponse.json(

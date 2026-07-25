@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, StatusBar, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, StatusBar, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { CUISINE_LABEL, DishSearchResult, fetchRestaurants, searchMenuItems } from '../lib/api';
@@ -65,7 +65,11 @@ export default function SearchScreen({ navigation }: Props) {
 
   function openDish(dish: DishSearchResult) {
     const restaurant = restaurants.find(r => r.id === dish.restaurantId);
-    if (!restaurant) return;
+    // audit #17: don't silently no-op if the restaurant list hasn't loaded yet.
+    if (!restaurant) {
+      Alert.alert('Se încarcă', 'Restaurantele încă se încarcă. Încearcă din nou într-o clipă.');
+      return;
+    }
     openRestaurant(restaurant);
   }
 
