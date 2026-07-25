@@ -20,7 +20,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BATCH = 50;
-const MAX_ATTEMPTS = 5;
+// Max attempts (5) is enforced inside claim_notification_outbox itself.
 
 export async function POST(req: Request) {
   const secret = process.env.PUSH_DRAIN_SECRET;
@@ -38,16 +38,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "service role unavailable" }, { status: 503 });
   }
 
-  const { data: rows, error } = await admin
-    .from("notification_outbox")
-    .select("id, user_id, title, body, url, tag, attempts")
-    .is("sent_at", null)
-    .lt("attempts", MAX_ATTEMPTS)
-    .order("created_at", { ascending: true })
-    .limit(BATCH);
+  // Atomic claim (audit #45): the RPC marks rows claimed under FOR UPDATE SKIP
+  // LOCKED, so overlapping cron ticks can never pick up the same row twice; a
+  // crashed run's claims free themselves after the 60s reclaim window.
+  type OutboxRow = { id: string; user_id: string; title: string; body: string; url: string; tag: string | null; attempts: number };
+  const { data, error } = await admin.rpc("claim_notification_outbox", { p_batch: BATCH });
+  const rows = (data ?? []) as OutboxRow[];
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!rows?.length) return NextResponse.json({ drained: 0 });
+  if (!rows.length) return NextResponse.json({ drained: 0 });
 
   const now = new Date().toISOString();
   let drained = 0;

@@ -6,6 +6,7 @@ import { useRoute } from "@/hooks/useRoute";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { PrepCountdown } from "@/components/customer/PrepCountdown";
 import { RatingForm } from "@/components/customer/RatingForm";
+import { CancelOrderButton } from "@/components/customer/CancelOrderButton";
 import { DeliveryMap, type MapPoint } from "@/components/shared/DeliveryMap";
 import {
   ORDER_STATUS_LABEL,
@@ -98,6 +99,8 @@ export function OrderTracking({
             {order.status === "pending_restaurant" && (
               <div className="mb-4 text-center">
                 <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="customer" />
+                {/* #37 — cancellation is allowed only pre-confirmation; offer it here. */}
+                <CancelOrderButton orderId={order.id} />
               </div>
             )}
             {order.estimated_ready_at &&
