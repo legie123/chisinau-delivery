@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 import type { MenuItem, Restaurant } from "../types";
 
-const CUISINE_LABEL: Record<string, string> = {
+export const CUISINE_LABEL: Record<string, string> = {
   sushi: "Sushi · Japonez",
   fine_dining: "Fine Dining",
   other: "Restaurant",
@@ -68,6 +68,41 @@ export async function fetchMenu(restaurantId: string): Promise<{ items: MenuItem
   return { items: mapped, categories };
 }
 
+// ---------- Search ----------
+
+export interface DishSearchResult {
+  itemId: string;
+  itemName: string;
+  itemDescription: string;
+  priceMdl: string;
+  photoUrl: string | null;
+  restaurantId: string;
+  restaurantName: string;
+  cuisineType: string;
+}
+
+// Cross-restaurant dish search via the search_menu_items RPC (anon-safe,
+// server-side — see supabase/migrations/20260725000000_search_menu_items.sql).
+// The RPC itself requires length(trim(query)) >= 2, so short queries short-circuit here.
+export async function searchMenuItems(query: string): Promise<DishSearchResult[]> {
+  const trimmed = query.trim();
+  if (trimmed.length < 2) return [];
+
+  const { data, error } = await supabase.rpc("search_menu_items", { p_query: trimmed });
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((d: any) => ({
+    itemId: d.item_id,
+    itemName: d.item_name,
+    itemDescription: d.item_description ?? "",
+    priceMdl: String(d.price_mdl),
+    photoUrl: d.photo_url,
+    restaurantId: d.restaurant_id,
+    restaurantName: d.restaurant_name,
+    cuisineType: d.cuisine_type,
+  }));
+}
+
 // ---------- Auth + ordering (customer) ----------
 
 export async function signIn(email: string, password: string): Promise<string | null> {
@@ -89,6 +124,44 @@ export async function isSignedIn(): Promise<boolean> {
     data: { session },
   } = await supabase.auth.getSession();
   return !!session;
+}
+
+export async function signOut(): Promise<void> {
+  await supabase.auth.signOut();
+}
+
+// ---------- Profile ----------
+
+export interface CustomerProfile {
+  fullName: string;
+  phone: string | null;
+  email: string | null;
+  orderCount: number;
+  favoriteCount: number;
+}
+
+// Returns null when there is no active session — screens use that to show
+// the sign-in prompt instead of a profile.
+export async function fetchMyProfile(): Promise<CustomerProfile | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const [{ data: profile, error: profileError }, { count: orderCount }, { count: favoriteCount }] = await Promise.all([
+    supabase.from("profiles").select("full_name, phone").eq("id", user.id).single(),
+    supabase.from("orders").select("id", { count: "exact", head: true }),
+    supabase.from("favorites").select("customer_id", { count: "exact", head: true }),
+  ]);
+  if (profileError) throw new Error(profileError.message);
+
+  return {
+    fullName: profile?.full_name ?? "Client Dragons",
+    phone: profile?.phone ?? null,
+    email: user.email ?? null,
+    orderCount: orderCount ?? 0,
+    favoriteCount: favoriteCount ?? 0,
+  };
 }
 
 export interface PlaceOrderInput {
