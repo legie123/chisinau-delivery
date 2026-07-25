@@ -99,6 +99,12 @@ export default async function DeliveriesPage() {
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Comenzi disponibile</h2>
+        {/* #40 — a busy courier already has an active delivery; don't invite another accept. */}
+        {active.length > 0 && (
+          <p className="mb-3 rounded-xl bg-amber-500/15 px-3 py-2 text-sm text-amber-400 ring-1 ring-amber-500/30">
+            Finalizează livrarea curentă mai întâi.
+          </p>
+        )}
         {available.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.04] py-14 text-center ring-1 ring-white/[0.06]">
             <span className="text-5xl" aria-hidden>🧘</span>
@@ -107,7 +113,7 @@ export default async function DeliveriesPage() {
         ) : (
           <ul className="flex flex-col gap-3">
             {available.map((order) => (
-              <AvailableOrderRow key={order.id} order={order} />
+              <AvailableOrderRow key={order.id} order={order} disabled={active.length > 0} />
             ))}
           </ul>
         )}

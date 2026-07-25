@@ -15,6 +15,10 @@ export function MenuBrowser({
 }) {
   const addItem = useCartStore((s) => s.addItem);
   const lines = useCartStore((s) => s.lines);
+  const cartRestaurantName = useCartStore((s) => s.restaurantName);
+  const pendingSwitch = useCartStore((s) => s.pendingSwitch);
+  const confirmSwitch = useCartStore((s) => s.confirmSwitch);
+  const cancelSwitch = useCartStore((s) => s.cancelSwitch);
 
   const visibleCategories = useMemo(() => {
     const withItems = categories.filter((c) => items.some((i) => i.category_id === c.id));
@@ -30,6 +34,31 @@ export function MenuBrowser({
 
   return (
     <div className="flex flex-col gap-5">
+      {/* #38 — cross-restaurant add no longer silently wipes the cart; confirm inline. */}
+      {pendingSwitch && pendingSwitch.restaurantId === restaurant.id && (
+        <div className="flex flex-col gap-3 rounded-2xl bg-primary/10 p-4 ring-1 ring-primary/30">
+          <p className="text-sm text-white/80">
+            Coșul conține produse de la {cartRestaurantName}. Îl golești și începi o comandă nouă aici?
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={confirmSwitch}
+              className="rounded-full bg-primary-dark px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-darker"
+            >
+              Golește și adaugă
+            </button>
+            <button
+              type="button"
+              onClick={cancelSwitch}
+              className="rounded-full bg-white/5 px-4 py-2 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10"
+            >
+              Renunță
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Sticky category pills */}
       <div className="sticky top-[65px] z-30 -mx-5 bg-[#0a0a14]/95 px-5 py-3 backdrop-blur">
         <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">

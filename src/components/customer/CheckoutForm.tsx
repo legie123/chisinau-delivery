@@ -59,19 +59,32 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   // Optional GPS pin for the new address → real dropoff marker + courier navigation.
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const hydrated = useHydrated();
 
   function captureLocation() {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    setLocationError(null);
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocationError("Locația nu este disponibilă pe acest dispozitiv.");
+      return;
+    }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setCoords({ lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)) });
         setLocating(false);
       },
-      () => setLocating(false),
+      () => {
+        setLocating(false);
+        setLocationError("Nu am putut obține locația — verifică permisiunile.");
+      },
       { enableHighAccuracy: true, timeout: 8000 },
     );
+  }
+
+  function clearLocation() {
+    setCoords(null);
+    setLocationError(null);
   }
 
   useEffect(() => {
@@ -320,14 +333,33 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               onChange={(e) => setNewAddress({ ...newAddress, notes: e.target.value })}
               className={inputClass}
             />
-            <button
-              type="button"
-              onClick={captureLocation}
-              disabled={locating}
-              className="flex items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm text-white/80 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50 sm:col-span-2"
-            >
-              {coords ? "📍 Pin salvat ✓ (schimbă)" : locating ? "Te localizăm…" : "📍 Folosește locația mea"}
-            </button>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={captureLocation}
+                  disabled={locating}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm text-white/80 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
+                >
+                  {coords ? "📍 Pin salvat ✓ (schimbă)" : locating ? "Te localizăm…" : "📍 Folosește locația mea"}
+                </button>
+                {coords && (
+                  <button
+                    type="button"
+                    onClick={clearLocation}
+                    className="shrink-0 rounded-xl bg-white/5 px-3 py-3 text-xs text-white/60 ring-1 ring-white/10 transition hover:bg-white/10"
+                  >
+                    Șterge pin
+                  </button>
+                )}
+              </div>
+              {coords && (
+                <p className="text-xs text-white/40">
+                  Pin: {coords.lat}, {coords.lng}
+                </p>
+              )}
+              {locationError && <p className="text-xs text-primary">{locationError}</p>}
+            </div>
           </div>
         )}
       </section>

@@ -4,11 +4,12 @@ import { useState, useTransition } from "react";
 import { acceptDelivery } from "@/app/(courier)/deliveries/actions";
 import type { Order } from "@/lib/types/domain";
 
-export function AvailableOrderRow({ order }: { order: Order }) {
+export function AvailableOrderRow({ order, disabled }: { order: Order; disabled?: boolean }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function handleAccept() {
+    if (disabled) return;
     startTransition(async () => {
       const result = await acceptDelivery(order.id);
       setError(result.error);
@@ -33,7 +34,8 @@ export function AvailableOrderRow({ order }: { order: Order }) {
       <button
         type="button"
         onClick={handleAccept}
-        disabled={pending}
+        disabled={pending || disabled}
+        title={disabled ? "Finalizează livrarea curentă mai întâi." : undefined}
         className="rounded-full bg-primary-dark px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
       >
         {pending ? "..." : "Acceptă"}
