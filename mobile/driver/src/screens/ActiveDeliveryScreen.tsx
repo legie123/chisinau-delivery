@@ -28,7 +28,17 @@ interface Props {
 
 export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   const { order } = route.params;
-  const [status, setStatus] = useState<'pickup' | 'delivering' | 'delivered'>('pickup');
+  // Derive the UI step from the order's REAL DB status so a remount into an already
+  // picked-up/en_route delivery resumes correctly instead of resetting to 'pickup'
+  // (which made the swipe call picked_up -> the RPC rejects en_route->picked_up and
+  // the delivery became uncompletable in-app). (audit #3)
+  const initialStep: 'pickup' | 'delivering' | 'delivered' =
+    order?.status === 'delivered'
+      ? 'delivered'
+      : order?.status === 'picked_up' || order?.status === 'en_route'
+        ? 'delivering'
+        : 'pickup';
+  const [status, setStatus] = useState<'pickup' | 'delivering' | 'delivered'>(initialStep);
   const [courierId, setCourierId] = useState<string | null>(null);
   const swipeX = useRef(new Animated.Value(0)).current;
 
