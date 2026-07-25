@@ -89,7 +89,8 @@ export function OrderTracking({
           </div>
         ) : (
           <>
-            <p className="mb-1 text-center text-lg font-semibold text-white">
+            {/* aria-live so screen readers announce each realtime status change (#50) */}
+            <p role="status" aria-live="polite" className="mb-1 text-center font-serif text-xl font-bold text-white">
               {order.status === "pending_restaurant"
                 ? "Așteptăm confirmarea restaurantului..."
                 : ORDER_STATUS_LABEL[order.status]}
@@ -140,6 +141,15 @@ export function OrderTracking({
         )}
       </section>
 
+      {/* Arrival payoff — the premium "delivered" moment (Godmode tracking language). */}
+      {order.status === "delivered" && (
+        <section className="flex flex-col items-center gap-2 rounded-2xl border border-gold/40 bg-gradient-to-b from-[#2a1f0a] to-[#181206] p-6 text-center">
+          <span className="text-4xl" aria-hidden>🎉</span>
+          <p className="font-serif text-xl font-bold text-gold">Livrată cu succes</p>
+          <p className="text-sm text-white/60">Mulțumim că ai comandat cu Dragons Delivery</p>
+        </section>
+      )}
+
       {/* WS6 — post-delivery ratings. order is live via useOrderRealtime, so this
           appears the moment delivery completes without a reload. */}
       {order.status === "delivered" && (
@@ -177,7 +187,7 @@ export function OrderTracking({
               href={`https://www.google.com/maps?q=${position.lat},${position.lng}`}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark"
+              className="rounded-full bg-primary-dark px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-darker"
             >
               Vezi pe hartă
             </a>
@@ -207,6 +217,13 @@ export function OrderTracking({
             <span>Livrare</span>
             <span>{Number(order.delivery_fee_mdl) === 0 ? "Gratuită" : `${order.delivery_fee_mdl} MDL`}</span>
           </div>
+          {/* Tip shown as its own line instead of being silently folded into the total (#36) */}
+          {Number(order.tip_mdl) > 0 && (
+            <div className="flex justify-between text-white/70">
+              <span>Bacșiș curier</span>
+              <span>{order.tip_mdl} MDL</span>
+            </div>
+          )}
           <div className="flex justify-between text-lg font-bold text-white">
             <span>Total ({PAYMENT_METHOD_LABEL[order.payment_method]})</span>
             <span>{order.total_mdl} MDL</span>
