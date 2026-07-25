@@ -1,105 +1,119 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
+import { fetchEarningsSummary, EarningsSummary, PayoutRow } from '../lib/api';
 
-const WEEKLY_DATA = [
-  { day: 'Lun', amount: 85, orders: 7 },
-  { day: 'Mar', amount: 120, orders: 9 },
-  { day: 'Mie', amount: 95, orders: 8 },
-  { day: 'Joi', amount: 142, orders: 11 },
-  { day: 'Vin', amount: 168, orders: 13 },
-  { day: 'Sâm', amount: 195, orders: 15 },
-  { day: 'Dum', amount: 142, orders: 11 },
-];
+const PAYOUT_STATUS_LABEL: Record<PayoutRow['status'], string> = {
+  paid: 'Plătit ✓',
+  failed: 'Eșuat',
+  pending: 'În așteptare',
+};
 
+const PAYOUT_STATUS_COLOR: Record<PayoutRow['status'], string> = {
+  paid: COLORS.success,
+  failed: COLORS.primary,
+  pending: COLORS.gold,
+};
+
+function formatPeriod(start: string, end: string) {
+  const fmt = (d: string) => new Date(d).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' });
+  return `${fmt(start)} – ${fmt(end)}`;
+}
+
+// Real earnings (fixes fabricated RON numbers, finding #23) — mirrors
+// src/app/(courier)/earnings/page.tsx on the web app: this-week delivery
+// earnings (delivery fee + tip, delivered+paid orders only) and the payout
+// history the platform settles, in MDL.
 export default function EarningsScreen() {
-  const [period, setPeriod] = useState<'today' | 'week' | 'month'>('week');
-  const totalWeek = WEEKLY_DATA.reduce((s, d) => s + d.amount, 0);
-  const totalOrders = WEEKLY_DATA.reduce((s, d) => s + d.orders, 0);
-  const maxAmount = Math.max(...WEEKLY_DATA.map(d => d.amount));
+  const [summary, setSummary] = useState<EarningsSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchEarningsSummary()
+      .then((s) => {
+        if (mounted) setSummary(s);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <View style={styles.header}>
-        <Text style={styles.title}>Câștiguri</Text>
-      </View>
-
-      {/* Period Selector */}
-      <View style={styles.periodRow}>
-        {(['today', 'week', 'month'] as const).map(p => (
-          <TouchableOpacity
-            key={p}
-            style={[styles.periodBtn, period === p && styles.periodBtnActive]}
-            onPress={() => setPeriod(p)}
-          >
-            <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
-              {p === 'today' ? 'Azi' : p === 'week' ? 'Săptămâna' : 'Luna'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Total Card */}
-      <View style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Total câștiguri</Text>
-        <Text style={styles.totalAmount}>{totalWeek} RON</Text>
-        <View style={styles.totalMeta}>
-          <View style={styles.metaItem}>
-            <Ionicons name="bicycle" size={16} color={COLORS.textSecondary} />
-            <Text style={styles.metaText}>{totalOrders} livrări</Text>
-          </View>
-          <View style={styles.metaItem}>
-            <Ionicons name="time" size={16} color={COLORS.textSecondary} />
-            <Text style={styles.metaText}>~28 min/livrare</Text>
-          </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Câștiguri</Text>
         </View>
-      </View>
 
-      {/* Chart */}
-      <View style={styles.chartSection}>
-        <Text style={styles.chartTitle}>Această săptămână</Text>
-        <View style={styles.chart}>
-          {WEEKLY_DATA.map((d, i) => (
-            <View key={i} style={styles.barContainer}>
-              <View style={styles.barWrapper}>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      height: `${(d.amount / maxAmount) * 100}%`,
-                      backgroundColor: i === 3 ? COLORS.primary : COLORS.gold + '60',
-                    },
-                  ]}
-                />
+        {loading ? (
+          <ActivityIndicator color={COLORS.gold} style={styles.loading} />
+        ) : (
+          <>
+            <View style={styles.totalCard}>
+              <Text style={styles.totalLabel}>Săptămâna aceasta</Text>
+              <Text style={styles.totalAmount}>{summary?.weekEarningsMdl ?? 0} MDL</Text>
+              <View style={styles.totalMeta}>
+                <View style={styles.metaItem}>
+                  <Ionicons name="bicycle" size={16} color={COLORS.textSecondary} />
+                  <Text style={styles.metaText}>
+                    {summary?.weekOrdersCount ?? 0} {summary?.weekOrdersCount === 1 ? 'livrare completată' : 'livrări completate'}
+                  </Text>
+                </View>
               </View>
-              <Text style={[styles.barLabel, i === 3 && { color: COLORS.primary, fontWeight: '700' }]}>
-                {d.day}
-              </Text>
-              <Text style={styles.barAmount}>{d.amount}</Text>
+              <Text style={styles.totalHint}>Taxă livrare + bacșiș, doar comenzi livrate și plătite</Text>
             </View>
-          ))}
-        </View>
-      </View>
 
-      {/* Stats */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statsRow}>
-        <View style={[styles.statCard, { borderColor: COLORS.gold + '30' }]}>
-          <Ionicons name="trophy" size={24} color={COLORS.gold} />
-          <Text style={styles.statValue}>4.9</Text>
-          <Text style={styles.statLabel}>Rating</Text>
-        </View>
-        <View style={[styles.statCard, { borderColor: COLORS.success + '30' }]}>
-          <Ionicons name="checkmark-done" size={24} color={COLORS.success} />
-          <Text style={styles.statValue}>98%</Text>
-          <Text style={styles.statLabel}>Completare</Text>
-        </View>
-        <View style={[styles.statCard, { borderColor: COLORS.primary + '30' }]}>
-          <Ionicons name="flash" size={24} color={COLORS.primary} />
-          <Text style={styles.statValue}>24 min</Text>
-          <Text style={styles.statLabel}>Timp mediu</Text>
-        </View>
+            <Text style={styles.sectionTitle}>Plăți</Text>
+            {!summary || summary.payouts.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>Nicio plată încă — apar aici după prima decontare.</Text>
+              </View>
+            ) : (
+              summary.payouts.map((p) => (
+                <View key={p.id} style={styles.payoutCard}>
+                  <View style={styles.payoutHeader}>
+                    <Text style={styles.payoutPeriod}>{formatPeriod(p.periodStart, p.periodEnd)}</Text>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: PAYOUT_STATUS_COLOR[p.status] + '20', borderColor: PAYOUT_STATUS_COLOR[p.status] + '40' },
+                      ]}
+                    >
+                      <Text style={[styles.statusText, { color: PAYOUT_STATUS_COLOR[p.status] }]}>
+                        {PAYOUT_STATUS_LABEL[p.status]}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.payoutStats}>
+                    <View style={styles.payoutStat}>
+                      <Text style={styles.payoutStatLabel}>Comenzi</Text>
+                      <Text style={styles.payoutStatValue}>{p.ordersCount}</Text>
+                    </View>
+                    <View style={styles.payoutStat}>
+                      <Text style={styles.payoutStatLabel}>Brut</Text>
+                      <Text style={styles.payoutStatValue}>{p.grossMdl} MDL</Text>
+                    </View>
+                    <View style={styles.payoutStat}>
+                      <Text style={styles.payoutStatLabel}>Comision</Text>
+                      <Text style={styles.payoutStatValueMuted}>−{p.commissionMdl} MDL</Text>
+                    </View>
+                    <View style={styles.payoutStat}>
+                      <Text style={styles.payoutStatLabel}>Net</Text>
+                      <Text style={styles.payoutStatValueGold}>{p.netMdl} MDL</Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -120,30 +134,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: COLORS.white,
   },
-  periodRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
-  periodBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  periodBtnActive: {
-    backgroundColor: COLORS.primary + '20',
-    borderColor: COLORS.primary + '50',
-  },
-  periodText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  periodTextActive: {
-    color: COLORS.primary,
+  loading: {
+    marginTop: 60,
   },
   totalCard: {
     backgroundColor: COLORS.card,
@@ -177,67 +169,85 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
   },
-  chartSection: {
-    marginBottom: 24,
+  totalHint: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    marginTop: 12,
   },
-  chartTitle: {
+  sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: COLORS.white,
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  chart: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 120,
-  },
-  barContainer: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  barWrapper: {
-    width: 24,
-    height: 90,
-    justifyContent: 'flex-end',
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  bar: {
-    width: '100%',
-    borderRadius: 6,
-  },
-  barLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 6,
-  },
-  barAmount: {
-    fontSize: 9,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  statsRow: {
-    gap: 12,
-    paddingBottom: 20,
-  },
-  statCard: {
+  emptyCard: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 16,
+    padding: 24,
     alignItems: 'center',
-    width: 110,
+    marginBottom: 24,
     borderWidth: 1,
+    borderColor: COLORS.cardBorder,
   },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800',
+  emptyText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  payoutCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+  },
+  payoutHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  payoutPeriod: {
+    fontSize: 15,
+    fontWeight: '700',
     color: COLORS.white,
-    marginTop: 8,
   },
-  statLabel: {
+  statusBadge: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  statusText: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  payoutStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  payoutStat: {
+    flex: 1,
+  },
+  payoutStatLabel: {
+    fontSize: 10,
     color: COLORS.textMuted,
-    marginTop: 4,
+    marginBottom: 2,
+  },
+  payoutStatValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.white,
+  },
+  payoutStatValueMuted: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  payoutStatValueGold: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.gold,
   },
 });

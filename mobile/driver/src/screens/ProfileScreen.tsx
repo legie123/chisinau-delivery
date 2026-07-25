@@ -1,8 +1,34 @@
-import React from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { signOut } from '../lib/api';
+import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, CourierProfile, CourierStatus } from '../lib/api';
+
+const VEHICLE_LABEL: Record<string, string> = {
+  bike: '🚲 Bicicletă',
+  e_bike: '🔋 Bicicletă electrică',
+  scooter: '🛵 Scuter',
+  car: '🚗 Mașină',
+  on_foot: '🚶 Pe jos',
+};
+
+const STATUS_LABEL: Record<CourierStatus, string> = {
+  online: 'Activ',
+  offline: 'Offline',
+  on_delivery: 'Livrare activă',
+};
+
+const STATUS_COLOR: Record<CourierStatus, string> = {
+  online: COLORS.success,
+  offline: COLORS.textMuted,
+  on_delivery: COLORS.gold,
+};
+
+function initials(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  return parts.slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
+}
 
 const MENU_ITEMS = [
   { icon: 'person-outline', label: 'Editează profilul', color: COLORS.primary },
@@ -15,7 +41,51 @@ const MENU_ITEMS = [
   { icon: 'log-out-outline', label: 'Deconectare', color: COLORS.primary },
 ];
 
+// Real courier profile (fixes mock name/vehicle/stats, finding #22 driver
+// half) + a working online/offline toggle through set_courier_online_status,
+// which now blocks the switch while a delivery is active (surfaced here as an
+// alert instead of silently failing).
 export default function ProfileScreen() {
+  const [profile, setProfile] = useState<CourierProfile | null>(null);
+  const [deliveries, setDeliveries] = useState(0);
+  const [acceptRate, setAcceptRate] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([getMyCourierProfile(), fetchDeliveredOrdersCount(), fetchAcceptanceRate()])
+      .then(([p, d, rate]) => {
+        if (!mounted) return;
+        setProfile(p);
+        setDeliveries(d);
+        setAcceptRate(rate);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleToggleOnline = async () => {
+    if (!profile || profile.status === 'on_delivery' || toggling) return;
+    const goingOnline = profile.status !== 'online';
+    setToggling(true);
+    const err = await setOnline(goingOnline);
+    setToggling(false);
+    if (err) {
+      Alert.alert('Nu s-a putut schimba statusul', err);
+      return;
+    }
+    setProfile({ ...profile, status: goingOnline ? 'online' : 'offline' });
+  };
+
+  const displayName = profile?.fullName ?? 'Curier';
+  const vehicleLabel = profile ? (VEHICLE_LABEL[profile.vehicleType] ?? profile.vehicleType) : '';
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
@@ -23,28 +93,50 @@ export default function ProfileScreen() {
         {/* Avatar */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>DC</Text>
+            <Text style={styles.avatarText}>{initials(displayName)}</Text>
           </View>
-          <Text style={styles.userName}>Dragon Courier</Text>
-          <Text style={styles.userVehicle}>🛵 Scuter · București</Text>
-          <View style={styles.statusBadge}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>Activ</Text>
-          </View>
+          <Text style={styles.userName}>{displayName}</Text>
+          {vehicleLabel ? <Text style={styles.userVehicle}>{vehicleLabel}</Text> : null}
+
+          {profile && (
+            <TouchableOpacity
+              style={[
+                styles.statusBadge,
+                { backgroundColor: STATUS_COLOR[profile.status] + '15', borderColor: STATUS_COLOR[profile.status] + '30' },
+              ]}
+              onPress={handleToggleOnline}
+              disabled={profile.status === 'on_delivery' || toggling}
+              activeOpacity={profile.status === 'on_delivery' ? 1 : 0.7}
+            >
+              {toggling ? (
+                <ActivityIndicator size="small" color={STATUS_COLOR[profile.status]} />
+              ) : (
+                <>
+                  <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[profile.status] }]} />
+                  <Text style={[styles.statusText, { color: STATUS_COLOR[profile.status] }]}>
+                    {STATUS_LABEL[profile.status]}
+                  </Text>
+                  {profile.status !== 'on_delivery' && (
+                    <Ionicons name="swap-horizontal" size={13} color={STATUS_COLOR[profile.status]} />
+                  )}
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>347</Text>
+            <Text style={styles.statValue}>{loading ? '—' : deliveries}</Text>
             <Text style={styles.statLabel}>Livrări</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>4.9</Text>
+            <Text style={styles.statValue}>{profile?.ratingAvg != null ? profile.ratingAvg.toFixed(1) : '—'}</Text>
             <Text style={styles.statLabel}>Rating</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statValue}>98%</Text>
+            <Text style={styles.statValue}>{acceptRate != null ? `${acceptRate}%` : '—'}</Text>
             <Text style={styles.statLabel}>Accept</Text>
           </View>
         </View>
@@ -113,23 +205,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 8,
-    backgroundColor: COLORS.success + '15',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.success + '30',
+    minHeight: 24,
   },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.success,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.success,
   },
   statsRow: {
     flexDirection: 'row',

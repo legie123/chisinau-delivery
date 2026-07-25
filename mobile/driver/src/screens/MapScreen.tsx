@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   StatusBar,
   Animated,
@@ -11,7 +10,24 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { COLORS } from '../theme';
-import { fetchAvailableOrders, fetchActiveOrder, fetchDeliveryHistory, acceptOrder as apiAcceptOrder, setOnline, DriverOrder } from '../lib/api';
+import { styles, darkMapStyle } from './MapScreen.styles';
+import {
+  fetchAvailableOrders,
+  fetchActiveOrder,
+  fetchDeliveryHistory,
+  acceptOrder as apiAcceptOrder,
+  setOnline,
+  getMyCourierId,
+  fetchMyLiveOffer,
+  acceptDispatchOffer,
+  declineDispatchOffer,
+  subscribeMyDispatchOffers,
+  CHISINAU_CENTER,
+  DriverOrder,
+  DispatchOfferRow,
+} from '../lib/api';
+import { useDevicePosition } from '../hooks/useDevicePosition';
+import OfferCard from '../components/OfferCard';
 import { Alert } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -28,23 +44,85 @@ export default function MapScreen({ navigation }: Props) {
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [activeDelivery, setActiveDelivery] = useState<{ order: DriverOrder; status: string } | null>(null);
+  const [courierId, setCourierId] = useState<string | null>(null);
+  const [liveOffer, setLiveOffer] = useState<{ offer: DispatchOfferRow; order: DriverOrder } | null>(null);
+  const [offerPending, setOfferPending] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
+  // Real device GPS for the courier's own map marker (finding #4 — this used
+  // to be a hardcoded constant, so the marker never moved).
+  const { position: devicePosition, error: gpsError } = useDevicePosition();
 
   const refreshOrders = useCallback(() => {
     fetchAvailableOrders().then(setOrders).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    refreshOrders();
-    fetchDeliveryHistory().then((h) => setTodayEarnings(h.todayEarnings)).catch(() => {});
-    fetchActiveOrder().then(setActiveDelivery).catch(() => {});
-    const interval = setInterval(refreshOrders, 15000);
-    return () => clearInterval(interval);
-  }, [refreshOrders]);
+  const refreshOffer = useCallback(() => {
+    fetchMyLiveOffer().then(setLiveOffer).catch(() => {});
+  }, []);
 
   useEffect(() => {
-    setOnline(isOnline).catch(() => {});
+    refreshOrders();
+    refreshOffer();
+    fetchDeliveryHistory().then((h) => setTodayEarnings(h.todayEarnings)).catch(() => {});
+    fetchActiveOrder().then(setActiveDelivery).catch(() => {});
+    getMyCourierId().then(setCourierId).catch(() => {});
+    const interval = setInterval(refreshOrders, 15000);
+    return () => clearInterval(interval);
+  }, [refreshOrders, refreshOffer]);
+
+  // Push-dispatch feed (finding #21) — row-filtered by courier_id, unique
+  // channel name per mount so it survives React re-mounts.
+  useEffect(() => {
+    if (!courierId) return;
+    return subscribeMyDispatchOffers(courierId, refreshOffer);
+  }, [courierId, refreshOffer]);
+
+  // Skip guard: the revert below must not re-fire the server call (the on_delivery
+  // block rejects EVERY toggle, so a naive revert would alert-loop forever).
+  const skipNextToggleRef = useRef(false);
+  useEffect(() => {
+    if (skipNextToggleRef.current) {
+      skipNextToggleRef.current = false;
+      return;
+    }
+    // Surface the backend's block (e.g. "ai o livrare activă...") and revert the
+    // local toggle instead of showing "Offline" while still on_delivery server-side.
+    setOnline(isOnline).catch((err: unknown) => {
+      Alert.alert('Status', err instanceof Error ? err.message : 'Nu am putut schimba statusul.');
+      skipNextToggleRef.current = true;
+      setIsOnline((prev) => !prev);
+    });
   }, [isOnline]);
+
+  const handleAcceptOffer = async () => {
+    if (!liveOffer) return;
+    setOfferPending(true);
+    const err = await acceptDispatchOffer(liveOffer.offer.id);
+    setOfferPending(false);
+    if (err) {
+      Alert.alert('Nu s-a putut accepta', err);
+      setLiveOffer(null);
+      refreshOffer();
+      return;
+    }
+    const { order } = liveOffer;
+    setLiveOffer(null);
+    navigation.navigate('ActiveDelivery', { order });
+  };
+
+  const handleDeclineOffer = async () => {
+    if (!liveOffer) return;
+    setOfferPending(true);
+    await declineDispatchOffer(liveOffer.offer.id);
+    setOfferPending(false);
+    setLiveOffer(null);
+    refreshOffer();
+  };
+
+  const handleOfferExpire = () => {
+    setLiveOffer(null);
+    refreshOffer();
+  };
 
   const showOrderCard = (order: Order) => {
     setCurrentOrder(order);
@@ -98,8 +176,16 @@ export default function MapScreen({ navigation }: Props) {
         }}
         customMapStyle={darkMapStyle}
       >
-        {/* Courier position */}
-        <Marker coordinate={{ latitude: 47.0105, longitude: 28.8638 }} tappable>
+        {/* Courier position — real device GPS, falls back to the city center
+            marker only until the first fix lands or if permission is denied. */}
+        <Marker
+          coordinate={
+            devicePosition
+              ? { latitude: devicePosition.lat, longitude: devicePosition.lng }
+              : { latitude: CHISINAU_CENTER.lat, longitude: CHISINAU_CENTER.lng }
+          }
+          tappable
+        >
           <View style={styles.courierMarker}>
             <Text style={styles.courierEmoji}>🛵</Text>
           </View>
@@ -147,6 +233,30 @@ export default function MapScreen({ navigation }: Props) {
           <Text style={styles.earningsText}>{todayEarnings} MDL</Text>
         </View>
       </View>
+
+      {/* GPS permission banner — hidden while an offer is showing so the two
+          don't stack on top of each other. */}
+      {gpsError && !liveOffer && (
+        <View style={styles.gpsBanner}>
+          <Ionicons name="warning" size={16} color={COLORS.primary} />
+          <Text style={styles.gpsBannerText} numberOfLines={2}>
+            {gpsError}
+          </Text>
+        </View>
+      )}
+
+      {/* Push-dispatch offer — scored, exclusive, 30s to respond. */}
+      {liveOffer && (
+        <OfferCard
+          order={liveOffer.order}
+          expiresAt={liveOffer.offer.expiresAt}
+          distanceKm={liveOffer.offer.distanceKm}
+          pending={offerPending}
+          onAccept={handleAcceptOffer}
+          onDecline={handleDeclineOffer}
+          onExpire={handleOfferExpire}
+        />
+      )}
 
       {/* Bottom info */}
       {!currentOrder && (
@@ -233,334 +343,3 @@ export default function MapScreen({ navigation }: Props) {
   );
 }
 
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#0F0F24' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#8888AA' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#0D0D1F' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1B1B3A' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#25254D' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#080816' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#13132B' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#1C1C3F' }] },
-];
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  map: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  courierMarker: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.white,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  courierEmoji: {
-    fontSize: 22,
-  },
-  orderMarker: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: COLORS.gold,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.white,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  topBar: {
-    position: 'absolute',
-    top: 56,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    zIndex: 99,
-    elevation: 99,
-  },
-  statusContainer: {},
-  statusBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 24,
-    gap: 8,
-  },
-  statusOnline: {
-    backgroundColor: 'rgba(76,217,100,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(76,217,100,0.4)',
-  },
-  statusOffline: {
-    backgroundColor: 'rgba(255,59,48,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,59,48,0.4)',
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  headerLogo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(13,13,31,0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.2)',
-  },
-  headerLogoIcon: {
-    fontSize: 24,
-  },
-  headerLogoTextContainer: {
-    justifyContent: 'center',
-  },
-  headerLogoTitle: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: '#D4AF37',
-    letterSpacing: 1,
-  },
-  headerLogoSubtitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    color: COLORS.white,
-    letterSpacing: 0.5,
-    marginTop: -2,
-  },
-  headerLogoSub: {
-    fontSize: 8,
-    fontWeight: '800',
-    color: '#D4AF37',
-    letterSpacing: 1.5,
-    marginTop: -1,
-  },
-  earningsBox: {
-    backgroundColor: 'rgba(30,30,53,0.85)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  earningsLabel: {
-    fontSize: 8,
-    fontWeight: '800',
-    color: COLORS.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  earningsText: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#D4AF37',
-    marginTop: 2,
-  },
-  bottomInfo: {
-    position: 'absolute',
-    bottom: 100,
-    left: 16,
-    right: 16,
-    zIndex: 99,
-    elevation: 99,
-  },
-  waitingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(30,30,53,0.9)',
-    borderRadius: 18,
-    padding: 16,
-    gap: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  pulseContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(76,217,100,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pulseDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4CD964',
-  },
-  waitingTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  waitingSubtitle: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  orderCard: {
-    position: 'absolute',
-    bottom: 100,
-    left: 16,
-    right: 16,
-    backgroundColor: COLORS.card,
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.25)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
-    zIndex: 100,
-  },
-  orderCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  newOrderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(212,175,55,0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.3)',
-  },
-  newOrderText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#D4AF37',
-  },
-  orderDetails: {
-    marginBottom: 16,
-  },
-  orderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  orderDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginTop: 4,
-  },
-  orderInfo: {
-    flex: 1,
-  },
-  orderLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: COLORS.textMuted,
-    letterSpacing: 1,
-    marginBottom: 2,
-  },
-  orderRestaurant: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  orderCustomer: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  orderAddress: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  orderDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: COLORS.border,
-    marginLeft: 4.5,
-    marginVertical: 4,
-  },
-  orderMeta: {
-    flexDirection: 'row',
-    gap: 20,
-    marginBottom: 20,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  metaText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-  },
-  orderActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  declineBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: '#FF3B30',
-  },
-  declineBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  acceptBtn: {
-    flex: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: '#4CD964',
-  },
-  acceptBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-});
