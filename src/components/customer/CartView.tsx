@@ -12,6 +12,9 @@ export function CartView() {
   // #9 — fetch the restaurant's fee + minimum so the cart can show the FULL total,
   // not just a subtotal the button implied was the total.
   const [summary, setSummary] = useState<{ delivery_fee_mdl: number; min_order_amount_mdl: number } | null>(null);
+  // #6 — announce cart removals to screen readers (a removed line otherwise just
+  // vanishes silently and focus is dropped).
+  const [announce, setAnnounce] = useState("");
   useEffect(() => {
     if (!restaurantId) return;
     let stale = false;
@@ -49,6 +52,9 @@ export function CartView() {
 
   return (
     <div className="flex flex-col gap-4">
+      <p role="status" aria-live="polite" className="sr-only">
+        {announce}
+      </p>
       <div className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/50">{restaurantName}</h2>
         <ul className="flex flex-col gap-4">
@@ -82,7 +88,11 @@ export function CartView() {
                 <span className="w-20 text-right font-semibold text-white">{line.priceMdl * line.quantity} MDL</span>
                 <button
                   type="button"
-                  onClick={() => removeItem(line.menuItemId)}
+                  onClick={() => {
+                    setAnnounce(`${line.name} eliminat din coș`);
+                    removeItem(line.menuItemId);
+                  }}
+                  aria-label={`Șterge ${line.name} din coș`}
                   className="text-xs text-white/40 underline underline-offset-4 transition hover:text-primary"
                 >
                   Șterge
