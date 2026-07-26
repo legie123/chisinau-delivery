@@ -9,7 +9,13 @@ export function createAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured — admin actions are unavailable.");
+    // Actionable message — there IS a working path without this key: the applicant
+    // self-registers (/devino-partener) and an admin approves the request in
+    // Onboarding, which grants the role. The direct invite is a shortcut that needs
+    // the service-role key (set SUPABASE_SERVICE_ROLE_KEY in .env.local to enable).
+    throw new Error(
+      "Invitarea directă e dezactivată (lipsește cheia de service). Onboardează prin auto-înregistrare + aprobare din secțiunea Onboarding, sau activează cheia local.",
+    );
   }
 
   return createSupabaseClient(url, serviceRoleKey, {
