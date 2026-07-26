@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
+import { claimNotificationOutbox } from "@chisinau/shared-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUser } from "@/lib/push/send";
 
@@ -42,10 +43,14 @@ export async function POST(req: Request) {
   // LOCKED, so overlapping cron ticks can never pick up the same row twice; a
   // crashed run's claims free themselves after the 60s reclaim window.
   type OutboxRow = { id: string; user_id: string; title: string; body: string; url: string; tag: string | null; attempts: number };
-  const { data, error } = await admin.rpc("claim_notification_outbox", { p_batch: BATCH });
-  const rows = (data ?? []) as OutboxRow[];
+  let rows: OutboxRow[];
+  try {
+    const data = await claimNotificationOutbox(admin, BATCH);
+    rows = (data ?? []) as OutboxRow[];
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "claim failed" }, { status: 500 });
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!rows.length) return NextResponse.json({ drained: 0 });
 
   const now = new Date().toISOString();

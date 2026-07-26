@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { confirmOnlinePayment, placeOrder, setOrderTip, startOnlinePayment } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/client";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
 import { useHydrated } from "@/hooks/useHydrated";
@@ -230,33 +231,28 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         requestedForIso = when.toISOString();
       }
 
-      const { data: orderId, error: rpcError } = await supabase.rpc("place_order", {
-        p_restaurant_id: restaurantId!,
-        p_order_type: "standard",
-        p_payment_method: paymentMethod,
-        p_items: lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.optionIds })),
-        p_delivery_address_id: deliveryAddressId ?? undefined,
-        p_requested_for: requestedForIso ?? undefined,
-        // Same token on retry ⇒ place_order returns the existing order, no duplicate.
-        p_idempotency_key: idempotencyKey,
+      // Same token on retry ⇒ place_order returns the existing order, no duplicate.
+      // The wrapper throws RpcError (its .message keeps the raw pg text the catch
+      // below maps to friendly Romanian copy).
+      const orderId = await placeOrder(supabase, {
+        restaurantId: restaurantId!,
+        orderType: "standard",
+        paymentMethod,
+        items: lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.optionIds })),
+        deliveryAddressId: deliveryAddressId ?? undefined,
+        requestedFor: requestedForIso ?? undefined,
+        idempotencyKey,
       });
-      if (rpcError) throw new Error(rpcError.message);
 
       if (paymentMethod === "online_gateway") {
         // Record the tip FIRST so the payment intent is opened for the tip-inclusive
         // total (otherwise the tip is charged short). Surface tip failures instead of
         // swallowing them. Keep the cart until the payment actually settles.
-        if (tip > 0) {
-          const { error: tipError } = await supabase.rpc("set_order_tip", { p_order_id: orderId, p_tip_mdl: tip });
-          if (tipError) throw new Error(tipError.message);
-        }
-        const { data: intentId, error: payError } = await supabase.rpc("start_online_payment", {
-          p_order_id: orderId,
-        });
-        if (payError) throw new Error(payError.message);
+        if (tip > 0) await setOrderTip(supabase, orderId, tip);
+        const intentId = await startOnlinePayment(supabase, orderId);
         // Freeze the amount + persist so the confirm total == what settles, and a
         // refresh resumes this step instead of re-submitting. (panel BLOCKER #1)
-        const step = { orderId: orderId as string, intentId: intentId as string, amount: total };
+        const step = { orderId: orderId as string, intentId, amount: total };
         try {
           sessionStorage.setItem(PAYSTEP_KEY, JSON.stringify(step));
         } catch {
@@ -266,10 +262,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         return;
       }
 
-      if (tip > 0) {
-        const { error: tipError } = await supabase.rpc("set_order_tip", { p_order_id: orderId, p_tip_mdl: tip });
-        if (tipError) throw new Error(tipError.message);
-      }
+      if (tip > 0) await setOrderTip(supabase, orderId, tip);
       rememberPreferences();
       clear();
       router.push(`/orders/${orderId}`);
@@ -300,12 +293,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
     setPending(true);
     const supabase = createClient();
     try {
-      const { error: confirmError } = await supabase.rpc("confirm_online_payment", {
-        p_intent_id: payStep.intentId,
-        p_success: true,
-        p_provider_ref: `mock-${Date.now()}`,
-      });
-      if (confirmError) throw new Error(confirmError.message);
+      await confirmOnlinePayment(supabase, payStep.intentId, true, `mock-${Date.now()}`);
       try {
         sessionStorage.removeItem(PAYSTEP_KEY);
       } catch {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { cancelOrder, RpcError } from "@chisinau/shared-api";
+import { asOrderId } from "@chisinau/shared-types";
 import { createClient } from "@/lib/supabase/client";
 
 // #37 — the backend has always allowed the customer to cancel while the order is
@@ -15,12 +17,12 @@ export function CancelOrderButton({ orderId }: { orderId: string }) {
     setPending(true);
     setError(null);
     const supabase = createClient();
-    const { error: rpcError } = await supabase.rpc("cancel_order", {
-      p_order_id: orderId,
-      p_reason: "Anulată de client înainte de confirmare",
-    });
-    // Success needs no local state change — useOrderRealtime flips the status live.
-    if (rpcError) setError(rpcError.message);
+    try {
+      await cancelOrder(supabase, asOrderId(orderId), "Anulată de client înainte de confirmare");
+      // Success needs no local state change — useOrderRealtime flips the status live.
+    } catch (err) {
+      setError(err instanceof RpcError ? err.userMessage : "Nu am putut anula comanda.");
+    }
     setPending(false);
   }
 

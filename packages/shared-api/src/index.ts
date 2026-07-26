@@ -6,3 +6,8 @@ export * from "./errors";
 export * from "./dispatch";
 export * from "./lifecycle";
 export * from "./orders";
+export * from "./payments";
+export * from "./payouts";
+export * from "./onboarding";
+export * from "./discovery";
+export * from "./notifications";

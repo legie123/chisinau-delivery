@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { searchMenuItems } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -28,10 +29,12 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("search_menu_items", { p_query: q });
-  if (error) {
+  let data;
+  try {
+    data = await searchMenuItems(supabase, q);
+  } catch (err) {
     // Don't leak the raw Postgres error to the client (audit #27).
-    console.error("menu-search rpc error:", error.message);
+    console.error("menu-search rpc error:", err instanceof Error ? err.message : err);
     return NextResponse.json({ error: "search unavailable" }, { status: 500 });
   }
 

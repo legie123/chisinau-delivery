@@ -1,9 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { mapPgError, adminReassignCourier, RpcError } from "@chisinau/shared-api";
-import { asCourierId, asOrderId } from "@chisinau/shared-types";
+import {
+  adminReassignCourier,
+  adminUpdatePaymentStatus,
+  advanceDeliveryStatus,
+  cancelOrder,
+  RpcError,
+} from "@chisinau/shared-api";
+import { asCourierId, asOrderId, type OrderStatus } from "@chisinau/shared-types";
 import { requirePlatformAdmin } from "@/lib/auth/require";
+
+function surfaced(err: unknown, fallback: string): string {
+  return err instanceof RpcError ? err.userMessage : fallback;
+}
 
 export type ActionResult = { error: string | null };
 
@@ -25,8 +35,11 @@ export async function cancelStuckOrder(orderId: string, reason: string): Promise
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
-  const { error } = await supabase.rpc("cancel_order", { p_order_id: orderId, p_reason: reason });
-  if (error) return { error: mapPgError(error) };
+  try {
+    await cancelOrder(supabase, asOrderId(orderId), reason);
+  } catch (err) {
+    return { error: surfaced(err, "Nu am putut anula comanda.") };
+  }
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
@@ -39,12 +52,11 @@ export async function forceAdvance(orderId: string, newStatus: string): Promise<
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
-  const { error } = await supabase.rpc("advance_delivery_status", {
-    p_order_id: orderId,
-    p_new_status: newStatus,
-    p_payment_confirmed: undefined,
-  });
-  if (error) return { error: mapPgError(error) };
+  try {
+    await advanceDeliveryStatus(supabase, asOrderId(orderId), newStatus as OrderStatus);
+  } catch (err) {
+    return { error: surfaced(err, "Nu am putut actualiza starea.") };
+  }
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
@@ -76,12 +88,11 @@ export async function resolvePayment(orderId: string, newStatus: string, note?: 
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
-  const { error } = await supabase.rpc("admin_update_payment_status", {
-    p_order_id: orderId,
-    p_new_status: newStatus,
-    p_note: note ?? undefined,
-  });
-  if (error) return { error: mapPgError(error) };
+  try {
+    await adminUpdatePaymentStatus(supabase, asOrderId(orderId), newStatus, note);
+  } catch (err) {
+    return { error: surfaced(err, "Nu am putut actualiza plata.") };
+  }
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };

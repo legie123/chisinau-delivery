@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin } from "@/lib/auth/require";
+import { reviewOnboardingApplication, RpcError } from "@chisinau/shared-api";
 
 // Review is platform_admin-only. The RPC is security definer: on approve it
 // promotes the applicant's profile role and creates the courier / restaurant
@@ -15,17 +16,18 @@ export async function reviewApplication(
   try {
     const { supabase } = await requirePlatformAdmin();
 
-    const { error } = await supabase.rpc("review_onboarding_application", {
-      p_id: id,
-      p_approve: approve,
-      p_note: note?.trim() || undefined,
-    });
-
-    if (error) return { error: error.message };
+    await reviewOnboardingApplication(supabase, id, approve, note?.trim() || undefined);
 
     revalidatePath("/platform/onboarding");
     return { error: null };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+    return {
+      error:
+        err instanceof RpcError
+          ? err.userMessage
+          : err instanceof Error
+            ? err.message
+            : "A apărut o eroare.",
+    };
   }
 }

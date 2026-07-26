@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { RpcError, submitRating as submitRatingRpc } from "@chisinau/shared-api";
+import { asOrderId } from "@chisinau/shared-types";
 import { requireUser } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
@@ -20,14 +22,11 @@ export async function submitRating(
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
 
-  const { error } = await supabase.rpc("submit_rating", {
-    p_order_id: orderId,
-    p_target: target,
-    p_stars: stars,
-    p_comment: comment ?? undefined,
-  });
-  if (error) return { error: error.message };
-
+  try {
+    await submitRatingRpc(supabase, asOrderId(orderId), target, stars, comment);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut trimite evaluarea." };
+  }
   revalidatePath(`/orders/${orderId}`);
   return { error: null };
 }

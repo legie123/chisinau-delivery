@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getPrepEstimates } from "@chisinau/shared-api";
 import { CoverImage } from "@/components/customer/CoverImage";
 import { MenuBrowser } from "@/components/customer/MenuBrowser";
 import type { MenuCategory, MenuItem, MenuOptionGroup, PrepEstimate, Restaurant } from "@/lib/types/domain";
@@ -45,9 +46,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   }
 
   // WS4 — live prep estimate for this one restaurant (falls back to static column).
-  const { data: prepRows } = await supabase.rpc("get_prep_estimates", {
-    p_restaurant_ids: [typedRestaurant.id],
-  });
+  const prepRows = await getPrepEstimates(supabase, [typedRestaurant.id]);
   const prepMinutes =
     ((prepRows ?? []) as PrepEstimate[])[0]?.prep_minutes ?? typedRestaurant.avg_prep_minutes;
 

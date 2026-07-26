@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { nearbyRestaurants } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/client";
 import type { Restaurant } from "@/lib/types/domain";
 
@@ -23,15 +24,10 @@ export function useNearbyRestaurants(fallback: Restaurant[]) {
       async (pos) => {
         if (cancelled) return;
         const supabase = createClient();
-        const { data, error } = await supabase.rpc("nearby_restaurants", {
-          p_lat: pos.coords.latitude,
-          p_lng: pos.coords.longitude,
-          p_radius_km: 15,
-          p_limit: 50,
-        });
+        const data = await nearbyRestaurants(supabase, pos.coords.latitude, pos.coords.longitude, 15, 50);
         if (cancelled) return;
         setLocating(false);
-        if (error || !data) return;
+        if (!data || data.length === 0) return;
         setDist(
           Object.fromEntries((data as { id: string; distance_m: number }[]).map((d) => [d.id, d.distance_m])),
         );

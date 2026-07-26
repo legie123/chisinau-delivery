@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require";
+import { submitOnboardingApplication, addKycDocument as addKycDocumentRpc, RpcError } from "@chisinau/shared-api";
 import type { Json } from "@chisinau/shared-types";
 
 // Onboarding + KYC is applicant-driven: a signed-in customer submits an
@@ -52,21 +53,24 @@ export async function submitApplication(
       };
     }
 
-    const { data, error } = await supabase.rpc("submit_onboarding_application", {
-      p_type: type,
-      p_full_name: fullName,
-      p_phone: phone,
-      p_email: email ?? "",
-      p_details: details as Json,
+    const applicationId = await submitOnboardingApplication(supabase, {
+      type,
+      fullName,
+      phone,
+      email: email ?? "",
+      details: details as Json,
     });
 
-    if (error) return { error: error.message, applicationId: null };
-
     revalidatePath("/devino-partener");
-    return { error: null, applicationId: (data as string) ?? null };
+    return { error: null, applicationId };
   } catch (err) {
     return {
-      error: err instanceof Error ? err.message : "A apărut o eroare.",
+      error:
+        err instanceof RpcError
+          ? err.userMessage
+          : err instanceof Error
+            ? err.message
+            : "A apărut o eroare.",
       applicationId: null,
     };
   }
@@ -80,17 +84,18 @@ export async function addKycDocument(
   try {
     const { supabase } = await requireUser();
 
-    const { error } = await supabase.rpc("add_kyc_document", {
-      p_application_id: applicationId,
-      p_doc_type: docType,
-      p_storage_path: storagePath,
-    });
-
-    if (error) return { error: error.message };
+    await addKycDocumentRpc(supabase, applicationId, docType, storagePath);
 
     revalidatePath("/devino-partener");
     return { error: null };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+    return {
+      error:
+        err instanceof RpcError
+          ? err.userMessage
+          : err instanceof Error
+            ? err.message
+            : "A apărut o eroare.",
+    };
   }
 }

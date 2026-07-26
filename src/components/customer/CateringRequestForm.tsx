@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { placeOrder } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/client";
 import type { MenuItem, Restaurant } from "@/lib/types/domain";
 
@@ -129,14 +130,14 @@ export function CateringRequestForm({ restaurants }: { restaurants: CateringRest
 
       const requestedFor = eventTime ? `${eventDate}T${eventTime}:00` : `${eventDate}T12:00:00`;
 
-      const { data: orderId, error: rpcError } = await supabase.rpc("place_order", {
-        p_restaurant_id: restaurantId,
-        p_order_type: "catering",
-        p_payment_method: "cash",
-        p_items: selected.map((item) => ({ menu_item_id: item.id, quantity: quantities[item.id] })),
-        p_requested_for: new Date(requestedFor).toISOString(),
-        p_notes: notes.trim() || undefined,
-        p_catering: {
+      const orderId = await placeOrder(supabase, {
+        restaurantId,
+        orderType: "catering",
+        paymentMethod: "cash",
+        items: selected.map((item) => ({ menu_item_id: item.id, quantity: quantities[item.id] })),
+        requestedFor: new Date(requestedFor).toISOString(),
+        notes: notes.trim() || undefined,
+        catering: {
           event_date: eventDate,
           event_time: eventTime || "",
           guest_count: guestCount,
@@ -145,7 +146,6 @@ export function CateringRequestForm({ restaurants }: { restaurants: CateringRest
           contact_phone: contactPhone.trim(),
         },
       });
-      if (rpcError) throw new Error(rpcError.message);
 
       router.push(`/catering/${orderId}`);
     } catch (err) {

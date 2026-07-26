@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getPrepEstimates } from "@chisinau/shared-api";
 import { OrderQueueRow } from "@/components/admin/OrderQueueRow";
 import { OrderQueueLive } from "@/components/admin/OrderQueueLive";
 import { RestaurantPickupMap } from "@/components/admin/RestaurantPickupMap";
@@ -32,9 +33,7 @@ export default async function RestaurantOrdersPage() {
   // WS4 — the restaurant's own live prep estimate (drives the kitchen header chip).
   let prepEstimate: PrepEstimate | null = null;
   if (staffRow?.restaurant_id) {
-    const { data: prepRows } = await supabase.rpc("get_prep_estimates", {
-      p_restaurant_ids: [staffRow.restaurant_id],
-    });
+    const prepRows = await getPrepEstimates(supabase, [staffRow.restaurant_id]);
     prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0] ?? null;
   }
 
