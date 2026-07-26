@@ -245,7 +245,9 @@ export function RestaurantBrowser({
                   <p className="mt-0.5 text-sm text-white/55">{CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}</p>
                   <p className="mt-2 flex items-center gap-2 text-sm">
                     <span className="font-semibold text-gold">
-                      {r.rating_count > 0 ? `★ ${Number(r.rating_avg).toFixed(1)} (${r.rating_count})` : "★ Nou"}
+                      {/* #5 — a numeric rating from a single review reads as fake;
+                          only show the score once it's backed by a few reviews. */}
+                      {r.rating_count >= 3 ? `★ ${Number(r.rating_avg).toFixed(1)} (${r.rating_count})` : "★ Nou"}
                     </span>
                     <span className="text-white/40">·</span>
                     <span className="text-white/70">

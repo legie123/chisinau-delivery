@@ -45,6 +45,20 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   // Tipping — 4 preset chips (% of subtotal) OR a custom MDL amount that overrides them.
   const [tipChoice, setTipChoice] = useState<TipChoice>("none");
   const [customTip, setCustomTip] = useState("");
+  // #10 — restore the customer's last-used payment method + tip preset so a repeat
+  // checkout doesn't re-ask what they always pick. Persisted on a successful order.
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time restore from localStorage on mount */
+  useEffect(() => {
+    try {
+      const savedPm = localStorage.getItem("chisinau-last-payment") as PaymentMethod | null;
+      const savedTip = localStorage.getItem("chisinau-last-tip") as TipChoice | null;
+      if (savedPm && ["cash", "card_on_delivery", "online_gateway"].includes(savedPm)) setPaymentMethod(savedPm);
+      if (savedTip && ["none", "p10", "p15", "p20"].includes(savedTip)) setTipChoice(savedTip);
+    } catch {
+      /* storage unavailable — defaults stand */
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
   // Optional scheduled delivery → place_order p_requested_for (ISO).
   const [scheduled, setScheduled] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
@@ -154,6 +168,15 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const total = subtotal + deliveryFee + tip;
   const belowMinimum = restaurant ? subtotal < restaurant.min_order_amount_mdl : false;
 
+  function rememberPreferences() {
+    try {
+      localStorage.setItem("chisinau-last-payment", paymentMethod);
+      localStorage.setItem("chisinau-last-tip", tipChoice);
+    } catch {
+      /* storage unavailable — non-fatal */
+    }
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
@@ -235,6 +258,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         const { error: tipError } = await supabase.rpc("set_order_tip", { p_order_id: orderId, p_tip_mdl: tip });
         if (tipError) throw new Error(tipError.message);
       }
+      rememberPreferences();
       clear();
       router.push(`/orders/${orderId}`);
     } catch (err) {
@@ -275,6 +299,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       } catch {
         /* ignore */
       }
+      rememberPreferences();
       clear();
       router.push(`/orders/${payStep.orderId}`);
     } catch (err) {
