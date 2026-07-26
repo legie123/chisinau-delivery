@@ -1,6 +1,7 @@
 # Raport Final — Dezbatere Multi-Expert: Arhitectura de Curierat, Chisinau Delivery
 
 **Data:** 2026-07-26
+**Documente-pereche:** `CORE-CURIERI.md` (planul canonic al platformei de curieri) · `RESEARCH-VERIFICAT-2026-07-26.md` (13 findings din industrie verificate adversarial 3-voturi, cu surse — confirmă independent verdictul Q2 de mai jos și dă stack-ul de simulator + țintele scraperului)
 **Metoda:** 7 lentile de expert independente (marketplace-architect, dispatch-logistics, courier-ops-economics, restaurant-ops, security-payments-fraud, mobile-scale-infra) au evaluat codul, au dat verdict pe intrebarea 1-app-vs-3-platforme, au proiectat nucleul de curier, apoi fiecare lentila a fost atacata cu contraargumente (refutation) verificate impotriva codului. Redactorul acestui raport a verificat suplimentar 3 fapte critice direct in repo (`git`/`grep`/`find`), rezultate marcate explicit mai jos cu **[VERIFICAT]**.
 
 ---

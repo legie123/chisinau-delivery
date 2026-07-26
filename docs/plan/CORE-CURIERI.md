@@ -303,6 +303,8 @@ Fără un layer de cod partajat (tipuri TypeScript generate din schema Supabase 
 
 ## 12. Parametri pentru SIMULATOR
 
+> **Stack recomandat, validat de industrie** (research verificat adversarial, vezi `RESEARCH-VERIFICAT-2026-07-26.md` §3): **SimPy** (Python, MIT, Discrete Event Simulation — exact ce folosește Glovo), cu 3 entități: curieri (start tură → deplasare pickup → așteptare prep → livrare), comenzi, motor dispatch. Cadențe de referință din producție Glovo: buclă asignare ~10s, buclă bundling ~60s. Țintește acuratețe DIRECȚIONALĂ, nu precizie (avertisment DoorDash: simulator precis ≈ la fel de greu ca dispatch-ul însuși). Prima întrebare la care să răspundă simulatorul: la zeci de curieri, optimizarea globală chiar bate cascade-ul greedy existent, sau e over-engineering sub un prag de densitate?
+
 | Parametru | Valoare default (Chișinău) | Interval de explorat | Sursă |
 |---|---|---|---|
 | `offer_timeout_s` | 30 | 15–45 | verificat cod (`interval '30 seconds'`) |
