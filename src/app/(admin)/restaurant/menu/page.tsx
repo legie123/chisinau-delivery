@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AddCategoryForm } from "@/components/admin/AddCategoryForm";
 import { AddMenuItemForm } from "@/components/admin/AddMenuItemForm";
 import { MenuItemRow } from "@/components/admin/MenuItemRow";
+import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { MenuCategory, MenuItem, MenuOptionGroup } from "@/lib/types/domain";
 
 export default async function RestaurantMenuPage() {
@@ -59,7 +60,9 @@ export default async function RestaurantMenuPage() {
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Meniul meu{restaurantName ? ` — ${restaurantName}` : ""}</h1>
+      <h1 className="mb-6 font-serif text-2xl font-semibold">
+        Meniul meu{restaurantName ? <> — <span className="pg-gold-text">{restaurantName}</span></> : ""}
+      </h1>
 
       <AddCategoryForm />
       <AddMenuItemForm restaurantId={restaurantId} categories={categoryList} />
@@ -68,29 +71,29 @@ export default async function RestaurantMenuPage() {
         <p className="text-white/50">Niciun articol de meniu încă.</p>
       ) : (
         <div className="flex flex-col gap-6">
-          {categoryList.map((category) => {
+          {categoryList.map((category, i) => {
             const categoryItems = itemList.filter((item) => item.category_id === category.id);
             if (categoryItems.length === 0) return null;
             return (
-              <section key={category.id}>
+              <PremiumReveal key={category.id} as="section" delay={i * 50}>
                 <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">{category.name}</h2>
                 <ul className="flex flex-col gap-2">
                   {categoryItems.map((item) => (
                     <MenuItemRow key={item.id} item={item} optionGroups={groupsByItem[item.id] ?? []} />
                   ))}
                 </ul>
-              </section>
+              </PremiumReveal>
             );
           })}
           {uncategorized.length > 0 && (
-            <section>
+            <PremiumReveal as="section" delay={categoryList.length * 50}>
               <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">Fără categorie</h2>
               <ul className="flex flex-col gap-2">
                 {uncategorized.map((item) => (
                   <MenuItemRow key={item.id} item={item} optionGroups={groupsByItem[item.id] ?? []} />
                 ))}
               </ul>
-            </section>
+            </PremiumReveal>
           )}
         </div>
       )}

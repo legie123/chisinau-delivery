@@ -50,9 +50,9 @@ export default async function RestaurantCateringPage() {
   return (
     <main className="flex-1 px-6 py-10">
       {staffRow && <OrderQueueLive restaurantId={staffRow.restaurant_id} />}
-      <h1 className="mb-6 text-2xl font-semibold">Cereri de catering</h1>
+      <h1 className="pg-gold-text mb-6 font-serif text-2xl font-semibold">Cereri de catering</h1>
       {orderList.length === 0 ? (
-        <p className="text-white/50">Nicio cerere de catering încă.</p>
+        <p className="pg-card rounded-2xl p-5 text-white/50">Nicio cerere de catering încă.</p>
       ) : (
         <ul className="flex flex-col gap-4">
           {orderList.map((order) => {

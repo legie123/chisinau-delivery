@@ -70,11 +70,19 @@ export function CateringQuoteCard({
           ? `Confirmată · ${ORDER_STATUS_LABEL[order.status]}`
           : "Refuzată";
 
+  const statusPillClassName = isTerminal
+    ? "rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/50"
+    : details.quote_status === "quoted"
+      ? "rounded-full bg-[color:var(--pg-amethyst-0)]/15 px-2 py-0.5 text-xs font-medium pg-amethyst-glow ring-1 ring-[color:var(--pg-amethyst-line)]"
+      : details.quote_status === "confirmed"
+        ? "rounded-full bg-[color:var(--pg-gold-0)]/15 px-2 py-0.5 text-xs font-semibold pg-gold-text ring-1 ring-[color:var(--pg-gold-line)]"
+        : "rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/80";
+
   return (
-    <li className="flex flex-col gap-3 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
+    <li className="pg-card pg-arrival flex flex-col gap-3 rounded-2xl p-4">
       <div className="flex items-center justify-between">
         <p className="font-medium">{order.order_number}</p>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-white/80">{statusLabel}</span>
+        <span className={statusPillClassName}>{statusLabel}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
@@ -98,7 +106,7 @@ export function CateringQuoteCard({
             <span>{item.line_total_mdl} MDL</span>
           </li>
         ))}
-        <li className="flex justify-between border-t border-white/10 pt-1 text-white/50">
+        <li className="pg-divider-gold flex justify-between border-t pt-1 text-white/50">
           <span>Subtotal listă</span>
           <span>{order.subtotal_mdl} MDL</span>
         </li>
@@ -110,7 +118,7 @@ export function CateringQuoteCard({
         <>
           {details.quote_status === "quoted" && (
             <p className="text-sm text-white/50">
-              Ofertă curentă: <span className="font-medium text-white/80">{details.quoted_total_mdl} MDL</span> — o poți
+              Ofertă curentă: <span className="pg-gold-text font-medium">{details.quoted_total_mdl} MDL</span> — o poți
               corecta până confirmă clientul.
             </p>
           )}
@@ -130,7 +138,7 @@ export function CateringQuoteCard({
             <button
               type="submit"
               disabled={pending}
-              className="rounded-full bg-primary-dark px-5 py-2 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
+              className="pg-cta rounded-full px-5 py-2 text-sm disabled:opacity-50"
             >
               {pending ? "..." : details.quote_status === "quoted" ? "Actualizează oferta" : "Trimite oferta"}
             </button>
@@ -167,14 +175,14 @@ export function CateringQuoteCard({
       {canMarkReady && (
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-white/50">
-            Confirmată la <span className="font-medium text-white/80">{details.quoted_total_mdl} MDL</span> — pregătește
+            Confirmată la <span className="pg-gold-text font-medium">{details.quoted_total_mdl} MDL</span> — pregătește
             comanda, apoi marcheaz-o gata.
           </p>
           <button
             type="button"
             onClick={handleReady}
             disabled={pending}
-            className="shrink-0 rounded-full bg-primary-dark px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
+            className="pg-cta pg-shimmer shrink-0 rounded-full px-5 py-2 text-sm font-semibold disabled:opacity-50"
           >
             {pending ? "..." : "🥡 Marchează gata"}
           </button>

@@ -89,11 +89,17 @@ export default async function RestaurantOrdersPage() {
         <PushOptIn />
       </div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-white">Comenzi</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="pg-gold-text font-serif text-2xl font-bold">Comenzi</h1>
+          <span className="pg-amethyst-glow inline-flex items-center gap-1.5 text-xs font-medium">
+            <span className="pg-live-dot" aria-hidden /> Live
+          </span>
+        </div>
         {prepEstimate && (
-          <span className="rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
+            <span className="pg-live-dot" aria-hidden />
             ⏱ Timp de pregătire estimat:{" "}
-            <span className="font-semibold text-white">~{prepEstimate.prep_minutes} min</span>
+            <span className="pg-gold-text font-semibold">~{prepEstimate.prep_minutes} min</span>
             <span className="ml-1 text-white/40">
               {prepEstimate.source === "static"
                 ? "(valoare implicită)"
@@ -105,7 +111,7 @@ export default async function RestaurantOrdersPage() {
         )}
       </div>
       {orderList.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.04] py-14 text-center ring-1 ring-white/[0.06]">
+        <div className="pg-card flex flex-col items-center gap-3 py-14 text-center">
           <span className="text-5xl" aria-hidden>🍱</span>
           <p className="text-white/60">Nicio comandă activă — cele noi apar aici instant.</p>
         </div>

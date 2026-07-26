@@ -58,15 +58,13 @@ export function OrderQueueRow({
 
   return (
     <li
-      className={`flex flex-col gap-3 rounded-2xl p-5 ring-1 ${
-        isNew ? "bg-primary/10 ring-primary/40" : "bg-white/[0.04] ring-white/[0.06]"
-      }`}
+      className={`pg-arrival flex flex-col gap-3 rounded-2xl p-5 ${isNew ? "pg-new" : "pg-card"}`}
     >
       <div className="flex w-full items-center justify-between gap-4">
       <div className="flex items-center gap-4">
         <span
           className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${
-            isNew ? "animate-pulse bg-primary/20" : "bg-white/10"
+            isNew ? "bg-[color:var(--pg-gold-0)]/20 ring-1 ring-[color:var(--pg-gold-line)]" : "bg-white/10"
           }`}
           aria-hidden
         >
@@ -75,7 +73,7 @@ export function OrderQueueRow({
         <div>
           <p className="font-semibold text-white">{order.order_number}</p>
           <p className="mt-0.5 text-sm text-white/50">
-            {ORDER_STATUS_LABEL[order.status]} · <span className="font-semibold text-white/80">{order.total_mdl} MDL</span>
+            {ORDER_STATUS_LABEL[order.status]} · <span className="pg-gold-text font-semibold">{order.total_mdl} MDL</span>
           </p>
           {order.status === "pending_restaurant" && (
             <div className="mt-1.5">
@@ -83,7 +81,7 @@ export function OrderQueueRow({
             </div>
           )}
           {order.status === "accepted" && order.estimated_ready_at && (
-            <div className="mt-1.5">
+            <div className="mt-1.5 inline-block rounded-full ring-1 ring-[color:var(--pg-amethyst-line)] shadow-[0_0_10px_-2px_rgba(168,85,247,0.45)]">
               <ReadyTargetBadge estimatedReadyAt={order.estimated_ready_at} />
             </div>
           )}
@@ -97,7 +95,7 @@ export function OrderQueueRow({
               type="button"
               onClick={handleAccept}
               disabled={pending}
-              className="rounded-full bg-primary-dark px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
+              className="pg-cta rounded-full px-5 py-2.5 text-sm disabled:opacity-50"
             >
               Acceptă
             </button>
@@ -116,9 +114,10 @@ export function OrderQueueRow({
             type="button"
             onClick={handleReady}
             disabled={pending}
-            className="rounded-full bg-primary-dark px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
+            className="pg-cta rounded-full px-5 py-2.5 text-sm disabled:opacity-50"
           >
-            🥡 Gata de ridicare
+            <span className="pg-shimmer pointer-events-none absolute inset-0 rounded-full" aria-hidden />
+            <span className="relative">🥡 Gata de ridicare</span>
           </button>
         )}
       </div>
@@ -127,7 +126,7 @@ export function OrderQueueRow({
       {/* What the kitchen must cook: line items + their modifiers + per-item
           notes. Without this the row showed only a total — nothing to prepare. */}
       {items.length > 0 && (
-        <ul className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-3 text-sm">
+        <ul className="pg-divider-gold flex flex-col gap-1.5 border-t pt-3 text-sm">
           {items.map((item) => (
             <li key={item.id} className="flex flex-col gap-0.5">
               <div className="flex items-baseline justify-between gap-3">

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { HoursForm } from "@/components/admin/HoursForm";
 import { AcceptingOrdersToggle } from "@/components/admin/AcceptingOrdersToggle";
+import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { RestaurantHours } from "@/lib/types/domain";
 
 export default async function RestaurantHoursPage() {
@@ -39,9 +40,13 @@ export default async function RestaurantHoursPage() {
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Program</h1>
-      <AcceptingOrdersToggle initialValue={restaurant?.accepting_orders ?? true} />
-      <HoursForm hours={(hours ?? []) as RestaurantHours[]} />
+      <h1 className="mb-6 font-serif text-2xl font-semibold pg-gold-text">Program</h1>
+      <PremiumReveal as="div" className="pg-card mb-6 rounded-2xl p-4">
+        <AcceptingOrdersToggle initialValue={restaurant?.accepting_orders ?? true} />
+      </PremiumReveal>
+      <PremiumReveal as="div" delay={60} className="pg-card rounded-2xl p-4">
+        <HoursForm hours={(hours ?? []) as RestaurantHours[]} />
+      </PremiumReveal>
     </main>
   );
 }

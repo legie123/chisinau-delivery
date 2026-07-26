@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { daysAgoIso } from "@/lib/time";
+import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { Payout } from "@/lib/types/domain";
 
 // "Câștiguri" for the restaurant partner: this-week gross sales (subtotal of
@@ -91,26 +92,26 @@ export default async function RestaurantEarningsPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
-      <h1 className="font-serif text-2xl font-bold text-white">Câștiguri</h1>
+      <h1 className="pg-gold-text font-serif text-2xl font-bold">Câștiguri</h1>
       <p className="mb-6 mt-1 text-sm text-white/50">Vânzările tale și decontările săptămânale.</p>
 
-      <section className="mb-8 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+      <PremiumReveal as="section" className="pg-card pg-shimmer mb-8 rounded-2xl p-5">
         <p className="text-sm text-white/50">Vânzări brute · săptămâna aceasta</p>
-        <p className="mt-2 text-3xl font-bold text-gold">{weekGross} MDL</p>
+        <p className="pg-gold-text pg-gold-text--live mt-2 text-3xl font-bold">{weekGross} MDL</p>
         <p className="mt-1 text-sm text-white/50">
           {weekCount} {weekCount === 1 ? "comandă livrată" : "comenzi livrate"} · înainte de comisionul platformei
         </p>
-      </section>
+      </PremiumReveal>
 
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/60">Plăți</h2>
+      <h2 className="pg-gold-text mb-3 text-sm font-semibold uppercase tracking-wide">Plăți</h2>
       {payouts.length === 0 ? (
-        <div className="rounded-2xl bg-white/[0.04] px-4 py-10 text-center text-sm text-white/50 ring-1 ring-white/[0.06]">
+        <div className="pg-card rounded-2xl px-4 py-10 text-center text-sm text-white/50">
           Nicio plată încă — apar aici după prima decontare.
         </div>
       ) : (
         <ul className="flex flex-col gap-3">
-          {payouts.map((p) => (
-            <li key={p.id} className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+          {payouts.map((p, i) => (
+            <PremiumReveal key={p.id} as="li" delay={i * 60} className="pg-card pg-card--hover rounded-2xl p-5">
               <div className="flex items-center justify-between gap-3">
                 <p className="font-semibold text-white">
                   {fmtDate(p.period_start)} – {fmtDate(p.period_end)}
@@ -132,10 +133,10 @@ export default async function RestaurantEarningsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-white/40">Net</p>
-                  <p className="mt-0.5 text-lg font-bold text-gold">{p.net_mdl} MDL</p>
+                  <p className="pg-gold-text mt-0.5 text-lg font-bold">{p.net_mdl} MDL</p>
                 </div>
               </div>
-            </li>
+            </PremiumReveal>
           ))}
         </ul>
       )}

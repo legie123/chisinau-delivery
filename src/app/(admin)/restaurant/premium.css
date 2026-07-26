@@ -1,0 +1,342 @@
+/* ===========================================================================
+   DRAGONS ALLIANCE — Premium design foundation for the RESTAURANT partner sector.
+   Deep charcoal-navy base + metallic brushed GOLD + amethyst CRYSTAL jewel.
+   Pure CSS/keyframes (WAAPI drives the JS-triggered reveals). NO npm deps.
+   ALL non-essential motion is disabled under prefers-reduced-motion: reduce.
+   Load once from src/app/(admin)/restaurant/layout.tsx.
+   ========================================================================= */
+
+:root {
+  /* ---- Navy substrate (rich near-black) ---- */
+  --pg-navy-0: #0a0a14;
+  --pg-navy-1: #0d0d1f;
+  --pg-navy-2: #111118;
+  --pg-navy-3: #16162a;
+
+  /* ---- Metallic brushed gold (crests / CTAs / key accents / rim-light) ---- */
+  --pg-gold-0: #b8860b;
+  --pg-gold-1: #d4af37;
+  --pg-gold-2: #f5c542;
+  --pg-gold-3: #fff3c4;
+  --pg-gold-grad: linear-gradient(135deg, #b8860b 0%, #d4af37 38%, #f5c542 68%, #fff3c4 100%);
+  --pg-gold-sheen: linear-gradient(100deg, #d4af37 0%, #f5c542 45%, #fff3c4 55%, #d4af37 100%);
+
+  /* ---- Amethyst / crystal horn jewel (SECONDARY: glows, active, live pulses) ---- */
+  --pg-amethyst-0: #6d28d9;
+  --pg-amethyst-1: #7c3aed;
+  --pg-amethyst-2: #a855f7;
+  --pg-amethyst-3: #c084fc;
+  --pg-amethyst-grad: linear-gradient(135deg, #6d28d9 0%, #7c3aed 40%, #a855f7 75%, #c084fc 100%);
+
+  /* ---- Danger (subtle reject accent only — the existing brand red) ---- */
+  --pg-danger: #e94560;
+
+  /* ---- Glass / facet surfaces ---- */
+  --pg-glass: rgba(255, 255, 255, 0.045);
+  --pg-glass-strong: rgba(255, 255, 255, 0.07);
+  --pg-facet-line: rgba(255, 255, 255, 0.08);
+  --pg-gold-line: rgba(212, 175, 55, 0.28);
+  --pg-amethyst-line: rgba(168, 85, 247, 0.32);
+
+  /* ---- Motion tuning (single source of truth; zeroed under reduced-motion) ---- */
+  --pg-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --pg-arrival-ms: 520ms;
+  --pg-shimmer-ms: 2200ms;
+  --pg-glow-ms: 2000ms;
+  --pg-glint-ms: 3400ms;
+}
+
+/* =========================================================================
+   KEYFRAMES  (all gated off in the reduced-motion block at the bottom)
+   ========================================================================= */
+
+/* Card / crest ARRIVAL entrance — the CSS twin of PremiumReveal (used as a
+   no-JS fallback and for the crest itself). transform+opacity only → 60fps. */
+@keyframes pg-arrival {
+  from { opacity: 0; transform: translate3d(0, 14px, 0) scale(0.985); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+/* Gold GLOW-PULSE — a new order breathing a warm gold rim-light. */
+@keyframes pg-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px var(--pg-gold-line),
+                0 0 18px -6px rgba(245, 197, 66, 0.35),
+                inset 0 0 24px -18px rgba(245, 197, 66, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(245, 197, 66, 0.55),
+                0 0 34px -4px rgba(245, 197, 66, 0.6),
+                inset 0 0 30px -14px rgba(245, 197, 66, 0.55);
+  }
+}
+
+/* Amethyst CRYSTAL glint — a slow travelling specular highlight on a facet. */
+@keyframes pg-crystal-glint {
+  0%   { opacity: 0; transform: translateX(-120%) rotate(8deg); }
+  12%  { opacity: 0.9; }
+  30%  { opacity: 0; transform: translateX(160%) rotate(8deg); }
+  100% { opacity: 0; transform: translateX(160%) rotate(8deg); }
+}
+
+/* Gold SHIMMER sweep — a diagonal sheen crossing progress / ready surfaces. */
+@keyframes pg-shimmer {
+  0%   { background-position: -160% 0; }
+  100% { background-position: 260% 0; }
+}
+
+/* Soft amethyst live-pulse dot (realtime "listening" indicator). */
+@keyframes pg-live-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.9); }
+  50%      { opacity: 1; transform: scale(1.15); }
+}
+
+/* =========================================================================
+   AMBIENT BACKGROUND — dragon-scale weave + dramatic rim-light. Static.
+   ========================================================================= */
+.pg-ambient {
+  position: relative;
+  isolation: isolate;
+  background-color: var(--pg-navy-0);
+  /* rim-light glows (top-left gold, mid-right amethyst) + dragon-scale weave */
+  background-image:
+    radial-gradient(120% 80% at 12% -8%, rgba(212, 175, 55, 0.10), transparent 46%),
+    radial-gradient(90% 70% at 96% 8%, rgba(124, 58, 237, 0.12), transparent 50%),
+    radial-gradient(80% 90% at 50% 120%, rgba(109, 40, 217, 0.08), transparent 55%),
+    radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.02) 0.9px, transparent 1px),
+    linear-gradient(180deg, var(--pg-navy-1) 0%, var(--pg-navy-0) 60%);
+  background-size: auto, auto, auto, 22px 34px, auto;
+  background-attachment: fixed, fixed, fixed, scroll, scroll;
+}
+/* faceted dragon-scale mesh — two offset radial dot lattices → scale illusion */
+.pg-ambient::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle at 50% 100%, rgba(168, 85, 247, 0.05) 8px, transparent 9px),
+    radial-gradient(circle at 0 50%, rgba(212, 175, 55, 0.04) 8px, transparent 9px);
+  background-size: 44px 44px;
+  background-position: 0 0, 22px 22px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 70%);
+          mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.9), transparent 70%);
+}
+
+/* =========================================================================
+   CREST HEADER — slim gold/amethyst "DRAGONS" strip under the admin nav.
+   ========================================================================= */
+.pg-crest {
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--pg-gold-line);
+  background:
+    linear-gradient(90deg, rgba(124, 58, 237, 0.10), transparent 30%, transparent 70%, rgba(212, 175, 55, 0.10)),
+    linear-gradient(180deg, var(--pg-navy-2), var(--pg-navy-1));
+  animation: pg-arrival var(--pg-arrival-ms) var(--pg-ease) both;
+}
+/* travelling gold hairline along the crest's bottom edge */
+.pg-crest::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pg-gold-2), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: pg-shimmer calc(var(--pg-shimmer-ms) * 2.2) linear infinite;
+}
+.pg-crest-mark {
+  font-family: var(--font-serif), Georgia, serif;
+  letter-spacing: 0.28em;
+}
+
+/* =========================================================================
+   CRYSTALLINE GLASS CARD — faceted, translucent, rim-lit.
+   ========================================================================= */
+.pg-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  background:
+    linear-gradient(160deg, var(--pg-glass-strong), var(--pg-glass) 60%),
+    linear-gradient(180deg, rgba(22, 22, 42, 0.55), rgba(13, 13, 31, 0.35));
+  box-shadow:
+    0 0 0 1px var(--pg-facet-line),
+    0 18px 40px -28px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(6px);
+}
+/* faceted top rim-light — the glassy dragon-scale edge catching the light */
+.pg-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), transparent 22%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0, transparent 30%);
+          mask-image: linear-gradient(180deg, #000 0, transparent 30%);
+}
+/* subtle interactive lift */
+.pg-card--hover {
+  transition: transform 240ms var(--pg-ease), box-shadow 240ms var(--pg-ease);
+}
+.pg-card--hover:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px var(--pg-gold-line),
+    0 26px 50px -26px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* =========================================================================
+   TEXT / ACCENT UTILITIES
+   ========================================================================= */
+.pg-gold-text {
+  background: var(--pg-gold-sheen);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+/* animated brushed sheen across gold headings/values */
+.pg-gold-text--live {
+  animation: pg-shimmer var(--pg-shimmer-ms) linear infinite;
+}
+
+.pg-amethyst-glow {
+  color: var(--pg-amethyst-3);
+  text-shadow: 0 0 14px rgba(168, 85, 247, 0.45);
+}
+
+/* Live realtime indicator dot — amethyst crystal breathing. */
+.pg-live-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--pg-amethyst-2);
+  box-shadow: 0 0 10px 1px rgba(168, 85, 247, 0.6);
+  animation: pg-live-pulse 1600ms var(--pg-ease) infinite;
+}
+
+/* =========================================================================
+   CTA — gold-fill button (metallic, rim-lit).
+   ========================================================================= */
+.pg-cta {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  color: #241a02;
+  font-weight: 700;
+  background: var(--pg-gold-grad);
+  box-shadow: 0 8px 22px -12px rgba(245, 197, 66, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 180ms var(--pg-ease), box-shadow 180ms var(--pg-ease), filter 180ms var(--pg-ease);
+}
+.pg-cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow: 0 12px 28px -10px rgba(245, 197, 66, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+.pg-cta:active:not(:disabled) { transform: translateY(0); }
+.pg-cta:disabled { opacity: 0.5; }
+/* shimmer sweep passing across the CTA face */
+.pg-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.45) 50%, transparent 70%);
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: pg-shimmer var(--pg-shimmer-ms) linear infinite;
+  opacity: 0.55;
+}
+
+/* Amethyst secondary CTA (crystal jewel action). */
+.pg-cta-amethyst {
+  color: #f4ecff;
+  background: var(--pg-amethyst-grad);
+  box-shadow: 0 8px 22px -12px rgba(124, 58, 237, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* =========================================================================
+   NEW-ORDER STATE — pulsing gold-rimmed crystalline attention state.
+   ========================================================================= */
+.pg-new {
+  position: relative;
+  border-radius: 1rem;
+  background:
+    linear-gradient(160deg, rgba(245, 197, 66, 0.10), rgba(124, 58, 237, 0.06) 70%),
+    linear-gradient(180deg, rgba(22, 22, 42, 0.6), rgba(13, 13, 31, 0.4));
+  animation: pg-glow-pulse var(--pg-glow-ms) ease-in-out infinite;
+}
+/* crystal glint streaking across a new order */
+.pg-new::before {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 40%;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(100deg, transparent, rgba(255, 243, 196, 0.35), transparent);
+  mix-blend-mode: screen;
+  animation: pg-crystal-glint var(--pg-glint-ms) var(--pg-ease) infinite;
+}
+
+/* =========================================================================
+   SHIMMER SURFACE — gold sheen sweep for progress / "ready" bars & chips.
+   ========================================================================= */
+.pg-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-image: linear-gradient(
+    100deg,
+    rgba(245, 197, 66, 0.0) 20%,
+    rgba(245, 197, 66, 0.28) 45%,
+    rgba(255, 243, 196, 0.5) 50%,
+    rgba(245, 197, 66, 0.28) 55%,
+    rgba(245, 197, 66, 0.0) 80%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: pg-shimmer var(--pg-shimmer-ms) linear infinite;
+}
+
+/* Faceted hairline dividers (gold / amethyst edge lines). */
+.pg-divider-gold { border-color: var(--pg-gold-line) !important; }
+.pg-divider-amethyst { border-color: var(--pg-amethyst-line) !important; }
+
+/* One-off CSS arrival (for elements not wrapped in <PremiumReveal>). */
+.pg-arrival { animation: pg-arrival var(--pg-arrival-ms) var(--pg-ease) both; }
+
+/* =========================================================================
+   REDUCED MOTION — everything non-essential becomes instant & static.
+   Colours, gradients, rim-light and glass all remain; only motion stops.
+   ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  .pg-crest,
+  .pg-crest::after,
+  .pg-card--hover,
+  .pg-gold-text--live,
+  .pg-live-dot,
+  .pg-cta,
+  .pg-cta::after,
+  .pg-new,
+  .pg-new::before,
+  .pg-shimmer,
+  .pg-arrival {
+    animation: none !important;
+    transition: none !important;
+  }
+  /* freeze the new-order glow at its resting rim so state is still legible */
+  .pg-new {
+    box-shadow: 0 0 0 1px var(--pg-gold-line), 0 0 18px -6px rgba(245, 197, 66, 0.35);
+  }
+  .pg-shimmer { background-position: 50% 0; }
+}
