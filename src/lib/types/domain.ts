@@ -405,6 +405,22 @@ export interface AdminCourierPilotKpiRow {
   avg_orders_per_shift_14d: number | null;
 }
 
+// Order 1 (pilot-critical) — cash float append-only ledger. RPC-only writes
+// (accrual inside advance_delivery_status, record_cash_offload); a positive
+// 'collected' row per delivered cash order, a negative 'offload' row per
+// admin hand-in. Read via get_courier_cash_status()/admin_courier_cash_status()
+// (balance + policy), not this row shape directly, in most UI code.
+export interface CourierCashMovement {
+  id: string;
+  courier_id: string;
+  order_id: string | null;
+  kind: "collected" | "offload";
+  amount_mdl: number;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface DeliveryStatusEvent {
   id: string;
   order_id: string;

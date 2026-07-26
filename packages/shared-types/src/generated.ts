@@ -91,6 +91,39 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_policy: {
+        Row: {
+          cap_mdl: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          offload_channel_text: string
+          reactivation_threshold_mdl: number
+        }
+        Insert: {
+          cap_mdl: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          offload_channel_text: string
+          reactivation_threshold_mdl: number
+        }
+        Update: {
+          cap_mdl?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          offload_channel_text?: string
+          reactivation_threshold_mdl?: number
+        }
+        Relationships: []
+      }
       catering_details: {
         Row: {
           contact_person: string
@@ -164,6 +197,96 @@ export type Database = {
             foreignKeyName: "catering_details_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: true
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_cash_movements: {
+        Row: {
+          amount_mdl: number
+          courier_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          note: string | null
+          order_id: string | null
+        }
+        Insert: {
+          amount_mdl: number
+          courier_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          order_id?: string | null
+        }
+        Update: {
+          amount_mdl?: number
+          courier_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          order_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -2010,6 +2133,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_courier_cash_status: {
+        Args: { p_courier_id: string }
+        Returns: {
+          balance_mdl: number
+          cap_mdl: number
+          offload_channel_text: string
+          reactivation_threshold_mdl: number
+        }[]
+      }
       admin_generate_payouts: {
         Args: { p_end: string; p_start: string }
         Returns: number
@@ -2092,6 +2224,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      courier_cash_balance: { Args: { p_courier_id: string }; Returns: number }
       courier_dispatch_distance_m: {
         Args: { p_courier_id: string; p_restaurant_id: string }
         Returns: number
@@ -2100,6 +2233,25 @@ export type Database = {
       courier_is_assigned_to_address: {
         Args: { target_address: string }
         Returns: boolean
+      }
+      current_cash_policy: {
+        Args: never
+        Returns: {
+          cap_mdl: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          offload_channel_text: string
+          reactivation_threshold_mdl: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "cash_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       current_courier_id: { Args: never; Returns: string }
       current_dispatch_scoring_config: {
@@ -2163,6 +2315,15 @@ export type Database = {
       expire_dispatch_offers: { Args: never; Returns: number }
       expire_stale_orders: { Args: never; Returns: number }
       generate_order_number: { Args: never; Returns: string }
+      get_courier_cash_status: {
+        Args: never
+        Returns: {
+          balance_mdl: number
+          cap_mdl: number
+          offload_channel_text: string
+          reactivation_threshold_mdl: number
+        }[]
+      }
       get_prep_estimates: {
         Args: { p_restaurant_ids: string[] }
         Returns: {
@@ -2240,6 +2401,10 @@ export type Database = {
         Returns: string
       }
       purge_expired_pii: { Args: never; Returns: undefined }
+      record_cash_offload: {
+        Args: { p_amount_mdl: number; p_courier_id: string; p_note?: string }
+        Returns: string
+      }
       refresh_prep_stats: { Args: never; Returns: number }
       reinstate_courier: {
         Args: { p_courier_id: string; p_note?: string }
@@ -2274,6 +2439,16 @@ export type Database = {
           restaurant_name: string
           restaurant_slug: string
         }[]
+      }
+      set_cash_policy: {
+        Args: {
+          p_cap_mdl: number
+          p_effective_from?: string
+          p_note?: string
+          p_offload_text: string
+          p_reactivation_mdl: number
+        }
+        Returns: string
       }
       set_courier_online_status: {
         Args: { p_status: string }

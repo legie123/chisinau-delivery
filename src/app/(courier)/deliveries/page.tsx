@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCourierCashStatus } from "@chisinau/shared-api";
 import { OnlineToggle } from "@/components/courier/OnlineToggle";
 import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
 import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
 import { OfferCard } from "@/components/courier/OfferCard";
 import { OffersLive } from "@/components/courier/OffersLive";
 import { SatisfactionPrompt } from "@/components/courier/SatisfactionPrompt";
+import { CashFloatStatus } from "@/components/courier/CashFloatStatus";
 import { PushOptIn } from "@/components/shared/PushOptIn";
 import { currentWeekRange } from "@/app/(courier)/_lib/earnings";
 import { ORDER_STATUS_LABEL, type DispatchOffer, type Order } from "@/lib/types/domain";
@@ -34,7 +36,7 @@ export default async function DeliveriesPage() {
   // Faza 5 #5 — same Mon-Sun boundary the earnings page + payout periods use.
   const weekStartIso = currentWeekRange().start.toISOString().slice(0, 10);
 
-  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }, { data: survey }] =
+  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }, { data: survey }, cashStatus] =
     await Promise.all([
       supabase
         .from("orders")
@@ -56,6 +58,8 @@ export default async function DeliveriesPage() {
         .eq("courier_id", courier.id)
         .eq("week_start", weekStartIso)
         .maybeSingle(),
+      // Order 1 (pilot-critical) — cash float (balance vs. cap + offload text).
+      getCourierCashStatus(supabase).catch(() => null),
     ]);
 
   const active = (activeOrders ?? []) as Order[];
@@ -72,6 +76,9 @@ export default async function DeliveriesPage() {
       <div className="mb-4">
         <PushOptIn />
       </div>
+
+      {/* Order 1 (pilot-critical) — cash float balance vs. cap. */}
+      {cashStatus && <CashFloatStatus status={cashStatus} />}
 
       {/* Faza 5 #5 — weekly satisfaction pulse; hidden once this week is answered. */}
       {!surveyAnswered && <SatisfactionPrompt />}

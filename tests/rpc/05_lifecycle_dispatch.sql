@@ -32,8 +32,12 @@ begin
 
   -- 1. customer places
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
+  -- qty 1 (not 10): stays comfortably under the pilot cash-float cap (order 1,
+  -- 20260727000800) so this lifecycle test isn't incidentally cross-tripped by
+  -- the cash-cap auto-offline — that mechanism has its own coverage in
+  -- tests/rpc/22_cash_float.sql.
   v_oid := public.place_order(v_rest, 'standard', 'cash',
-    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 10)), v_addr, null, null, null);
+    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 1)), v_addr, null, null, null);
 
   -- 2. partner accepts, 3. marks ready (fires dispatch_order → offer to our courier)
   perform set_config('request.jwt.claims', json_build_object('sub', v_partner,'role','authenticated')::text, true);

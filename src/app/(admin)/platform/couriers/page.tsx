@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { adminCourierCashStatus, type CourierCashStatus } from "@chisinau/shared-api";
+import { asCourierId } from "@chisinau/shared-types";
 import { InviteCourierForm } from "@/components/admin/InviteCourierForm";
 import { CourierSuspensionControl } from "@/components/admin/CourierSuspensionControl";
 import type { AdminCourierPilotKpiRow } from "@/lib/types/domain";
@@ -43,6 +45,24 @@ function ShiftEarningsCell({ row }: { row: AdminCourierPilotKpiRow | undefined }
   );
 }
 
+// Order 1 (pilot-critical) — cash balance chip. admin_courier_cash_status is
+// per-courier (not a bulk view like admin_courier_pilot_kpis), so this is one
+// call per row — fine at pilot fleet size; a hiccup on one courier must never
+// blank the rest of the table.
+function CashChip({ status }: { status: CourierCashStatus | null }) {
+  if (!status) return <span className="text-white/30">—</span>;
+  const atCap = status.balance_mdl >= status.cap_mdl;
+  return (
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        atCap ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "bg-white/5 text-white/60 ring-1 ring-white/10"
+      }`}
+    >
+      {status.balance_mdl} / {status.cap_mdl} MDL
+    </span>
+  );
+}
+
 export default async function PlatformCouriersPage() {
   const supabase = await createClient();
   const [{ data: couriers }, { data: kpiRows }] = await Promise.all([
@@ -52,6 +72,14 @@ export default async function PlatformCouriersPage() {
   ]);
 
   const kpiByCourier = new Map((kpiRows ?? []).map((r) => [r.courier_id, r as AdminCourierPilotKpiRow]));
+
+  const cashEntries = await Promise.all(
+    (couriers ?? []).map(async (c) => {
+      const status = await adminCourierCashStatus(supabase, asCourierId(c.id)).catch(() => null);
+      return [c.id, status] as const;
+    }),
+  );
+  const cashByCourier = new Map(cashEntries);
 
   return (
     <main className="flex-1 px-6 py-10">
@@ -76,6 +104,9 @@ export default async function PlatformCouriersPage() {
                 <th className="py-2" title="Câștig brut mediana pe tură completă, ultimele 14 zile — țintă 600-1000 MDL">
                   Brut/tură
                 </th>
+                <th className="py-2" title="Numerar colectat, neîncă predat, față de plafon">
+                  Numerar
+                </th>
                 <th className="py-2">Cont</th>
               </tr>
             </thead>
@@ -91,6 +122,9 @@ export default async function PlatformCouriersPage() {
                   </td>
                   <td className="py-2">
                     <ShiftEarningsCell row={kpiByCourier.get(courier.id)} />
+                  </td>
+                  <td className="py-2">
+                    <CashChip status={cashByCourier.get(courier.id) ?? null} />
                   </td>
                   <td className="py-2">
                     <CourierSuspensionControl courierId={courier.id} initialActive={courier.is_active} />
