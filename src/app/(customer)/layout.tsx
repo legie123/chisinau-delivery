@@ -53,6 +53,61 @@ export default async function CustomerLayout({ children }: { children: React.Rea
         </div>
       </header>
       <div className="mx-auto w-full max-w-5xl flex-1">{children}</div>
+
+      {/* #5 — legal/contact footprint so first-timers can see who's behind the
+          brand and how to reach support. A premium storefront needs this to be
+          trusted at all. */}
+      <footer className="mt-16 border-t border-white/10 bg-[#08080f]">
+        <div className="mx-auto grid w-full max-w-5xl gap-8 px-5 py-10 sm:grid-cols-3">
+          <div>
+            <p className="font-serif text-lg font-bold text-gold">Dragons Delivery</p>
+            <p className="mt-2 text-sm text-white/50">
+              Livrare premium în Chișinău — sushi, fine dining și catering pentru evenimente.
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white/80">Companie</p>
+            <ul className="mt-3 flex flex-col gap-2 text-sm text-white/50">
+              <li>Dragons Alliance SRL</li>
+              <li>Chișinău, Republica Moldova</li>
+              <li>
+                <a href="mailto:contact@dragonsdelivery.md" className="transition hover:text-white">
+                  contact@dragonsdelivery.md
+                </a>
+              </li>
+              <li>
+                <a href="tel:+37360000000" className="transition hover:text-white">
+                  +373 60 000 000
+                </a>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-white/80">Legal</p>
+            <ul className="mt-3 flex flex-col gap-2 text-sm text-white/50">
+              <li>
+                <Link href="/termeni" className="transition hover:text-white">
+                  Termeni și condiții
+                </Link>
+              </li>
+              <li>
+                <Link href="/confidentialitate" className="transition hover:text-white">
+                  Politica de confidențialitate
+                </Link>
+              </li>
+              <li>
+                <Link href="/devino-partener" className="transition hover:text-gold">
+                  Devino partener
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="border-t border-white/5 px-5 py-4 text-center text-xs text-white/30">
+          © 2026 Dragons Alliance SRL. Toate drepturile rezervate.
+        </div>
+      </footer>
+
       <FloatingBasket />
     </div>
   );
