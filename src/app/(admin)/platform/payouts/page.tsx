@@ -73,7 +73,15 @@ export default async function PlatformPayoutsPage() {
 
   return (
     <main className="flex-1 px-6 py-8">
-      <h1 className="mb-6 font-serif text-2xl font-bold text-white">Plăți</h1>
+      <h1 className="mb-3 font-serif text-2xl font-bold text-white">Plăți</h1>
+
+      {/* Manual bookkeeping notice — the pilot has no bank/PSP integration. These
+          controls only RECORD money you move by hand (transfer bancar / cash);
+          apăsarea „Marchează plătit” nu trimite niciun ban automat. */}
+      <p className="mb-6 rounded-xl bg-gold/10 px-4 py-3 text-sm text-gold/90 ring-1 ring-gold/20">
+        📒 Evidență manuală: aceste plăți se fac în afara platformei (transfer bancar / numerar).
+        „Marchează plătit” doar înregistrează că ai efectuat plata — nu mișcă niciun ban automat.
+      </p>
 
       <section className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">

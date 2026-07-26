@@ -32,6 +32,15 @@ const PAYMENT_OPTIONS: { key: PaymentMethod; label: string; emoji: string; full:
   { key: "online_gateway", label: "Plătește online", emoji: "🔒", full: true },
 ];
 
+// Pilot = COD / card-on-delivery only. Online payment is a MOCK (no real PSP) and
+// its confirm RPC is service-role-gated at the DB (see confirm_online_payment),
+// so the tile stays hidden until a real gateway is wired. Flip
+// NEXT_PUBLIC_ENABLE_ONLINE_PAYMENT=true to re-enable once that exists.
+const ONLINE_PAYMENT_ENABLED = process.env.NEXT_PUBLIC_ENABLE_ONLINE_PAYMENT === "true";
+const VISIBLE_PAYMENT_OPTIONS = PAYMENT_OPTIONS.filter(
+  (m) => m.key !== "online_gateway" || ONLINE_PAYMENT_ENABLED,
+);
+
 export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const router = useRouter();
   const { restaurantId, restaurantName, lines, clear } = useCartStore();
@@ -52,7 +61,10 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
     try {
       const savedPm = localStorage.getItem("chisinau-last-payment") as PaymentMethod | null;
       const savedTip = localStorage.getItem("chisinau-last-tip") as TipChoice | null;
-      if (savedPm && ["cash", "card_on_delivery", "online_gateway"].includes(savedPm)) setPaymentMethod(savedPm);
+      const allowedPm = ONLINE_PAYMENT_ENABLED
+        ? ["cash", "card_on_delivery", "online_gateway"]
+        : ["cash", "card_on_delivery"];
+      if (savedPm && allowedPm.includes(savedPm)) setPaymentMethod(savedPm);
       if (savedTip && ["none", "p10", "p15", "p20"].includes(savedTip)) setTipChoice(savedTip);
     } catch {
       /* storage unavailable — defaults stand */
@@ -471,7 +483,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       <section className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Metodă de plată</h2>
         <div className="grid grid-cols-2 gap-2.5">
-          {PAYMENT_OPTIONS.map((m) => (
+          {VISIBLE_PAYMENT_OPTIONS.map((m) => (
             <button
               key={m.key}
               type="button"

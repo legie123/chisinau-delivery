@@ -80,10 +80,15 @@ export default async function PlatformQueuesPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/60">
+        <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/60">
           Rambursări / dispute
           <span className="rounded-full bg-gold/15 px-2 py-0.5 text-xs text-gold">{payRows.length}</span>
         </h2>
+        {/* Manual bookkeeping — no PSP refund API in the pilot; these controls only
+            record the payment state you settle by hand (cash/transfer). */}
+        <p className="mb-3 text-xs text-white/45">
+          📒 Evidență manuală — rambursările se fac în afara platformei; butoanele doar înregistrează starea plății.
+        </p>
         {payRows.length === 0 ? (
           <p className="rounded-2xl bg-white/[0.04] px-4 py-8 text-center text-sm text-white/50 ring-1 ring-white/[0.06]">
             Nicio dispută de plată deschisă.

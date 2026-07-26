@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { mapPgError } from "@chisinau/shared-api";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
@@ -24,7 +25,7 @@ export async function cancelStuckOrder(orderId: string, reason: string): Promise
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
   const { error } = await supabase.rpc("cancel_order", { p_order_id: orderId, p_reason: reason });
-  if (error) return { error: error.message };
+  if (error) return { error: mapPgError(error) };
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
@@ -42,7 +43,7 @@ export async function forceAdvance(orderId: string, newStatus: string): Promise<
     p_new_status: newStatus,
     p_payment_confirmed: undefined,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: mapPgError(error) };
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
@@ -60,7 +61,7 @@ export async function resolvePayment(orderId: string, newStatus: string, note?: 
     p_new_status: newStatus,
     p_note: note ?? undefined,
   });
-  if (error) return { error: error.message };
+  if (error) return { error: mapPgError(error) };
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };

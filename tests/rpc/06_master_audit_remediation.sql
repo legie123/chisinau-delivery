@@ -11,7 +11,10 @@ begin
   returning id into v_oid;
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000001','role','authenticated')::text, true);
   select public.start_online_payment(v_oid) into v_intent;
+  -- capture via the gateway webhook (service role) — customer self-confirm is denied (B2)
+  perform set_config('request.jwt.claims', json_build_object('role','service_role')::text, true);
   perform public.confirm_online_payment(v_intent, true, 'ref');   -- captured, payment_status=paid
+  perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000001','role','authenticated')::text, true);
 
   -- attacker tries to inflate the tip AFTER capture → must raise
   begin

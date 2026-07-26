@@ -14,6 +14,14 @@ const NEXT: Partial<Record<PaymentStatus, { to: PaymentStatus; label: string }[]
   ],
   failed: [{ to: "unpaid", label: "Resetează" }],
   unpaid: [{ to: "paid", label: "Confirmă încasarea" }],
+  // A stuck online order (intent opened, never captured). No real PSP in the
+  // pilot, so an admin resolves it by hand: collected cash on delivery →
+  // confirm manually; abandoned → mark failed or reset so the customer pays cash.
+  pending_capture: [
+    { to: "paid", label: "Confirmă încasarea (manual)" },
+    { to: "failed", label: "Marchează eșuată" },
+    { to: "unpaid", label: "Resetează la neîncasat" },
+  ],
 };
 
 export function PaymentActions({ orderId, status }: { orderId: string; status: PaymentStatus }) {
