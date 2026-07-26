@@ -34,13 +34,16 @@ export function AcceptingOrdersToggle({ initialValue }: { initialValue: boolean 
       type="button"
       onClick={handleToggle}
       disabled={pending}
-      className={`mb-6 w-fit rounded-full px-4 py-2 text-sm ${
+      className={`flex w-fit items-center gap-2 rounded-full px-4 py-2 text-sm ${
         accepting
-          ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+          ? "bg-[color:var(--pg-amethyst-0)]/15 ring-1 ring-[color:var(--pg-amethyst-line)]"
           : "bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/30"
       }`}
     >
-      {failed ? "Nu s-a salvat — reîncearcă" : accepting ? "Acceptăm comenzi acum" : "Comenzi oprite temporar"}
+      {accepting && <span className="pg-live-dot" />}
+      <span className={accepting ? "pg-amethyst-glow" : ""}>
+        {failed ? "Nu s-a salvat — reîncearcă" : accepting ? "Acceptăm comenzi acum" : "Comenzi oprite temporar"}
+      </span>
     </button>
   );
 }

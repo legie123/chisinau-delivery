@@ -33,7 +33,7 @@ export function HoursForm({ hours }: { hours: RestaurantHours[] }) {
       {DAY_LABELS.map((label, day) => {
         const existing = byDay.get(day);
         return (
-          <div key={day} className="flex items-center gap-3 text-sm">
+          <div key={day} className="pg-card flex items-center gap-3 rounded-xl px-3 py-2 text-sm">
             <span className="w-24">{label}</span>
             <input
               type="time"
@@ -60,7 +60,7 @@ export function HoursForm({ hours }: { hours: RestaurantHours[] }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-full bg-primary-dark px-5 py-2 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
+        className="pg-cta w-fit rounded-full px-5 py-2 text-sm disabled:opacity-50"
       >
         {pending ? "Se salvează..." : "Salvează programul"}
       </button>

@@ -9,7 +9,7 @@ export function AddCategoryForm() {
   const [state, formAction, pending] = useActionState(createCategory, initialState);
 
   return (
-    <form action={formAction} className="mb-6 flex items-center gap-2">
+    <form action={formAction} className="pg-card mb-6 flex items-center gap-2 rounded-2xl p-2.5">
       <input
         name="name"
         placeholder="Categorie nouă (ex. Roluri)"
@@ -19,7 +19,7 @@ export function AddCategoryForm() {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+        className="pg-cta rounded-full px-4 py-2 text-sm disabled:opacity-50"
       >
         {pending ? "..." : "Adaugă categorie"}
       </button>

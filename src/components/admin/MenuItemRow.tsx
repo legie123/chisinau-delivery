@@ -117,7 +117,7 @@ export function MenuItemRow({ item, optionGroups = [] }: { item: MenuItem; optio
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]">
+    <li className="pg-card pg-card--hover flex flex-col gap-2 rounded-2xl px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           {item.photo_url && (
@@ -153,7 +153,7 @@ export function MenuItemRow({ item, optionGroups = [] }: { item: MenuItem; optio
               ↓
             </button>
           </div>
-          <span className="text-sm text-white/50">{item.price_mdl} MDL</span>
+          <span className="pg-gold-text text-sm font-semibold">{item.price_mdl} MDL</span>
           <button
             type="button"
             onClick={handleToggle}

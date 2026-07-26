@@ -42,7 +42,7 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
     <form
       ref={formRef}
       onSubmit={handleSubmit}
-      className="mb-8 flex flex-col gap-3 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]"
+      className="pg-card mb-8 flex flex-col gap-3 rounded-2xl p-4"
     >
       <h2 className="font-medium">Articol nou</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -71,7 +71,7 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
       <button
         type="submit"
         disabled={pending}
-        className="w-fit rounded-full bg-primary-dark px-5 py-2 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
+        className="pg-cta w-fit rounded-full px-5 py-2 text-sm disabled:opacity-50"
       >
         {pending ? "Se salvează..." : "Adaugă articol"}
       </button>
