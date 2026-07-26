@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { createRestaurant } from "@/app/(admin)/platform/restaurants/actions";
 
-const initialState = { error: null as string | null };
+const initialState = { error: null as string | null, notice: undefined as string | undefined };
 
 export function CreateRestaurantForm() {
   const [state, formAction, pending] = useActionState(createRestaurant, initialState);
@@ -26,6 +26,7 @@ export function CreateRestaurantForm() {
         <input name="min_order_amount_mdl" type="number" step="0.01" min="0" placeholder="Comandă minimă (MDL)" className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60" />
       </div>
       {state.error && <p className="text-sm text-red-400">{state.error}</p>}
+      {state.notice && <p className="text-sm text-emerald-400">{state.notice}</p>}
       <button
         type="submit"
         disabled={pending}

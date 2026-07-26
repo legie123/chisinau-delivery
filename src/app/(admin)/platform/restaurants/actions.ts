@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { geocodeAddress } from "@/lib/geo/geocode";
 import type { CuisineType } from "@/lib/types/domain";
 
-export type ActionState = { error: string | null };
+export type ActionState = { error: string | null; notice?: string };
 
 export async function createRestaurant(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
@@ -24,6 +25,11 @@ export async function createRestaurant(_prev: ActionState, formData: FormData): 
       return { error: "Nume, slug, adresă și telefon sunt obligatorii." };
     }
 
+    // Auto-geocode the address so dispatch + nearby-browse use the REAL position
+    // (not the 6 km fallback). Failure NEVER blocks creation — the restaurant is
+    // saved without coordinates and the operator is told to set them later.
+    const geo = await geocodeAddress(address);
+
     const { error } = await supabase.from("restaurants").insert({
       name,
       slug,
@@ -33,12 +39,19 @@ export async function createRestaurant(_prev: ActionState, formData: FormData): 
       phone,
       delivery_fee_mdl: deliveryFee,
       min_order_amount_mdl: minOrder,
+      lat: geo?.lat ?? null,
+      lng: geo?.lng ?? null,
     });
 
     if (error) return { error: error.message };
 
     revalidatePath("/platform/restaurants");
-    return { error: null };
+    return {
+      error: null,
+      notice: geo
+        ? `Restaurant creat. Adresă geolocalizată: ${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}.`
+        : "Restaurant creat, dar adresa nu a putut fi geolocalizată automat — setează coordonatele manual înainte de activare.",
+    };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "A apărut o eroare." };
   }
