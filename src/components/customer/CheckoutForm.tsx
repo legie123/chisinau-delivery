@@ -7,6 +7,11 @@ import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
 import { useHydrated } from "@/hooks/useHydrated";
 import type { Address, PaymentMethod } from "@/lib/types/domain";
 
+// Persisted across a refresh/Back so an in-flight online payment RESUMES instead of
+// re-rendering a blank checkout over a live cart (which re-submitted place_order and
+// created duplicate orders). Keyed per browser tab. (panel BLOCKER #1)
+const PAYSTEP_KEY = "chisinau-checkout-paystep";
+
 type RestaurantSummary = { name: string; delivery_fee_mdl: number; min_order_amount_mdl: number };
 
 type TipChoice = "none" | "p10" | "p15" | "p20";
@@ -44,7 +49,15 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const [scheduled, setScheduled] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
   // Online-pay mock: once an intent is open we swap the submit CTA for a confirm step.
-  const [payStep, setPayStep] = useState<{ orderId: string; intentId: string } | null>(null);
+  // The amount is FROZEN into payStep so the confirm button can't display a total that
+  // differs from what the intent actually settles (panel BLOCKER #1).
+  const [payStep, setPayStep] = useState<{ orderId: string; intentId: string; amount: number } | null>(null);
+  // A per-checkout-attempt idempotency token: a retry (refresh/Back/re-tap) reuses it
+  // so place_order returns the SAME order instead of inserting a duplicate. Lazy init
+  // once — stable for the component's lifetime.
+  const [idempotencyKey] = useState<string>(() =>
+    typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   // datetime-local min = now (local clock) — can't schedule in the past.
@@ -86,6 +99,26 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
     setCoords(null);
     setLocationError(null);
   }
+
+  // Resume a persisted payment step after a refresh/Back so we don't re-render a
+  // blank checkout (which re-submitted). If none, this is a no-op. (panel BLOCKER #1)
+  useEffect(() => {
+    let raw: string | null = null;
+    try {
+      raw = sessionStorage.getItem(PAYSTEP_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      // One-time sync from sessionStorage on mount (resume in-flight payment).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (parsed?.orderId && parsed?.intentId) setPayStep(parsed);
+    } catch {
+      /* malformed — ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -169,6 +202,8 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         p_items: lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity })),
         p_delivery_address_id: deliveryAddressId,
         p_requested_for: requestedForIso,
+        // Same token on retry ⇒ place_order returns the existing order, no duplicate.
+        p_idempotency_key: idempotencyKey,
       });
       if (rpcError) throw new Error(rpcError.message);
 
@@ -184,7 +219,15 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
           p_order_id: orderId,
         });
         if (payError) throw new Error(payError.message);
-        setPayStep({ orderId: orderId as string, intentId: intentId as string });
+        // Freeze the amount + persist so the confirm total == what settles, and a
+        // refresh resumes this step instead of re-submitting. (panel BLOCKER #1)
+        const step = { orderId: orderId as string, intentId: intentId as string, amount: total };
+        try {
+          sessionStorage.setItem(PAYSTEP_KEY, JSON.stringify(step));
+        } catch {
+          /* private mode — in-memory state still carries the step */
+        }
+        setPayStep(step);
         return;
       }
 
@@ -227,6 +270,11 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         p_provider_ref: `mock-${Date.now()}`,
       });
       if (confirmError) throw new Error(confirmError.message);
+      try {
+        sessionStorage.removeItem(PAYSTEP_KEY);
+      } catch {
+        /* ignore */
+      }
       clear();
       router.push(`/orders/${payStep.orderId}`);
     } catch (err) {
@@ -474,7 +522,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         <section className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-gold/25">
           <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gold">Plată online · demo</h2>
           <p className="mb-4 text-sm text-white/60">
-            Comanda ta este creată. Simulăm gateway-ul de plată — apasă pentru a confirma plata de {total} MDL.
+            Comanda ta este creată. Simulăm gateway-ul de plată — apasă pentru a confirma plata de {payStep.amount} MDL.
           </p>
           <button
             type="button"
@@ -482,7 +530,15 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
             disabled={pending}
             className="w-full rounded-full bg-gold py-4 text-[15px] font-semibold text-zinc-900 transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {pending ? "Se confirmă plata..." : `🔒 Confirmă plata · ${total} MDL`}
+            {/* Amount is the FROZEN intent amount, never the live editable total. */}
+            {pending ? "Se confirmă plata..." : `🔒 Confirmă plata · ${payStep.amount} MDL`}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/orders/${payStep.orderId}`)}
+            className="mx-auto mt-3 block text-sm text-white/40 underline-offset-2 transition hover:text-white/70 hover:underline"
+          >
+            Vezi comanda
           </button>
         </section>
       ) : (
