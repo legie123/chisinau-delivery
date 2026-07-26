@@ -450,6 +450,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               key={m.key}
               type="button"
               onClick={() => setPaymentMethod(m.key)}
+              aria-pressed={paymentMethod === m.key}
               className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-[15px] font-medium transition ${
                 m.full ? "col-span-2" : ""
               } ${
@@ -509,7 +510,11 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       </section>
 
       {error && (
-        <p className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">{error}</p>
+        // role=alert + aria-live so screen readers announce the rejection (closed,
+        // below-minimum, item unavailable) — it used to render silently. (#2/#6)
+        <p role="alert" aria-live="assertive" className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">
+          {error}
+        </p>
       )}
 
       {restaurantState === "error" && (

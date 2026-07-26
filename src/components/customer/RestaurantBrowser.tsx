@@ -163,6 +163,7 @@ export function RestaurantBrowser({
             key={c.key}
             type="button"
             onClick={() => setCategory(c.key)}
+            aria-pressed={category === c.key}
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
               category === c.key
                 ? "bg-primary-dark text-white"
@@ -257,14 +258,22 @@ export function RestaurantBrowser({
                       </>
                     )}
                   </p>
-                  <span
-                    className={`mt-3 inline-block rounded-md border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
-                      Number(r.delivery_fee_mdl) === 0
-                        ? "border-gold/60 text-gold"
-                        : "border-white/25 text-white/70"
-                    }`}
-                  >
-                    {Number(r.delivery_fee_mdl) === 0 ? "Livrare gratuită" : `Livrare ${r.delivery_fee_mdl} MDL`}
+                  <span className="mt-3 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-block rounded-md border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
+                        Number(r.delivery_fee_mdl) === 0
+                          ? "border-gold/60 text-gold"
+                          : "border-white/25 text-white/70"
+                      }`}
+                    >
+                      {Number(r.delivery_fee_mdl) === 0 ? "Livrare gratuită" : `Livrare ${r.delivery_fee_mdl} MDL`}
+                    </span>
+                    {/* #9 — surface the minimum order before the click, not at checkout. */}
+                    {Number(r.min_order_amount_mdl) > 0 && (
+                      <span className="inline-block rounded-md border border-white/15 px-2.5 py-1 text-[11px] font-medium text-white/50">
+                        min. {r.min_order_amount_mdl} MDL
+                      </span>
+                    )}
                   </span>
                 </div>
                 {r.cover_photo_url && (
@@ -278,10 +287,12 @@ export function RestaurantBrowser({
                   />
                 )}
               </div>
-              {!r.accepting_orders && (
+              {/* #2 — closed by manual toggle OR by today's hours: visible before any
+                  effort is spent, not only rejected at the final pay tap. */}
+              {(!r.accepting_orders || !openNowSet.has(r.id)) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/70">
                   <span className="rounded-full bg-white/95 px-4 py-1.5 text-sm font-semibold text-zinc-900">
-                    Închis momentan
+                    {!r.accepting_orders ? "Închis momentan" : "Închis acum"}
                   </span>
                 </div>
               )}
