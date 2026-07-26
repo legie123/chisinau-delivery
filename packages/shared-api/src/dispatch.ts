@@ -21,6 +21,12 @@ export async function declineDispatchOffer(db: Db, offerId: OfferId): Promise<vo
   if (error) throw new RpcError(error);
 }
 
+/** Courier toggles their availability (online ↔ offline) for dispatch. */
+export async function setCourierOnlineStatus(db: Db, online: boolean): Promise<void> {
+  const { error } = await db.rpc("set_courier_online_status", { p_status: online ? "online" : "offline" });
+  if (error) throw new RpcError(error);
+}
+
 /**
  * Courier SELF-claims an unassigned ready order from the pull feed.
  *

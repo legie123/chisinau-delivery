@@ -2,8 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require";
-import { acceptDispatchOffer, declineDispatchOffer, RpcError } from "@chisinau/shared-api";
-import { asOfferId } from "@chisinau/shared-types";
+import {
+  acceptDispatchOffer,
+  advanceDeliveryStatus,
+  claimOrderAsCourier,
+  declineDispatchOffer,
+  RpcError,
+  setCourierOnlineStatus,
+} from "@chisinau/shared-api";
+import { asOfferId, asOrderId, type OrderStatus } from "@chisinau/shared-types";
 
 // Customer status pushes are enqueued durably by the delivery_status_events trigger
 // (enqueue_customer_status_push) — no more fire-and-forget from the action thread.
@@ -18,9 +25,11 @@ export async function setOnlineStatus(online: boolean): Promise<ActionResult> {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
 
-  const { error } = await supabase.rpc("set_courier_online_status", { p_status: online ? "online" : "offline" });
-  if (error) return { error: error.message };
-
+  try {
+    await setCourierOnlineStatus(supabase, online);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut schimba starea." };
+  }
   revalidatePath("/deliveries");
   return { error: null };
 }
@@ -33,9 +42,11 @@ export async function acceptDelivery(orderId: string): Promise<ActionResult> {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
 
-  const { error } = await supabase.rpc("assign_courier", { p_order_id: orderId });
-  if (error) return { error: error.message };
-
+  try {
+    await claimOrderAsCourier(supabase, asOrderId(orderId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut prelua comanda." };
+  }
   revalidatePath("/deliveries");
   return { error: null };
 }
@@ -52,13 +63,11 @@ export async function advanceStatus(
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
 
-  const { error } = await supabase.rpc("advance_delivery_status", {
-    p_order_id: orderId,
-    p_new_status: newStatus,
-    p_payment_confirmed: paymentConfirmed ?? undefined,
-  });
-  if (error) return { error: error.message };
-
+  try {
+    await advanceDeliveryStatus(supabase, asOrderId(orderId), newStatus as OrderStatus, paymentConfirmed);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut actualiza starea." };
+  }
   revalidatePath("/deliveries");
   revalidatePath(`/deliveries/${orderId}`);
   return { error: null };
