@@ -38,6 +38,10 @@ const SECTORS = [
 ];
 
 export default function HubPage() {
+  // Master Council Phase 0: the passwordless demo tiles render only outside
+  // production. In production the hub is the real-account entry (the /enter route
+  // itself also redirects to /login in prod). Local/dev/staging keep the tiles.
+  const showDemo = process.env.NODE_ENV !== "production";
   return (
     <main className="flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
       {/* Brand */}
@@ -51,7 +55,8 @@ export default function HubPage() {
         </p>
       </div>
 
-      {/* Three sectors */}
+      {/* Demo sectors — non-production only */}
+      {showDemo && (
       <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-2 lg:grid-cols-4">
         {SECTORS.map((s) => (
           <form key={s.href} method="POST" action={s.href} className="contents">
@@ -83,13 +88,14 @@ export default function HubPage() {
           </form>
         ))}
       </div>
+      )}
 
-      {/* Real account entry — sign in or create a customer account (the demo tiles
-          above are a passwordless shortcut for testing). */}
-      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-5 pb-10">
+      {/* Real account entry — sign in or create a customer account. In production
+          this is the ONLY entry; on dev/staging it sits under the demo tiles. */}
+      <div className={`mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-5 pb-10 ${showDemo ? "" : "flex-1 justify-center"}`}>
         <div className="flex items-center gap-3 text-white/30">
           <span className="h-px w-16 bg-white/10" />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.3em]">Cont real</span>
+          <span className="text-[11px] font-semibold uppercase tracking-[0.3em]">Cont</span>
           <span className="h-px w-16 bg-white/10" />
         </div>
         <Link
@@ -101,9 +107,11 @@ export default function HubPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
           </svg>
         </Link>
-        <p className="text-center text-xs text-white/30">
-          Tile-urile de mai sus sunt mod demonstrație — intrare directă, fără parolă.
-        </p>
+        {showDemo && (
+          <p className="text-center text-xs text-white/30">
+            Tile-urile de mai sus sunt mod demonstrație — intrare directă, fără parolă (doar pe dev).
+          </p>
+        )}
       </div>
     </main>
   );

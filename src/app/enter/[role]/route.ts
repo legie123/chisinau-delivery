@@ -16,6 +16,13 @@ const SECTOR: Record<string, { email: string; to: string }> = {
 const DEMO_PASSWORD = "parola123";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ role: string }> }) {
+  // Master Council Phase 0: the passwordless demo doorway must not exist in
+  // production — real users go through /login (sign-in + sign-up). It stays fully
+  // functional on local/dev/staging for testing.
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.redirect(new URL("/login", request.url), 303);
+  }
+
   const { role } = await params;
   const sector = SECTOR[role];
   if (!sector) {
