@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { OrderQueueRow } from "@/components/admin/OrderQueueRow";
 import { OrderQueueLive } from "@/components/admin/OrderQueueLive";
 import { RestaurantPickupMap } from "@/components/admin/RestaurantPickupMap";
+import { PushOptIn } from "@/components/shared/PushOptIn";
 import type { Order, PrepEstimate } from "@/lib/types/domain";
 
 const QUEUE_STATUSES = ["pending_restaurant", "accepted", "ready_for_pickup", "courier_assigned", "picked_up", "en_route"];
@@ -72,6 +73,11 @@ export default async function RestaurantOrdersPage() {
           initialCourier={pickupCourier.pos}
         />
       )}
+      {/* Web Push opt-in so the partner gets the "Comandă nouă" alert even with the
+          tab backgrounded — the marquee reliable-outbox feature (audit HIGH #3). */}
+      <div className="mb-4">
+        <PushOptIn />
+      </div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-white">Comenzi</h1>
         {prepEstimate && (

@@ -84,5 +84,19 @@ export async function invitePartner(_prev: ActionState, formData: FormData): Pro
   }
 }
 
-// Courier invite (creating a `couriers` row, not just a profile) lands in
-// Phase 3 alongside the couriers_and_deliveries migration.
+// Activate / deactivate a restaurant (the platform moderation flag). An onboarded
+// restaurant is created is_active=false and is invisible + order-blocked until an
+// admin flips this — the missing last hop of the onboarding organism. The
+// guard_restaurant_platform_columns trigger allows is_active writes only for a
+// platform_admin, so this admin-session update is the authorized path.
+export async function setRestaurantActive(restaurantId: string, isActive: boolean): Promise<ActionState> {
+  try {
+    const { supabase } = await requirePlatformAdmin();
+    const { error } = await supabase.from("restaurants").update({ is_active: isActive }).eq("id", restaurantId);
+    if (error) return { error: error.message };
+    revalidatePath("/platform/restaurants");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
+}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 import { ReorderButton } from "@/components/customer/ReorderButton";
+import { PushOptIn } from "@/components/shared/PushOptIn";
 
 type OrderRow = Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl"> & {
   restaurant_id: string;
@@ -52,7 +53,12 @@ export default async function OrdersPage() {
 
   return (
     <main className="flex-1 px-5 pb-24 pt-6">
-      <h1 className="mb-6 text-2xl font-bold text-white">Comenzile mele</h1>
+      <h1 className="mb-4 text-2xl font-bold text-white">Comenzile mele</h1>
+      {/* Web Push opt-in so status updates reach the customer with the tab closed
+          (audit HIGH #3 — customers couldn't subscribe before). */}
+      <div className="mb-6">
+        <PushOptIn />
+      </div>
       {orderList.length === 0 ? (
         <div className="flex flex-col items-center gap-4 py-20 text-center">
           <span className="text-6xl" aria-hidden>🍣</span>

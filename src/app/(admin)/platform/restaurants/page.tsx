@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { CreateRestaurantForm } from "@/components/admin/CreateRestaurantForm";
 import { InvitePartnerForm } from "@/components/admin/InvitePartnerForm";
+import { RestaurantActiveToggle } from "@/components/admin/RestaurantActiveToggle";
 import type { AdminRestaurantKpiRow } from "@/lib/types/domain";
 
 export default async function PlatformRestaurantsPage() {
@@ -45,7 +46,9 @@ export default async function PlatformRestaurantsPage() {
                 <td className="py-2">{restaurant.name}</td>
                 <td className="py-2">{restaurant.cuisine_type}</td>
                 <td className="py-2">{restaurant.sector ?? "—"}</td>
-                <td className="py-2">{restaurant.is_active ? "Da" : "Nu"}</td>
+                <td className="py-2">
+                  <RestaurantActiveToggle restaurantId={restaurant.id} initialActive={restaurant.is_active} />
+                </td>
                 <td className="py-2">{restaurant.accepting_orders ? "Da" : "Nu"}</td>
                 <td className="py-2">
                   {kpi?.acceptance_rate_7d != null ? `${Math.round(kpi.acceptance_rate_7d * 100)}%` : "—"}
