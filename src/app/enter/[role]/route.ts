@@ -10,6 +10,7 @@ const SECTOR: Record<string, { email: string; to: string }> = {
   client: { email: "client@test.md", to: "/restaurants" },
   curier: { email: "curier@test.md", to: "/deliveries" },
   restaurant: { email: "partener@test.md", to: "/restaurant/orders" },
+  platform: { email: "admin@test.md", to: "/platform" },
 };
 
 const DEMO_PASSWORD = "parola123";

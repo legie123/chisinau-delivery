@@ -44,7 +44,7 @@ export function OrdersBoard({ orders }: { orders: AdminOrderBoardRow[] }) {
                 return (
                   <Link
                     key={o.id}
-                    href="/platform/orders"
+                    href={`/platform/orders/${o.id}`}
                     className="block rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/[0.06] transition hover:ring-gold/30"
                   >
                     <div className="flex items-center justify-between gap-2">

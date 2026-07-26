@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import {
   PAYMENT_METHOD_LABEL,
@@ -59,12 +60,16 @@ export default async function PlatformQueuesPage() {
               <tbody>
                 {stuckRows.map((o) => (
                   <tr key={o.id} className="border-b border-white/5 align-top">
-                    <td className="py-3 font-medium text-white">{o.order_number}</td>
+                    <td className="py-3 font-medium text-white">
+                      <Link href={`/platform/orders/${o.id}`} className="hover:text-gold hover:underline">
+                        {o.order_number}
+                      </Link>
+                    </td>
                     <td className="py-3 text-white/70">{o.stuck_reason}</td>
                     <td className="py-3 text-primary">{ageLabel(o.in_state_seconds)}</td>
                     <td className="py-3 text-white/60">{o.restaurant_name}</td>
                     <td className="py-3 text-right">
-                      <StuckOrderActions orderId={o.id} />
+                      <StuckOrderActions orderId={o.id} status={o.status} />
                     </td>
                   </tr>
                 ))}
@@ -89,16 +94,23 @@ export default async function PlatformQueuesPage() {
               <thead>
                 <tr className="border-b border-white/10 text-white/50">
                   <th className="py-2">Comandă</th>
+                  <th className="py-2">Restaurant</th>
                   <th className="py-2">Sumă</th>
                   <th className="py-2">Metodă</th>
                   <th className="py-2">Stare plată</th>
+                  <th className="py-2">Motiv</th>
                   <th className="py-2 text-right">Rezolvare</th>
                 </tr>
               </thead>
               <tbody>
                 {payRows.map((o) => (
                   <tr key={o.id} className="border-b border-white/5 align-top">
-                    <td className="py-3 font-medium text-white">{o.order_number}</td>
+                    <td className="py-3 font-medium text-white">
+                      <Link href={`/platform/orders/${o.id}`} className="hover:text-gold hover:underline">
+                        {o.order_number}
+                      </Link>
+                    </td>
+                    <td className="py-3 text-white/60">{o.restaurant_name}</td>
                     <td className="py-3 text-white/80">{o.total_mdl} MDL</td>
                     <td className="py-3 text-white/60">{PAYMENT_METHOD_LABEL[o.payment_method]}</td>
                     <td className="py-3">
@@ -106,6 +118,7 @@ export default async function PlatformQueuesPage() {
                         {PAYMENT_STATUS_LABEL[o.payment_status] ?? o.payment_status}
                       </span>
                     </td>
+                    <td className="py-3 text-white/60">{o.cancellation_reason ?? "—"}</td>
                     <td className="py-3 text-right">
                       <PaymentActions orderId={o.id} status={o.payment_status} />
                     </td>

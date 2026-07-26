@@ -77,7 +77,7 @@ export default async function PlatformFraudPage() {
                       {flag.detail.order_id && (
                         <>
                           {" · "}
-                          <Link href={`/platform/orders`} className="text-gold hover:underline">
+                          <Link href={`/platform/orders/${flag.detail.order_id}`} className="text-gold hover:underline">
                             Comanda
                           </Link>
                         </>

@@ -1,4 +1,4 @@
-// Central hub — three sectors, no login friction (dev/demo doorway via
+// Central hub — four sectors, no login friction (dev/demo doorway via
 // /enter/[role] which signs in the seeded account for that surface). No login
 // form anywhere for now (per product decision) — every entry is passwordless.
 const SECTORS = [
@@ -26,6 +26,14 @@ const SECTORS = [
     image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=900&h=1200&fit=crop",
     tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#4a350f]/95",
   },
+  {
+    href: "/enter/platform",
+    title: "Platformă",
+    subtitle: "Centru operațional & admin",
+    emoji: "🛡️",
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&h=1200&fit=crop",
+    tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#0d0d1f]/95",
+  },
 ];
 
 export default function HubPage() {
@@ -43,7 +51,7 @@ export default function HubPage() {
       </div>
 
       {/* Three sectors */}
-      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-3">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-2 lg:grid-cols-4">
         {SECTORS.map((s) => (
           <form key={s.href} method="POST" action={s.href} className="contents">
           <button

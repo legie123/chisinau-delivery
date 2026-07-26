@@ -26,6 +26,7 @@ export async function cancelStuckOrder(orderId: string, reason: string): Promise
   const { error } = await supabase.rpc("cancel_order", { p_order_id: orderId, p_reason: reason });
   if (error) return { error: error.message };
   revalidatePath("/platform/queues");
+  revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
 }
 
@@ -43,6 +44,7 @@ export async function forceAdvance(orderId: string, newStatus: string): Promise<
   });
   if (error) return { error: error.message };
   revalidatePath("/platform/queues");
+  revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
 }
 
@@ -60,5 +62,6 @@ export async function resolvePayment(orderId: string, newStatus: string, note?: 
   });
   if (error) return { error: error.message };
   revalidatePath("/platform/queues");
+  revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
 }

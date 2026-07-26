@@ -9,7 +9,7 @@ const ROLE_HOME: Record<UserRole, string> = {
   customer: "/restaurants",
   courier: "/deliveries",
   restaurant_partner: "/restaurant/menu",
-  platform_admin: "/platform/restaurants",
+  platform_admin: "/platform",
 };
 
 export function LoginForm({ next }: { next: string | null }) {
