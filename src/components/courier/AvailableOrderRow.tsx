@@ -28,11 +28,14 @@ export function AvailableOrderRow({ order, disabled }: { order: Order; disabled?
             De încasat: <span className="font-semibold text-white/80">{order.total_mdl} MDL</span>
           </p>
           <p className="text-sm font-bold text-gold">
-            Câștig: {order.delivery_fee_mdl} MDL
+            {/* Order 2 — courier_fee_quoted_mdl is a FLOOR: "tarif minim", never
+                "minim garantat" (the final at delivery can only be higher). */}
+            Câștig: {order.courier_fee_quoted_mdl ?? order.delivery_fee_mdl} MDL
             {Number(order.tip_mdl) > 0 && (
               <span className="ml-1.5 font-semibold text-emerald-400">+{order.tip_mdl} bacșiș</span>
             )}
           </p>
+          <p className="text-xs text-white/40">tarif minim — poate crește cu distanța reală</p>
           {error && <p className="mt-1 text-xs text-primary">{error}</p>}
         </div>
       </div>

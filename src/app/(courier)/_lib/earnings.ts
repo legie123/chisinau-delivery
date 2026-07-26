@@ -3,9 +3,12 @@
 // different numbers for the same delivery.
 //
 // Formula mirrors the courier loop in admin_generate_payouts exactly
-// (supabase/migrations/20260725000700_wave9b_payout_lock.sql, body unchanged
-// since 20260725000100_money_integrity.sql):
-//   net = (delivery_fee_mdl + tip_mdl) - round(delivery_fee_mdl * commission_pct / 100, 2)
+// (supabase/migrations/20260727000900_courier_tariff.sql — the fee source
+// swapped 1:1 with that migration's coalesce(courier_fee_mdl, delivery_fee_mdl)):
+//   fee = courier_fee_mdl ?? delivery_fee_mdl (order 2: per-delivery tariff,
+//         final stamped at delivered; falls back to the flat delivery fee for
+//         any order that predates the tariff or never got a final stamped)
+//   net = (fee + tip_mdl) - round(fee * commission_pct / 100, 2)
 // i.e. tips are the courier's in full; commission is taken on the delivery
 // fee only. Only status='delivered' AND payment_status='paid' orders count —
 // anything else is "pending" (#3c: cash not yet collected / online not yet
@@ -40,16 +43,23 @@ export function currentWeekRange(now: Date = new Date()): { start: Date; end: Da
 
 export type EarningsOrder = {
   delivery_fee_mdl: number;
+  courier_fee_mdl?: number | null;
   tip_mdl: number | null;
   payment_status: string;
 };
+
+// Order 2 — the courier's actual fee: the final tariff stamp if it exists,
+// else the flat delivery fee (legacy orders / anything pre-tariff).
+function courierFee(o: EarningsOrder): number {
+  return Number(o.courier_fee_mdl ?? o.delivery_fee_mdl);
+}
 
 // Per-order net — what a single delivery is actually worth to the courier.
 // Returns null for anything not settleable yet (see module doc); callers use
 // that to render a "neîncasat / pending" state instead of a number.
 export function netForOrder(o: EarningsOrder, commissionPct: number = COMMISSION_PCT): number | null {
   if (o.payment_status !== "paid") return null;
-  const fee = Number(o.delivery_fee_mdl);
+  const fee = courierFee(o);
   const commission = round2(fee * (commissionPct / 100));
   return round2(fee + Number(o.tip_mdl ?? 0) - commission);
 }
@@ -82,7 +92,7 @@ export function summarizeShifts(
       const deliveredAt = new Date(o.delivered_at).getTime();
       if (deliveredAt >= start && deliveredAt < end) {
         ordersCount += 1;
-        grossMdl += Number(o.delivery_fee_mdl) + Number(o.tip_mdl ?? 0);
+        grossMdl += courierFee(o) + Number(o.tip_mdl ?? 0);
       }
     }
     return { id: s.id, startedAt: s.started_at, endedAt: s.ended_at, ordersCount, grossMdl: round2(grossMdl) };
@@ -107,8 +117,9 @@ export function summarizeEarnings(orders: EarningsOrder[], commissionPct: number
   let pendingCount = 0;
   for (const o of orders) {
     if (o.payment_status === "paid") {
-      grossMdl += Number(o.delivery_fee_mdl) + Number(o.tip_mdl ?? 0);
-      feesMdl += Number(o.delivery_fee_mdl);
+      const fee = courierFee(o);
+      grossMdl += fee + Number(o.tip_mdl ?? 0);
+      feesMdl += fee;
       ordersCount += 1;
     } else {
       pendingCount += 1;

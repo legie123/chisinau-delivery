@@ -500,6 +500,42 @@ export type Database = {
           },
         ]
       }
+      courier_tariff_config: {
+        Row: {
+          base_mdl: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          per_km_mdl: number
+          wait_grace_minutes: number
+          wait_per_min_mdl: number
+        }
+        Insert: {
+          base_mdl: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          per_km_mdl: number
+          wait_grace_minutes?: number
+          wait_per_min_mdl: number
+        }
+        Update: {
+          base_mdl?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          per_km_mdl?: number
+          wait_grace_minutes?: number
+          wait_per_min_mdl?: number
+        }
+        Relationships: []
+      }
       couriers: {
         Row: {
           created_at: string
@@ -1208,6 +1244,8 @@ export type Database = {
       orders: {
         Row: {
           cancellation_reason: string | null
+          courier_fee_mdl: number | null
+          courier_fee_quoted_mdl: number | null
           courier_id: string | null
           created_at: string
           customer_id: string
@@ -1232,6 +1270,8 @@ export type Database = {
         }
         Insert: {
           cancellation_reason?: string | null
+          courier_fee_mdl?: number | null
+          courier_fee_quoted_mdl?: number | null
           courier_id?: string | null
           created_at?: string
           customer_id: string
@@ -1256,6 +1296,8 @@ export type Database = {
         }
         Update: {
           cancellation_reason?: string | null
+          courier_fee_mdl?: number | null
+          courier_fee_quoted_mdl?: number | null
           courier_id?: string | null
           created_at?: string
           customer_id?: string
@@ -2254,6 +2296,26 @@ export type Database = {
         }
       }
       current_courier_id: { Args: never; Returns: string }
+      current_courier_tariff: {
+        Args: never
+        Returns: {
+          base_mdl: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          per_km_mdl: number
+          wait_grace_minutes: number
+          wait_per_min_mdl: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "courier_tariff_config"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_dispatch_scoring_config: {
         Args: never
         Returns: {
@@ -2453,6 +2515,17 @@ export type Database = {
       set_courier_online_status: {
         Args: { p_status: string }
         Returns: undefined
+      }
+      set_courier_tariff: {
+        Args: {
+          p_base_mdl: number
+          p_effective_from?: string
+          p_note?: string
+          p_per_km_mdl: number
+          p_wait_grace_minutes?: number
+          p_wait_per_min_mdl: number
+        }
+        Returns: string
       }
       set_dispatch_scoring_config: {
         Args: {

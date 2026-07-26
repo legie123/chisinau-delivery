@@ -64,7 +64,7 @@ export default async function CourierEarningsPage() {
   const [{ data: weekOrders }, { data: payoutRows }, { data: closedShifts }] = await Promise.all([
     supabase
       .from("orders")
-      .select("delivery_fee_mdl, tip_mdl, payment_status")
+      .select("delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status")
       .eq("courier_id", courier.id)
       .eq("status", "delivered")
       .gte("delivered_at", weekStart.toISOString())
@@ -98,7 +98,7 @@ export default async function CourierEarningsPage() {
   const { data: shiftOrders } = earliestShiftStart
     ? await supabase
         .from("orders")
-        .select("delivery_fee_mdl, tip_mdl, payment_status, delivered_at")
+        .select("delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, delivered_at")
         .eq("courier_id", courier.id)
         .eq("status", "delivered")
         .gte("delivered_at", earliestShiftStart)

@@ -158,6 +158,11 @@ export interface Order {
   cancellation_reason: string | null;
   estimated_ready_at: string | null;
   tip_mdl: number;
+  // Order 2 — per-delivery courier tariff. Quoted (floor) stamped at
+  // mark_ready_for_pickup; final stamped at delivered, never below the quote.
+  // Both null until stamped; UI/earnings code must fall back to delivery_fee_mdl.
+  courier_fee_quoted_mdl: number | null;
+  courier_fee_mdl: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -12,3 +12,4 @@ export * from "./onboarding";
 export * from "./discovery";
 export * from "./notifications";
 export * from "./cash";
+export * from "./tariff";

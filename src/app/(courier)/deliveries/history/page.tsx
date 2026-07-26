@@ -29,13 +29,18 @@ export default async function DeliveryHistoryPage() {
 
   const { data: delivered } = await supabase
     .from("orders")
-    .select("id, order_number, delivered_at, updated_at, delivery_fee_mdl, tip_mdl, payment_status, restaurant_id, restaurants(name)")
+    .select(
+      "id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, restaurant_id, restaurants(name)",
+    )
     .eq("courier_id", courier.id)
     .eq("status", "delivered")
     .order("delivered_at", { ascending: false, nullsFirst: false })
     .limit(50);
 
-  type HistoryRow = Pick<Order, "id" | "order_number" | "delivery_fee_mdl" | "tip_mdl" | "payment_status" | "restaurant_id"> & {
+  type HistoryRow = Pick<
+    Order,
+    "id" | "order_number" | "delivery_fee_mdl" | "courier_fee_mdl" | "tip_mdl" | "payment_status" | "restaurant_id"
+  > & {
     delivered_at: string | null;
     updated_at: string;
     restaurants: { name: string } | null;

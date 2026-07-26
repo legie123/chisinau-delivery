@@ -90,15 +90,23 @@ export function OfferCard({ offer }: { offer: DispatchOffer }) {
         </p>
         {/* #3a — the fee is what the courier earns; total_mdl is cash he collects
             from the customer. Câștig must be the primary gold number, mirroring
-            AvailableOrderRow, or a courier reads total_mdl as his own pay. */}
+            AvailableOrderRow, or a courier reads total_mdl as his own pay.
+            Order 2 — courier_fee_quoted_mdl is a FLOOR, not a fixed number:
+            "tarif minim" (never "minim garantat" — the final at delivery can
+            be higher, never lower). Falls back to delivery_fee_mdl for any
+            order that predates the tariff (should not happen post-migration,
+            but mark_ready_for_pickup always stamps it going forward). */}
         {order && (
           <div className="mt-1 flex items-baseline gap-2">
-            <p className="text-lg font-bold text-gold">Câștig: {order.delivery_fee_mdl} MDL</p>
+            <p className="text-lg font-bold text-gold">
+              Câștig: {order.courier_fee_quoted_mdl ?? order.delivery_fee_mdl} MDL
+            </p>
             {Number(order.tip_mdl) > 0 && (
               <span className="text-sm font-semibold text-emerald-400">+{order.tip_mdl} bacșiș</span>
             )}
           </div>
         )}
+        {order && <p className="text-xs text-white/40">tarif minim — poate crește cu distanța reală</p>}
         {order && (
           <p className="text-sm text-white/50">
             De încasat: <span className="font-semibold text-white/70">{order.total_mdl} MDL</span>
