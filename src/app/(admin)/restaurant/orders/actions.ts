@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require";
-import { notifyOrderCustomer } from "@/lib/push/notify";
 
 export type ActionResult = { error: string | null };
 
@@ -21,44 +20,17 @@ async function callOrderRpc(rpc: string, args: Record<string, unknown>): Promise
   return { error: null };
 }
 
+// Customer status pushes are now enqueued durably by the delivery_status_events
+// trigger (enqueue_customer_status_push) — uniform across every path that advances
+// an order, with drain-with-retry — so these actions no longer fire-and-forget them.
 export async function acceptOrder(orderId: string): Promise<ActionResult> {
-  const result = await callOrderRpc("accept_order", { p_order_id: orderId });
-  if (!result.error) {
-    void notifyOrderCustomer(orderId, {
-      title: "Comandă acceptată ✅",
-      body: "Restaurantul a acceptat comanda ta și o pregătește.",
-      url: `/orders/${orderId}`,
-      tag: `order-${orderId}`,
-    });
-  }
-  return result;
+  return callOrderRpc("accept_order", { p_order_id: orderId });
 }
 
 export async function rejectOrder(orderId: string, reason: string): Promise<ActionResult> {
-  const result = await callOrderRpc("reject_order", { p_order_id: orderId, p_reason: reason });
-  if (!result.error) {
-    void notifyOrderCustomer(orderId, {
-      title: "Comandă refuzată",
-      body: `Restaurantul nu a putut prelua comanda: ${reason}`,
-      url: `/orders/${orderId}`,
-      tag: `order-${orderId}`,
-    });
-  }
-  return result;
+  return callOrderRpc("reject_order", { p_order_id: orderId, p_reason: reason });
 }
 
 export async function markReadyForPickup(orderId: string): Promise<ActionResult> {
-  const result = await callOrderRpc("mark_ready_for_pickup", { p_order_id: orderId });
-  if (!result.error) {
-    // Courier offer pushes are owned by the dispatch_offers outbox trigger now —
-    // uniform across the initial dispatch AND both cascade paths (decline + the
-    // pg_cron expiry sweeper). Here we only tell the customer their food is ready.
-    void notifyOrderCustomer(orderId, {
-      title: "Comanda e gata 🥡",
-      body: "Comanda ta e gata și așteaptă curierul.",
-      url: `/orders/${orderId}`,
-      tag: `order-${orderId}`,
-    });
-  }
-  return result;
+  return callOrderRpc("mark_ready_for_pickup", { p_order_id: orderId });
 }
