@@ -1188,6 +1188,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_config: {
+        Row: {
+          courier_commission_pct: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          restaurant_commission_pct: number
+        }
+        Insert: {
+          courier_commission_pct: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          restaurant_commission_pct: number
+        }
+        Update: {
+          courier_commission_pct?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+          restaurant_commission_pct?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1801,6 +1831,24 @@ export type Database = {
         Returns: boolean
       }
       current_courier_id: { Args: never; Returns: string }
+      current_pricing_config: {
+        Args: never
+        Returns: {
+          courier_commission_pct: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          restaurant_commission_pct: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pricing_config"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       customer_has_active_order_with_courier: {
         Args: { target_courier: string }
         Returns: boolean
@@ -1940,6 +1988,15 @@ export type Database = {
       set_order_tip: {
         Args: { p_order_id: string; p_tip_mdl: number }
         Returns: undefined
+      }
+      set_pricing_config: {
+        Args: {
+          p_courier_pct: number
+          p_effective_from: string
+          p_note?: string
+          p_restaurant_pct: number
+        }
+        Returns: string
       }
       start_online_payment: { Args: { p_order_id: string }; Returns: string }
       submit_catering_quote: {

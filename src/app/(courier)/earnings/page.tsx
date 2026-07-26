@@ -63,10 +63,21 @@ export default async function CourierEarningsPage() {
   const weekSummary = summarizeEarnings(week);
   const payouts = (payoutRows ?? []) as Payout[];
 
+  // Tariff transparency (audit §2.1): show the CURRENT versioned tariff. Rates change
+  // only via a new immutable version, announced in advance — never silently.
+  const { data: pricing } = await supabase.rpc("current_pricing_config");
+  const courierPct = (pricing as { courier_commission_pct: number } | null)?.courier_commission_pct ?? null;
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
       <h1 className="font-serif text-2xl font-bold text-white">Câștiguri</h1>
-      <p className="mb-6 mt-1 text-sm text-white/50">Comisioanele tale de livrare și plățile săptămânale.</p>
+      <p className="mb-4 mt-1 text-sm text-white/50">Comisioanele tale de livrare și plățile săptămânale.</p>
+      {courierPct != null && (
+        <p className="mb-6 rounded-xl bg-white/[0.04] px-4 py-2.5 text-sm text-white/70 ring-1 ring-white/[0.06]">
+          Tarif curent: comision <span className="font-semibold text-gold">{courierPct}%</span> pe taxa de livrare ·
+          bacșișul e <span className="font-semibold text-white">100% al tău</span>. Orice schimbare e anunțată din timp.
+        </p>
+      )}
 
       <section className="mb-8 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <p className="text-sm text-white/50">Săptămâna aceasta (net, după comision)</p>
