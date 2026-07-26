@@ -15,6 +15,23 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   ]);
   if (!order) notFound();
 
+  // Assigned courier's first name + phone for the live tracking card (RLS already
+  // scopes couriers reads to the customer's own in-flight order — see
+  // couriers_customer_scoped_read, migration 20260708000400).
+  let courierFirstName: string | null = null;
+  let courierPhone: string | null = null;
+  if ((order as Order).courier_id) {
+    const { data: courier } = await supabase
+      .from("couriers")
+      .select("full_name, phone")
+      .eq("id", (order as Order).courier_id as string)
+      .maybeSingle();
+    if (courier) {
+      courierFirstName = courier.full_name?.split(" ")[0] ?? null;
+      courierPhone = courier.phone ?? null;
+    }
+  }
+
   const typedOrder = order as Order;
   const embedded = order as unknown as { restaurants: { accept_sla_minutes: number; lat: number | null; lng: number | null } | null };
   const acceptSlaMinutes = embedded.restaurants?.accept_sla_minutes ?? 7;
@@ -43,6 +60,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
         initialRatings={(ratings ?? []) as Rating[]}
         pickup={pickup}
         dropoff={dropoff}
+        courierFirstName={courierFirstName}
+        courierPhone={courierPhone}
       />
     </main>
   );

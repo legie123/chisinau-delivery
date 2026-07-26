@@ -52,6 +52,8 @@ export function OrderTracking({
   initialRatings,
   pickup = null,
   dropoff = null,
+  courierFirstName = null,
+  courierPhone = null,
 }: {
   initialOrder: Order;
   initialEvents: DeliveryStatusEvent[];
@@ -60,9 +62,17 @@ export function OrderTracking({
   initialRatings: Rating[];
   pickup?: MapPoint | null;
   dropoff?: MapPoint | null;
+  courierFirstName?: string | null;
+  courierPhone?: string | null;
 }) {
   const { order, events } = useOrderRealtime(initialOrder.id, initialOrder, initialEvents);
   const tracking = order.status === "picked_up" || order.status === "en_route";
+  // Courier is assigned and delivery is still active (not yet delivered) — this is
+  // broader than `tracking` (which gates the live GPS map/position) so the name +
+  // phone show as soon as a courier is on the order, before pickup.
+  const courierActive =
+    !!order.courier_id &&
+    (order.status === "courier_assigned" || order.status === "picked_up" || order.status === "en_route");
   const position = useCourierLocation(order.id, order.courier_id, tracking);
 
   // Real road route toward the customer: courier → dropoff once we have a live
@@ -176,29 +186,42 @@ export function OrderTracking({
       )}
 
       {/* Courier live card */}
-      {tracking && (
+      {courierActive && (
         <section className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
           <div className="flex items-center gap-3">
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/20 text-xl" aria-hidden>
               🛵
             </span>
             <div>
-              <p className="font-semibold text-white">Curierul tău e pe drum</p>
+              <p className="font-semibold text-white">
+                {courierFirstName ? `${courierFirstName} e pe drum` : "Curierul tău e pe drum"}
+              </p>
               <p className="text-sm text-white/50">
-                {position ? "Poziție live disponibilă" : "Așteptăm semnalul GPS..."}
+                {tracking ? (position ? "Poziție live disponibilă" : "Așteptăm semnalul GPS...") : "Curier alocat comenzii tale"}
               </p>
             </div>
           </div>
-          {position && (
-            <a
-              href={`https://www.google.com/maps?q=${position.lat},${position.lng}`}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-primary-dark px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-darker"
-            >
-              Vezi pe hartă
-            </a>
-          )}
+          <div className="flex items-center gap-2">
+            {courierPhone && (
+              <a
+                href={`tel:${courierPhone}`}
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-dark text-lg transition hover:bg-primary-darker"
+                aria-label={courierFirstName ? `Sună-l pe ${courierFirstName}` : "Sună curierul"}
+              >
+                📞
+              </a>
+            )}
+            {tracking && position && (
+              <a
+                href={`https://www.google.com/maps?q=${position.lat},${position.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-full bg-primary-dark px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-darker"
+              >
+                Vezi pe hartă
+              </a>
+            )}
+          </div>
         </section>
       )}
 
@@ -260,6 +283,20 @@ export function OrderTracking({
           ))}
         </ul>
       </section>
+
+      {/* Minimal dispute channel — discreet, mail/phone only (no in-app form). */}
+      <div className="flex items-center justify-center gap-4 pt-1 text-xs text-white/30">
+        <a
+          href={`mailto:suport@dragon-courier.md?subject=${encodeURIComponent(`Comanda ${order.order_number}`)}`}
+          className="underline decoration-white/20 underline-offset-2 transition hover:text-white/60"
+        >
+          Raportează o problemă
+        </a>
+        <span aria-hidden>·</span>
+        <a href="tel:+37360000000" className="underline decoration-white/20 underline-offset-2 transition hover:text-white/60">
+          Sună suportul
+        </a>
+      </div>
     </div>
   );
 }
