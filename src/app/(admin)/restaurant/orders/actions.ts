@@ -5,7 +5,12 @@ import { requireUser } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
 
-async function callOrderRpc(rpc: string, args: Record<string, unknown>): Promise<ActionResult> {
+// The restaurant-partner order-lifecycle RPCs this helper dispatches. Typed as a
+// literal union so the schema-typed client verifies the call (Master Council Phase 1).
+type OrderRpc = "accept_order" | "reject_order" | "mark_ready_for_pickup";
+type OrderRpcArgs = { p_order_id: string; p_reason?: string };
+
+async function callOrderRpc(rpc: OrderRpc, args: OrderRpcArgs): Promise<ActionResult> {
   let supabase;
   try {
     ({ supabase } = await requireUser());

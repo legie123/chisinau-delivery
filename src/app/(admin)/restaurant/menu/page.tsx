@@ -48,7 +48,7 @@ export default async function RestaurantMenuPage() {
       .in("menu_item_id", itemList.map((i) => i.id))
       .order("sort_order")
       .order("sort_order", { referencedTable: "menu_options" });
-    for (const g of (groups ?? []) as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
+    for (const g of (groups ?? []) as unknown as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
       (groupsByItem[g.menu_item_id] ??= []).push({ ...g, options: g.menu_options ?? [] });
     }
   }

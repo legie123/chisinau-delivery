@@ -219,12 +219,12 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       }
 
       const { data: orderId, error: rpcError } = await supabase.rpc("place_order", {
-        p_restaurant_id: restaurantId,
+        p_restaurant_id: restaurantId!,
         p_order_type: "standard",
         p_payment_method: paymentMethod,
         p_items: lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.optionIds })),
-        p_delivery_address_id: deliveryAddressId,
-        p_requested_for: requestedForIso,
+        p_delivery_address_id: deliveryAddressId ?? undefined,
+        p_requested_for: requestedForIso ?? undefined,
         // Same token on retry ⇒ place_order returns the existing order, no duplicate.
         p_idempotency_key: idempotencyKey,
       });

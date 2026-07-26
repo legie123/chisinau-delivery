@@ -38,7 +38,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
       .in("menu_item_id", itemIds)
       .order("sort_order")
       .order("sort_order", { referencedTable: "menu_options" });
-    for (const g of (groups ?? []) as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
+    for (const g of (groups ?? []) as unknown as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
       const group: MenuOptionGroup = { ...g, options: (g.menu_options ?? []).filter((o) => o.is_available) };
       (optionGroups[g.menu_item_id] ??= []).push(group);
     }

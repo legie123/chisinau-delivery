@@ -24,7 +24,7 @@ export async function submitRating(
     p_order_id: orderId,
     p_target: target,
     p_stars: stars,
-    p_comment: comment ?? null,
+    p_comment: comment ?? undefined,
   });
   if (error) return { error: error.message };
 

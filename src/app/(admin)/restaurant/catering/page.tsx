@@ -37,7 +37,7 @@ export default async function RestaurantCateringPage() {
 
   const detailsByOrder = new Map(((allDetails ?? []) as CateringDetails[]).map((d) => [d.order_id, d]));
   const itemsByOrder = new Map<string, OrderItem[]>();
-  for (const item of (allItems ?? []) as OrderItem[]) {
+  for (const item of (allItems ?? []) as unknown as OrderItem[]) {
     const list = itemsByOrder.get(item.order_id) ?? [];
     list.push(item);
     itemsByOrder.set(item.order_id, list);

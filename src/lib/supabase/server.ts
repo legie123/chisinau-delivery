@@ -1,12 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import type { Database } from "@chisinau/shared-types";
 
 // Create a fresh client per request — never share across requests.
 // Used in Server Components, Server Actions and Route Handlers.
+// Typed with the generated Database schema (Master Council Phase 1) so RPC/table
+// contracts are build-checked.
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

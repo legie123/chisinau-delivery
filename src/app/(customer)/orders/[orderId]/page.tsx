@@ -38,7 +38,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
       <OrderTracking
         initialOrder={typedOrder}
         initialEvents={(events ?? []) as DeliveryStatusEvent[]}
-        items={(items ?? []) as OrderItem[]}
+        items={(items ?? []) as unknown as OrderItem[]}
         acceptSlaMinutes={acceptSlaMinutes}
         initialRatings={(ratings ?? []) as Rating[]}
         pickup={pickup}

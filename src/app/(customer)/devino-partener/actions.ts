@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require";
+import type { Json } from "@chisinau/shared-types";
 
 // Onboarding + KYC is applicant-driven: a signed-in customer submits an
 // application via the security-definer RPC (which stamps user_id = auth.uid()),
@@ -55,8 +56,8 @@ export async function submitApplication(
       p_type: type,
       p_full_name: fullName,
       p_phone: phone,
-      p_email: email,
-      p_details: details,
+      p_email: email ?? "",
+      p_details: details as Json,
     });
 
     if (error) return { error: error.message, applicationId: null };

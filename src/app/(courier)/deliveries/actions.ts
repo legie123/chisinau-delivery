@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/require";
+import { acceptDispatchOffer, declineDispatchOffer, RpcError } from "@chisinau/shared-api";
+import { asOfferId } from "@chisinau/shared-types";
 
 // Customer status pushes are enqueued durably by the delivery_status_events trigger
 // (enqueue_customer_status_push) — no more fire-and-forget from the action thread.
@@ -53,7 +55,7 @@ export async function advanceStatus(
   const { error } = await supabase.rpc("advance_delivery_status", {
     p_order_id: orderId,
     p_new_status: newStatus,
-    p_payment_confirmed: paymentConfirmed ?? null,
+    p_payment_confirmed: paymentConfirmed ?? undefined,
   });
   if (error) return { error: error.message };
 
@@ -65,6 +67,9 @@ export async function advanceStatus(
 // WS2 — push-dispatch offer response. The RPCs authorize via couriers.user_id
 // = auth.uid(); accept does the atomic claim, decline cascades to the next
 // candidate. Both are idempotent on retry.
+// Routed through the shared-api wrappers (@chisinau/shared-api) — the single typed
+// definition of these RPC contracts, shared with Expo. RpcError carries a uniform
+// Romanian userMessage so web + mobile show the same words for the same failure.
 export async function acceptOffer(offerId: string): Promise<ActionResult> {
   let supabase;
   try {
@@ -72,10 +77,11 @@ export async function acceptOffer(offerId: string): Promise<ActionResult> {
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
-
-  const { error } = await supabase.rpc("accept_dispatch_offer", { p_offer_id: offerId });
-  if (error) return { error: error.message };
-
+  try {
+    await acceptDispatchOffer(supabase, asOfferId(offerId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut accepta oferta." };
+  }
   revalidatePath("/deliveries");
   return { error: null };
 }
@@ -87,10 +93,11 @@ export async function declineOffer(offerId: string): Promise<ActionResult> {
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
-
-  const { error } = await supabase.rpc("decline_dispatch_offer", { p_offer_id: offerId });
-  if (error) return { error: error.message };
-
+  try {
+    await declineDispatchOffer(supabase, asOfferId(offerId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut refuza oferta." };
+  }
   revalidatePath("/deliveries");
   return { error: null };
 }

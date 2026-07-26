@@ -85,7 +85,7 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
     customer = profile;
   }
 
-  const orderItems = (items ?? []) as OrderItem[];
+  const orderItems = (items ?? []) as unknown as OrderItem[];
   const timeline = (events ?? []) as DeliveryStatusEvent[];
   const cateringDetails = catering as CateringDetails | null;
   const isTerminal = o.status === "delivered" || o.status === "cancelled" || o.status === "rejected";

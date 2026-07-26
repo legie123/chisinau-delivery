@@ -1,0 +1,9 @@
+{
+  "name": "@chisinau/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Single source of truth: Supabase-generated DB types, status enums, delivery transition map, labels, branded IDs. Platform-free (no React/Next/Expo).",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false
+}

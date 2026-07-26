@@ -20,7 +20,7 @@ export default async function CateringOrderPage({ params }: { params: Promise<{ 
       <CateringTracking
         initialOrder={order as Order}
         initialDetails={details as CateringDetails}
-        items={(items ?? []) as OrderItem[]}
+        items={(items ?? []) as unknown as OrderItem[]}
       />
     </main>
   );

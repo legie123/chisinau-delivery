@@ -5,5 +5,5 @@ set -euo pipefail
 # Requires `npx supabase start` to be running.
 
 cd "$(dirname "$0")/.."
-npx supabase gen types typescript --local > src/lib/types/database.types.ts
-echo "Wrote src/lib/types/database.types.ts"
+npx supabase gen types typescript --local > packages/shared-types/src/generated.ts
+echo "Wrote packages/shared-types/src/generated.ts"

@@ -40,7 +40,7 @@ export async function forceAdvance(orderId: string, newStatus: string): Promise<
   const { error } = await supabase.rpc("advance_delivery_status", {
     p_order_id: orderId,
     p_new_status: newStatus,
-    p_payment_confirmed: null,
+    p_payment_confirmed: undefined,
   });
   if (error) return { error: error.message };
   revalidatePath("/platform/queues");
@@ -58,7 +58,7 @@ export async function resolvePayment(orderId: string, newStatus: string, note?: 
   const { error } = await supabase.rpc("admin_update_payment_status", {
     p_order_id: orderId,
     p_new_status: newStatus,
-    p_note: note ?? null,
+    p_note: note ?? undefined,
   });
   if (error) return { error: error.message };
   revalidatePath("/platform/queues");

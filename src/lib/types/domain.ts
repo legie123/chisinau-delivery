@@ -130,18 +130,12 @@ export interface Address {
 
 export type OrderType = "standard" | "catering";
 
-export type OrderStatus =
-  | "pending_restaurant"
-  | "accepted"
-  | "ready_for_pickup"
-  | "courier_assigned"
-  | "picked_up"
-  | "en_route"
-  | "delivered"
-  | "cancelled"
-  | "rejected";
-
-export type PaymentMethod = "cash" | "card_on_delivery" | "online_gateway";
+// Canonical status unions + transition map now live in @chisinau/shared-types
+// (single source for web AND Expo) — re-exported here so existing imports keep
+// working with zero call-site churn (Master Council Phase 1, variant B).
+export type { OrderStatus, PaymentMethod } from "@chisinau/shared-types";
+export { ADVANCE_TRANSITIONS, canAdvance, nextAdvanceStatus, TERMINAL_STATUSES } from "@chisinau/shared-types";
+import type { OrderStatus, PaymentMethod } from "@chisinau/shared-types";
 
 export type PaymentStatus = "unpaid" | "pending_capture" | "paid" | "refund_pending" | "refunded" | "failed";
 
@@ -391,14 +385,5 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   online_gateway: "plătit online",
 };
 
-export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending_restaurant: "În așteptare",
-  accepted: "Acceptată",
-  ready_for_pickup: "Gata de ridicare",
-  courier_assigned: "Curier atribuit",
-  picked_up: "Ridicată",
-  en_route: "Pe drum",
-  delivered: "Livrată",
-  cancelled: "Anulată",
-  rejected: "Refuzată",
-};
+// Shared Romanian labels — single source for web + Expo (see labels.ts in the package).
+export { ORDER_STATUS_LABEL } from "@chisinau/shared-types";

@@ -18,7 +18,7 @@ export async function reviewApplication(
     const { error } = await supabase.rpc("review_onboarding_application", {
       p_id: id,
       p_approve: approve,
-      p_note: note?.trim() || null,
+      p_note: note?.trim() || undefined,
     });
 
     if (error) return { error: error.message };

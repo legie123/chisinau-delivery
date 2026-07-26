@@ -135,7 +135,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: CateringRest
         p_payment_method: "cash",
         p_items: selected.map((item) => ({ menu_item_id: item.id, quantity: quantities[item.id] })),
         p_requested_for: new Date(requestedFor).toISOString(),
-        p_notes: notes.trim() || null,
+        p_notes: notes.trim() || undefined,
         p_catering: {
           event_date: eventDate,
           event_time: eventTime || "",

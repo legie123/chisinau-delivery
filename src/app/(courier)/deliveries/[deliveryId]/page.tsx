@@ -135,7 +135,7 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
       <section className="mb-4 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/50">Comanda</h2>
         <ul className="flex flex-col gap-2 text-sm">
-          {((items ?? []) as OrderItem[]).map((item) => (
+          {((items ?? []) as unknown as OrderItem[]).map((item) => (
             <li key={item.id} className="flex justify-between text-white/90">
               <span>
                 {item.quantity}× {item.item_name_snapshot}

@@ -1,0 +1,15 @@
+{
+  "name": "@chisinau/shared-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed Supabase RPC wrappers (dispatch + lifecycle) shared by web and Expo. Client passed as argument; supabase-js is a peerDependency by design.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false,
+  "dependencies": {
+    "@chisinau/shared-types": "*"
+  },
+  "peerDependencies": {
+    "@supabase/supabase-js": "^2"
+  }
+}
