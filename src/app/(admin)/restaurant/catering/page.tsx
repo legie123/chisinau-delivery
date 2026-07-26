@@ -9,11 +9,15 @@ export default async function RestaurantCateringPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: staffRow } = await supabase
+  // Multi-restaurant partner guard: .maybeSingle() throws on 2+ rows — take the
+  // primary (oldest) link so the page never 500s.
+  const { data: staffRows } = await supabase
     .from("restaurant_staff")
     .select("restaurant_id")
     .eq("user_id", user?.id ?? "")
-    .maybeSingle();
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const staffRow = staffRows?.[0] ?? null;
 
   // RLS (orders_partner_scope) restricts everything to the caller's restaurant.
   const { data: orders } = await supabase

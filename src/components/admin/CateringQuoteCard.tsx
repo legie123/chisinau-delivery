@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { declineCateringQuote, submitCateringQuote } from "@/app/(admin)/restaurant/catering/actions";
+import { declineCateringQuote, markCateringReady, submitCateringQuote } from "@/app/(admin)/restaurant/catering/actions";
 import { ORDER_STATUS_LABEL, type CateringDetails, type Order, type OrderItem } from "@/lib/types/domain";
 
 export function CateringQuoteCard({
@@ -44,6 +44,17 @@ export function CateringQuoteCard({
       if (!result.error) setDeclining(false);
     });
   }
+
+  function handleReady() {
+    startTransition(async () => {
+      const result = await markCateringReady(order.id);
+      setError(result.error);
+    });
+  }
+
+  // Confirmed quote → the order joins the standard pipeline at 'accepted'. The
+  // kitchen prepares it, then marks it ready so dispatch offers go out.
+  const canMarkReady = details.quote_status === "confirmed" && order.status === "accepted";
 
   const statusLabel = isTerminal
     ? ORDER_STATUS_LABEL[order.status]
@@ -146,6 +157,29 @@ export function CateringQuoteCard({
         <p className="text-sm text-white/50">
           Ofertă trimisă: <span className="font-medium">{details.quoted_total_mdl} MDL</span> — așteptăm
           confirmarea clientului.
+        </p>
+      )}
+
+      {canMarkReady && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm text-white/50">
+            Confirmată la <span className="font-medium text-white/80">{details.quoted_total_mdl} MDL</span> — pregătește
+            comanda, apoi marcheaz-o gata.
+          </p>
+          <button
+            type="button"
+            onClick={handleReady}
+            disabled={pending}
+            className="shrink-0 rounded-full bg-primary-dark px-5 py-2 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
+          >
+            {pending ? "..." : "🥡 Marchează gata"}
+          </button>
+        </div>
+      )}
+
+      {!isTerminal && details.quote_status === "confirmed" && order.status !== "accepted" && (
+        <p className="text-sm text-white/50">
+          În livrare · <span className="font-medium text-white/80">{ORDER_STATUS_LABEL[order.status]}</span>
         </p>
       )}
     </li>

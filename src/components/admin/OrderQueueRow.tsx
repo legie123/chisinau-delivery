@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { acceptOrder, markReadyForPickup, rejectOrder } from "@/app/(admin)/restaurant/orders/actions";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
-import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
+import { ORDER_STATUS_LABEL, type Order, type OrderItem } from "@/lib/types/domain";
 
 const STATUS_EMOJI: Record<string, string> = {
   pending_restaurant: "🔔",
@@ -15,7 +16,15 @@ const STATUS_EMOJI: Record<string, string> = {
   en_route: "🛵",
 };
 
-export function OrderQueueRow({ order, acceptSlaMinutes }: { order: Order; acceptSlaMinutes: number }) {
+export function OrderQueueRow({
+  order,
+  items = [],
+  acceptSlaMinutes,
+}: {
+  order: Order;
+  items?: OrderItem[];
+  acceptSlaMinutes: number;
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -114,6 +123,37 @@ export function OrderQueueRow({ order, acceptSlaMinutes }: { order: Order; accep
         )}
       </div>
       </div>
+
+      {/* What the kitchen must cook: line items + their modifiers + per-item
+          notes. Without this the row showed only a total — nothing to prepare. */}
+      {items.length > 0 && (
+        <ul className="flex flex-col gap-1.5 border-t border-white/[0.06] pt-3 text-sm">
+          {items.map((item) => (
+            <li key={item.id} className="flex flex-col gap-0.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-white/90">
+                  <span className="font-semibold text-white">{item.quantity}×</span> {item.item_name_snapshot}
+                </span>
+                <span className="shrink-0 text-white/45">{item.line_total_mdl} MDL</span>
+              </div>
+              {item.selected_options?.length > 0 && (
+                <p className="pl-5 text-xs text-white/50">
+                  {item.selected_options.map((opt) => opt.name).join(" · ")}
+                </p>
+              )}
+              {item.notes && <p className="pl-5 text-xs italic text-gold/80">„{item.notes}”</p>}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Link
+        href={`/restaurant/orders/${order.id}`}
+        className="text-xs font-medium text-white/45 transition hover:text-gold hover:underline"
+      >
+        Detalii comandă →
+      </Link>
+
       {rejecting && order.status === "pending_restaurant" && (
         <div className="mt-1 flex w-full items-center gap-2">
           <input

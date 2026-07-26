@@ -3,7 +3,7 @@ import { OrderQueueRow } from "@/components/admin/OrderQueueRow";
 import { OrderQueueLive } from "@/components/admin/OrderQueueLive";
 import { RestaurantPickupMap } from "@/components/admin/RestaurantPickupMap";
 import { PushOptIn } from "@/components/shared/PushOptIn";
-import type { Order, PrepEstimate } from "@/lib/types/domain";
+import type { Order, OrderItem, PrepEstimate } from "@/lib/types/domain";
 
 const QUEUE_STATUSES = ["pending_restaurant", "accepted", "ready_for_pickup", "courier_assigned", "picked_up", "en_route"];
 
@@ -13,11 +13,15 @@ export default async function RestaurantOrdersPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: staffRow } = await supabase
+  // A partner can be staffed at 2+ restaurants — .maybeSingle() THROWS on more
+  // than one row. Take the primary (oldest) link so the queue never 500s.
+  const { data: staffRows } = await supabase
     .from("restaurant_staff")
     .select("restaurant_id, restaurants(accept_sla_minutes, lat, lng)")
     .eq("user_id", user?.id ?? "")
-    .maybeSingle();
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const staffRow = staffRows?.[0] ?? null;
 
   // restaurant_staff.restaurant_id -> restaurants is a to-ONE FK, so PostgREST
   // embeds an object, not an array.
@@ -39,12 +43,19 @@ export default async function RestaurantOrdersPage() {
   // the quote flow entirely; they live in /restaurant/catering.
   const { data: orders } = await supabase
     .from("orders")
-    .select("*")
+    .select("*, order_items(*)")
     .eq("order_type", "standard")
     .in("status", QUEUE_STATUSES)
     .order("created_at");
 
-  const orderList = (orders ?? []) as Order[];
+  // Split the embedded items off each row so OrderQueueRow gets a plain Order
+  // plus its line items (qty × name + modifiers + notes) — the kitchen needs to
+  // see WHAT to cook, not just the total.
+  const rawOrders = (orders ?? []) as unknown as (Order & { order_items: OrderItem[] })[];
+  const itemsByOrder = new Map<string, OrderItem[]>(
+    rawOrders.map((o) => [o.id, (o.order_items ?? []) as OrderItem[]]),
+  );
+  const orderList = rawOrders as unknown as Order[];
   const pendingCount = orderList.filter((o) => o.status === "pending_restaurant").length;
 
   // Pickup coordination: a courier assigned to one of our orders is heading here.
@@ -102,7 +113,12 @@ export default async function RestaurantOrdersPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {orderList.map((order) => (
-            <OrderQueueRow key={order.id} order={order} acceptSlaMinutes={acceptSlaMinutes} />
+            <OrderQueueRow
+              key={order.id}
+              order={order}
+              items={itemsByOrder.get(order.id) ?? []}
+              acceptSlaMinutes={acceptSlaMinutes}
+            />
           ))}
         </ul>
       )}
