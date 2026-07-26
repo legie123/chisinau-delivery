@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, OfferId, OrderId } from "@chisinau/shared-types";
+import type { CourierId, Database, OfferId, OrderId } from "@chisinau/shared-types";
 import { RpcError } from "./errors";
 
 type Db = SupabaseClient<Database>;
@@ -25,12 +25,21 @@ export async function declineDispatchOffer(db: Db, offerId: OfferId): Promise<vo
  * Courier SELF-claims an unassigned ready order from the pull feed.
  *
  * NOTE THE NAME: the underlying RPC is `assign_courier`, but it ONLY supports
- * self-claim (`where user_id = auth.uid()` inside) — there is NO admin
- * reassign-to-arbitrary-courier RPC in this codebase. Do not build a reassign UI
- * on top of this; that requires a new migration first. (Previously reported as
- * SKIPPED in the AdminOps session for exactly this reason.)
+ * self-claim (`where user_id = auth.uid()` inside). For admin reassign-to-arbitrary
+ * -courier use `adminReassignCourier` below (its own migration + RPC).
  */
 export async function claimOrderAsCourier(db: Db, orderId: OrderId): Promise<void> {
   const { error } = await db.rpc("assign_courier", { p_order_id: orderId });
+  if (error) throw new RpcError(error);
+}
+
+/**
+ * Platform admin reassigns a stuck in-flight order from a ghosting courier to
+ * another available one (Wave D). The new courier is freshly assigned from the
+ * restaurant (status → courier_assigned); the RPC releases the old courier,
+ * cancels dangling offers, and logs the move. Admin-only (checks has_role).
+ */
+export async function adminReassignCourier(db: Db, orderId: OrderId, newCourierId: CourierId): Promise<void> {
+  const { error } = await db.rpc("admin_reassign_courier", { p_order_id: orderId, p_new_courier_id: newCourierId });
   if (error) throw new RpcError(error);
 }

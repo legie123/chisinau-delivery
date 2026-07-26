@@ -12,6 +12,9 @@ import {
 } from "@/lib/types/domain";
 import { StuckOrderActions } from "../../queues/StuckOrderActions";
 import { PaymentActions } from "../../queues/PaymentActions";
+import { ReassignCourierControl, type AvailableCourier } from "../../queues/ReassignCourierControl";
+
+const IN_FLIGHT = ["courier_assigned", "picked_up", "en_route"];
 
 const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   unpaid: "Neîncasată",
@@ -90,6 +93,20 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
   const cateringDetails = catering as CateringDetails | null;
   const isTerminal = o.status === "delivered" || o.status === "cancelled" || o.status === "rejected";
 
+  // Reassign control (Wave D): only for an in-flight order, listing couriers that
+  // are online, active, hold no other active delivery, and aren't the current one.
+  let availableCouriers: AvailableCourier[] = [];
+  if (IN_FLIGHT.includes(o.status)) {
+    const [{ data: busyRows }, { data: onlineRows }] = await Promise.all([
+      supabase.from("orders").select("courier_id").in("status", IN_FLIGHT).not("courier_id", "is", null),
+      supabase.from("couriers").select("id, full_name").eq("is_active", true).eq("status", "online"),
+    ]);
+    const busy = new Set(((busyRows ?? []) as { courier_id: string }[]).map((r) => r.courier_id));
+    availableCouriers = ((onlineRows ?? []) as AvailableCourier[]).filter(
+      (c) => !busy.has(c.id) && c.id !== o.courier_id,
+    );
+  }
+
   return (
     <main className="flex-1 px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -112,6 +129,7 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
         {!isTerminal && (
           <div className="flex flex-col items-end gap-2">
             <StuckOrderActions orderId={o.id} status={o.status} />
+            {IN_FLIGHT.includes(o.status) && <ReassignCourierControl orderId={o.id} couriers={availableCouriers} />}
             <PaymentActions orderId={o.id} status={o.payment_status} />
           </div>
         )}

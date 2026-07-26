@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { mapPgError } from "@chisinau/shared-api";
+import { mapPgError, adminReassignCourier, RpcError } from "@chisinau/shared-api";
+import { asCourierId, asOrderId } from "@chisinau/shared-types";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
@@ -44,6 +45,25 @@ export async function forceAdvance(orderId: string, newStatus: string): Promise<
     p_payment_confirmed: undefined,
   });
   if (error) return { error: mapPgError(error) };
+  revalidatePath("/platform/queues");
+  revalidatePath(`/platform/orders/${orderId}`);
+  return { error: null };
+}
+
+// Wave D2 — admin reassigns a stuck in-flight order to another available courier
+// (a ghosting courier otherwise forces fake-completion). Guarded RPC via shared-api.
+export async function reassignCourier(orderId: string, courierId: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    supabase = await client();
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+  try {
+    await adminReassignCourier(supabase, asOrderId(orderId), asCourierId(courierId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut reatribui curierul." };
+  }
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
   return { error: null };
