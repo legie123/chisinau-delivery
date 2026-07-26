@@ -1,6 +1,7 @@
-// Central hub — four sectors, no login friction (dev/demo doorway via
-// /enter/[role] which signs in the seeded account for that surface). No login
-// form anywhere for now (per product decision) — every entry is passwordless.
+import Link from "next/link";
+
+// Central hub — four demo sectors (passwordless doorway via /enter/[role] for
+// quick testing) PLUS a real account entry (/login: sign in + customer sign-up).
 const SECTORS = [
   {
     href: "/enter/client",
@@ -83,9 +84,27 @@ export default function HubPage() {
         ))}
       </div>
 
-      <p className="pb-6 text-center text-xs text-white/30">
-        Mod demonstrație — intrare directă, fără parolă
-      </p>
+      {/* Real account entry — sign in or create a customer account (the demo tiles
+          above are a passwordless shortcut for testing). */}
+      <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-5 pb-10">
+        <div className="flex items-center gap-3 text-white/30">
+          <span className="h-px w-16 bg-white/10" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.3em]">Cont real</span>
+          <span className="h-px w-16 bg-white/10" />
+        </div>
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-2 rounded-full border border-gold/40 px-6 py-3 text-sm font-semibold text-gold transition hover:border-gold/70 hover:bg-gold/5"
+        >
+          Intră în cont sau înregistrează-te
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
+          </svg>
+        </Link>
+        <p className="text-center text-xs text-white/30">
+          Tile-urile de mai sus sunt mod demonstrație — intrare directă, fără parolă.
+        </p>
+      </div>
     </main>
   );
 }
