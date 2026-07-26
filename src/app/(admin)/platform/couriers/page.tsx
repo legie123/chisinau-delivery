@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { InviteCourierForm } from "@/components/admin/InviteCourierForm";
-import { CourierActiveToggle } from "@/components/admin/CourierActiveToggle";
+import { CourierSuspensionControl } from "@/components/admin/CourierSuspensionControl";
 
 const VEHICLE_LABEL: Record<string, string> = {
   bike: "Bicicletă",
@@ -41,7 +41,7 @@ export default async function PlatformCouriersPage() {
                 <td className="py-2">{VEHICLE_LABEL[courier.vehicle_type] ?? courier.vehicle_type}</td>
                 <td className="py-2">{courier.status}</td>
                 <td className="py-2">
-                  <CourierActiveToggle courierId={courier.id} initialActive={courier.is_active} />
+                  <CourierSuspensionControl courierId={courier.id} initialActive={courier.is_active} />
                 </td>
               </tr>
             ))}

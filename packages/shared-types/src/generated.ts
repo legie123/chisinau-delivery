@@ -214,6 +214,60 @@ export type Database = {
           },
         ]
       }
+      courier_suspensions: {
+        Row: {
+          appeal_deadline: string
+          courier_id: string
+          decided_at: string
+          decided_by: string
+          id: string
+          reason: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          appeal_deadline: string
+          courier_id: string
+          decided_at?: string
+          decided_by: string
+          id?: string
+          reason: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          appeal_deadline?: string
+          courier_id?: string
+          decided_at?: string
+          decided_by?: string
+          id?: string
+          reason?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_suspensions_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_suspensions_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       couriers: {
         Row: {
           created_at: string
@@ -1951,6 +2005,10 @@ export type Database = {
       }
       purge_expired_pii: { Args: never; Returns: undefined }
       refresh_prep_stats: { Args: never; Returns: number }
+      reinstate_courier: {
+        Args: { p_courier_id: string; p_note?: string }
+        Returns: undefined
+      }
       reject_order: {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
@@ -2021,6 +2079,10 @@ export type Database = {
           p_target: string
         }
         Returns: undefined
+      }
+      suspend_courier: {
+        Args: { p_courier_id: string; p_reason: string }
+        Returns: string
       }
     }
     Enums: {

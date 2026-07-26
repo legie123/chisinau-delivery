@@ -49,3 +49,19 @@ export async function adminReassignCourier(db: Db, orderId: OrderId, newCourierI
   const { error } = await db.rpc("admin_reassign_courier", { p_order_id: orderId, p_new_courier_id: newCourierId });
   if (error) throw new RpcError(error);
 }
+
+/**
+ * Suspend a courier — HUMAN admin only, mandatory reason (EU 2024/2831 Art 10(5)+11).
+ * Records who decided + a contest window and deactivates the courier. There is NO
+ * automated suspension path; fraud_flags stay signal-only.
+ */
+export async function suspendCourier(db: Db, courierId: CourierId, reason: string): Promise<void> {
+  const { error } = await db.rpc("suspend_courier", { p_courier_id: courierId, p_reason: reason });
+  if (error) throw new RpcError(error);
+}
+
+/** Reinstate a suspended courier (appeal upheld) — human admin only. */
+export async function reinstateCourier(db: Db, courierId: CourierId, note?: string): Promise<void> {
+  const { error } = await db.rpc("reinstate_courier", { p_courier_id: courierId, p_note: note });
+  if (error) throw new RpcError(error);
+}

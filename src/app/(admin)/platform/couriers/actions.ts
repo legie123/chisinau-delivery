@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { reinstateCourier, RpcError, suspendCourier } from "@chisinau/shared-api";
+import { asCourierId } from "@chisinau/shared-types";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -45,14 +47,27 @@ export async function inviteCourier(_prev: ActionState, formData: FormData): Pro
   }
 }
 
-export async function setCourierActive(courierId: string, isActive: boolean): Promise<ActionState> {
+// EU 2024/2831 Art 10(5)+11: deactivating a courier is a SUSPENSION — a human admin
+// decision with a mandatory written reason + a recorded contest window, not a silent
+// toggle. Reactivation lifts it (appeal upheld).
+export async function suspendCourierAction(courierId: string, reason: string): Promise<ActionState> {
   try {
     const { supabase } = await requirePlatformAdmin();
-    const { error } = await supabase.from("couriers").update({ is_active: isActive }).eq("id", courierId);
-    if (error) return { error: error.message };
+    await suspendCourier(supabase, asCourierId(courierId), reason);
     revalidatePath("/platform/couriers");
     return { error: null };
   } catch (err) {
-    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+    return { error: err instanceof RpcError ? err.userMessage : err instanceof Error ? err.message : "A apărut o eroare." };
+  }
+}
+
+export async function reinstateCourierAction(courierId: string, note?: string): Promise<ActionState> {
+  try {
+    const { supabase } = await requirePlatformAdmin();
+    await reinstateCourier(supabase, asCourierId(courierId), note);
+    revalidatePath("/platform/couriers");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : err instanceof Error ? err.message : "A apărut o eroare." };
   }
 }
