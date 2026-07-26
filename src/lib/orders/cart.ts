@@ -43,9 +43,16 @@ interface CartState {
   clear: () => void;
 }
 
+// The canonical cart line id: the item id, or item id + sorted option ids when
+// customized. Exported so callers that must address a line AFTER adding it (e.g.
+// reorder setting quantity on an option-bearing line) compute the SAME id.
+export function cartLineId(menuItemId: string, optionIds: string[] = []): string {
+  return optionIds.length ? `${menuItemId}::${[...optionIds].sort().join(",")}` : menuItemId;
+}
+
 function makeLine(item: { id: string; name: string; price_mdl: number }, options?: ChosenOptions): CartLine {
   const optionIds = options?.optionIds ?? [];
-  const lineId = optionIds.length ? `${item.id}::${[...optionIds].sort().join(",")}` : item.id;
+  const lineId = cartLineId(item.id, optionIds);
   return {
     lineId,
     menuItemId: item.id,

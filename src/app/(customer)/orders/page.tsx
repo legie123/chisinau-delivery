@@ -1,13 +1,19 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
-import { ReorderButton } from "@/components/customer/ReorderButton";
+import { ORDER_STATUS_LABEL, type Order, type SelectedOption } from "@/lib/types/domain";
+import { ReorderButton, type ReorderItem } from "@/components/customer/ReorderButton";
 import { PushOptIn } from "@/components/shared/PushOptIn";
 
 type OrderRow = Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl"> & {
   restaurant_id: string;
   restaurants: { slug: string; name: string } | null;
-  order_items: { menu_item_id: string | null; item_name_snapshot: string; unit_price_mdl: number; quantity: number }[];
+  order_items: {
+    menu_item_id: string | null;
+    item_name_snapshot: string;
+    unit_price_mdl: number;
+    quantity: number;
+    selected_options: SelectedOption[] | null;
+  }[];
 };
 
 function statusTone(status: Order["status"]): string {
@@ -38,13 +44,81 @@ export default async function OrdersPage() {
   const { data: orders } = await supabase
     .from("orders")
     .select(
-      "id, order_number, order_type, created_at, status, total_mdl, restaurant_id, restaurants(slug, name), order_items(menu_item_id, item_name_snapshot, unit_price_mdl, quantity)",
+      "id, order_number, order_type, created_at, status, total_mdl, restaurant_id, restaurants(slug, name), order_items(menu_item_id, item_name_snapshot, unit_price_mdl, quantity, selected_options)",
     )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
     .limit(30);
 
   const orderList = (orders ?? []) as unknown as OrderRow[];
+
+  // Reorder replay (audit HIGH): a delivered item with a REQUIRED modifier group
+  // used to be re-added with NO options → checkout dead-ended. We now replay the
+  // ORIGINAL choices from each order_item's selected_options snapshot, mapping
+  // (group name, option name) back to the CURRENT menu_options id. An item whose
+  // menu changed so a required group is no longer covered is marked blocked and
+  // skipped by the button (with a notice) instead of dead-ending checkout.
+  const reorderMenuItemIds = [
+    ...new Set(
+      orderList
+        .filter((o) => o.status === "delivered" && o.order_type === "standard")
+        .flatMap((o) => o.order_items.map((it) => it.menu_item_id).filter((id): id is string => !!id)),
+    ),
+  ];
+  const optionIdByKey = new Map<string, string>(); // `${menuItemId}|${group}|${name}` -> option id
+  const requiredGroupsByItem = new Map<string, Set<string>>(); // menuItemId -> required group names
+  if (reorderMenuItemIds.length > 0) {
+    const { data: groups } = await supabase
+      .from("menu_option_groups")
+      .select("id, menu_item_id, name, min_select, menu_options(id, name)")
+      .in("menu_item_id", reorderMenuItemIds);
+    for (const g of (groups ?? []) as unknown as {
+      id: string;
+      menu_item_id: string;
+      name: string;
+      min_select: number;
+      menu_options: { id: string; name: string }[];
+    }[]) {
+      if (g.min_select >= 1) {
+        const set = requiredGroupsByItem.get(g.menu_item_id) ?? new Set<string>();
+        set.add(g.name);
+        requiredGroupsByItem.set(g.menu_item_id, set);
+      }
+      for (const opt of g.menu_options ?? []) {
+        optionIdByKey.set(`${g.menu_item_id}|${g.name}|${opt.name}`, opt.id);
+      }
+    }
+  }
+
+  function buildReorderItems(order: OrderRow): ReorderItem[] {
+    return order.order_items
+      .filter((it) => it.menu_item_id)
+      .map((it) => {
+        const menuItemId = it.menu_item_id as string;
+        const chosen = it.selected_options ?? [];
+        const optionIds: string[] = [];
+        const coveredGroups = new Set<string>();
+        for (const sel of chosen) {
+          const id = optionIdByKey.get(`${menuItemId}|${sel.group}|${sel.name}`);
+          if (id) {
+            optionIds.push(id);
+            coveredGroups.add(sel.group);
+          }
+        }
+        // blocked = a currently-required group isn't satisfied by the replayed options.
+        const required = requiredGroupsByItem.get(menuItemId) ?? new Set<string>();
+        const blocked = [...required].some((grp) => !coveredGroups.has(grp));
+        return {
+          menuItemId,
+          name: it.item_name_snapshot,
+          priceMdl: Number(it.unit_price_mdl),
+          quantity: it.quantity,
+          optionIds,
+          optionsLabel: chosen.map((s) => s.name).join(", "),
+          blocked,
+        };
+      });
+  }
   const formatDate = new Intl.DateTimeFormat("ro-RO", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -73,14 +147,7 @@ export default async function OrdersPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {orderList.map((order) => {
-            const reorderItems = order.order_items
-              .filter((it) => it.menu_item_id)
-              .map((it) => ({
-                menuItemId: it.menu_item_id as string,
-                name: it.item_name_snapshot,
-                priceMdl: Number(it.unit_price_mdl),
-                quantity: it.quantity,
-              }));
+            const reorderItems = buildReorderItems(order);
             const canReorder =
               order.status === "delivered" &&
               order.order_type === "standard" &&
@@ -120,6 +187,7 @@ export default async function OrdersPage() {
                   <ReorderButton
                     restaurantId={order.restaurant_id}
                     restaurantName={order.restaurants?.name ?? "Restaurant"}
+                    restaurantSlug={order.restaurants?.slug ?? null}
                     items={reorderItems}
                   />
                 )}

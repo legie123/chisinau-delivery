@@ -276,9 +276,11 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
             ? "Restaurantul este închis la ora selectată. Alege alt restaurant sau altă oră."
             : raw.includes("menu item unavailable")
               ? "Un articol din coș nu mai este disponibil — reîncarcă meniul."
-              : raw.includes("obligatorie") || raw.includes("autentificat") || raw.includes("livrării") || raw.includes("adresa")
-                ? raw
-                : "Nu am putut trimite comanda. Încearcă din nou.";
+              : raw.includes("alege o opțiune") // required modifier group not chosen (e.g. stale reorder)
+                ? "Un produs are opțiuni obligatorii neconfigurate — scoate-l și adaugă-l din meniu cu opțiunile alese."
+                : raw.includes("obligatorie") || raw.includes("autentificat") || raw.includes("livrării") || raw.includes("adresa")
+                  ? raw
+                  : "Nu am putut trimite comanda. Încearcă din nou.";
       setError(friendly);
     } finally {
       setPending(false);
