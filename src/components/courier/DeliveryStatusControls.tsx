@@ -89,6 +89,13 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
               Livrat, neîncasat
             </button>
           </div>
+          {/* #3c — advance_delivery_status leaves payment_status='unpaid' on this
+              path (never auto-marks 'paid'); the fee then sits excluded from
+              Câștiguri until an admin resolves it in coada de plăți, not lost
+              but also not silently credited. Say so before the click, not after. */}
+          <p className="rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300/90 ring-1 ring-amber-500/20">
+            ⚠️ „Neîncasat” înseamnă plata rămâne nerezolvată — taxa ta de livrare NU apare în Câștiguri până nu o rezolvă un administrator.
+          </p>
           <button
             type="button"
             onClick={() => setConfirmingPayment(false)}

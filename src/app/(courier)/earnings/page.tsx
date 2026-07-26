@@ -1,14 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import { daysAgoIso } from "@/lib/time";
+import { currentWeekRange, summarizeEarnings, type EarningsOrder } from "@/app/(courier)/_lib/earnings";
 import type { Payout } from "@/lib/types/domain";
 
-// "Câștiguri" — the courier's own money view: this-week delivery earnings
-// (delivery fee + tips over the last 7 delivered days) and the weekly payout
-// history the platform settles to them. RLS scopes payouts to their own rows.
+// "Câștiguri" — the courier's own money view: #3b canonical model — net after
+// commission, tips included, scoped to the current calendar week (same Mon-Sun
+// boundary payout periods use) — plus the weekly payout history the platform
+// has actually settled to them. RLS scopes payouts to their own rows.
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", timeZone: "UTC" });
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function PayoutStatusBadge({ status }: { status: Payout["status"] }) {
   if (status === "paid")
@@ -42,16 +41,16 @@ export default async function CourierEarningsPage() {
     );
   }
 
-  const weekAgo = daysAgoIso(7);
+  const { start: weekStart, end: weekEnd } = currentWeekRange();
 
   const [{ data: weekOrders }, { data: payoutRows }] = await Promise.all([
     supabase
       .from("orders")
-      .select("delivery_fee_mdl, tip_mdl")
+      .select("delivery_fee_mdl, tip_mdl, payment_status")
       .eq("courier_id", courier.id)
       .eq("status", "delivered")
-      .eq("payment_status", "paid")
-      .gte("delivered_at", weekAgo),
+      .gte("delivered_at", weekStart.toISOString())
+      .lt("delivered_at", weekEnd.toISOString()),
     supabase
       .from("payouts")
       .select("*")
@@ -60,9 +59,8 @@ export default async function CourierEarningsPage() {
       .order("created_at", { ascending: false }),
   ]);
 
-  const week = (weekOrders ?? []) as { delivery_fee_mdl: number; tip_mdl: number }[];
-  const weekCount = week.length;
-  const weekEarnings = round2(week.reduce((s, o) => s + Number(o.delivery_fee_mdl) + Number(o.tip_mdl), 0));
+  const week = (weekOrders ?? []) as EarningsOrder[];
+  const weekSummary = summarizeEarnings(week);
   const payouts = (payoutRows ?? []) as Payout[];
 
   return (
@@ -71,11 +69,31 @@ export default async function CourierEarningsPage() {
       <p className="mb-6 mt-1 text-sm text-white/50">Comisioanele tale de livrare și plățile săptămânale.</p>
 
       <section className="mb-8 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
-        <p className="text-sm text-white/50">Săptămâna aceasta</p>
-        <p className="mt-2 text-3xl font-bold text-gold">{weekEarnings} MDL</p>
+        <p className="text-sm text-white/50">Săptămâna aceasta (net, după comision)</p>
+        <p className="mt-2 text-3xl font-bold text-gold">{weekSummary.netMdl} MDL</p>
         <p className="mt-1 text-sm text-white/50">
-          {weekCount} {weekCount === 1 ? "livrare completată" : "livrări completate"} · taxă livrare + bacșiș
+          {weekSummary.ordersCount} {weekSummary.ordersCount === 1 ? "livrare încasată" : "livrări încasate"} · taxă livrare + bacșiș
         </p>
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/10 pt-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs text-white/40">Brut</p>
+            <p className="mt-0.5 font-medium text-white">{weekSummary.grossMdl} MDL</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/40">Comision</p>
+            <p className="mt-0.5 font-medium text-white/70">−{weekSummary.commissionMdl} MDL</p>
+          </div>
+          <div>
+            <p className="text-xs text-white/40">Net</p>
+            <p className="mt-0.5 font-semibold text-gold">{weekSummary.netMdl} MDL</p>
+          </div>
+        </div>
+        {weekSummary.pendingCount > 0 && (
+          <p className="mt-3 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-300/90 ring-1 ring-amber-500/20">
+            ⚠️ {weekSummary.pendingCount} {weekSummary.pendingCount === 1 ? "livrare neîncasată" : "livrări neîncasate"} nu apar
+            aici — vezi Istoric.
+          </p>
+        )}
       </section>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/60">Plăți</h2>

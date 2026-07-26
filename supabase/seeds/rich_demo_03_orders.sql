@@ -286,6 +286,77 @@ insert into public.delivery_status_events (order_id, status, actor_role, actor_i
   ('e0000000-0000-0000-0000-000000000022', 'accepted', 'restaurant_partner', null, null, now() - interval '20 minutes'),
   ('e0000000-0000-0000-0000-000000000022', 'ready_for_pickup', 'restaurant_partner', null, null, now() - interval '12 minutes');
 
+-- ============================================================================
+-- #11 fix: courier pay clarity. Two problems in the seed made "Curier Test"
+-- (c9a68659…, logged in as curier@test.md) untestable:
+--  1. local_test_users.sql seeds its couriers.status = 'online', but order E
+--     above hands it an active picked_up delivery — 'online' would lie that
+--     it's free for new dispatch while actually mid-delivery. Reconcile it.
+--  2. it had ZERO delivered orders, so Earnings/History/payout screens all
+--     rendered permanently empty. W/X settle into "last week" (picked up by
+--     rich_demo_04's admin_generate_payouts(current_date-7, current_date-1)
+--     call, so a real courier payout row exists); Y is delivered+paid today
+--     (counts in "this week" earnings, stays payout-pending like order J); Z
+--     is delivered but payment_status stays 'unpaid' ("Livrat, neîncasat"),
+--     exercising the #3c pending/neîncasat path + admin_payment_queue.
+-- ============================================================================
+update public.couriers set status = 'on_delivery' where id = 'c9a68659-0734-413e-95d0-87cd21f4a0f7';
+
+insert into public.orders
+  (id, order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method, payment_status,
+   subtotal_mdl, delivery_fee_mdl, tip_mdl, total_mdl, courier_id, notes, created_at, updated_at)
+values
+  -- W: Ciocana Grill House, delivered 6 days ago, cash collected
+  ('e0000000-0000-0000-0000-000000000023', 'standard', 'b0000000-0000-0000-0000-000000000003', 'd0000000-0000-0000-0000-000000000004',
+   'f0000000-0000-0000-0000-000000000003', 'delivered', 'cash', 'paid', 380, 45, 0, 425, 'c9a68659-0734-413e-95d0-87cd21f4a0f7', null,
+   now() - interval '6 days', now() - interval '6 days' + interval '50 minutes'),
+  -- X: Bamboo Roll, delivered 5 days ago, card on delivery + tip
+  ('e0000000-0000-0000-0000-000000000024', 'standard', 'b0000000-0000-0000-0000-000000000007', 'd0000000-0000-0000-0000-000000000006',
+   'f0000000-0000-0000-0000-000000000007', 'delivered', 'card_on_delivery', 'paid', 520, 40, 20, 580, 'c9a68659-0734-413e-95d0-87cd21f4a0f7', null,
+   now() - interval '5 days', now() - interval '5 days' + interval '60 minutes'),
+  -- Y: Osteria Roma, delivered today, cash collected + small tip
+  ('e0000000-0000-0000-0000-000000000025', 'standard', 'b0000000-0000-0000-0000-000000000009', 'd0000000-0000-0000-0000-000000000008',
+   'f0000000-0000-0000-0000-000000000009', 'delivered', 'cash', 'paid', 300, 42, 5, 347, 'c9a68659-0734-413e-95d0-87cd21f4a0f7', null,
+   now() - interval '2 hours', now() - interval '2 hours' + interval '38 minutes'),
+  -- Z: Sushi Yama, delivered today but cash NEVER collected ("Livrat, neîncasat")
+  ('e0000000-0000-0000-0000-000000000026', 'standard', 'b0000000-0000-0000-0000-000000000010', 'd0000000-0000-0000-0000-000000000001',
+   'f0000000-0000-0000-0000-000000000010', 'delivered', 'cash', 'unpaid', 260, 38, 0, 298, 'c9a68659-0734-413e-95d0-87cd21f4a0f7',
+   'Client nu a avut cash la livrare — neîncasat', now() - interval '1 hour', now() - interval '1 hour' + interval '30 minutes');
+
+insert into public.delivery_status_events (order_id, status, actor_role, actor_id, note, created_at) values
+  -- W
+  ('e0000000-0000-0000-0000-000000000023', 'pending_restaurant', 'customer', 'b0000000-0000-0000-0000-000000000003', null, now() - interval '6 days'),
+  ('e0000000-0000-0000-0000-000000000023', 'accepted', 'restaurant_partner', null, null, now() - interval '6 days' + interval '5 minutes'),
+  ('e0000000-0000-0000-0000-000000000023', 'ready_for_pickup', 'restaurant_partner', null, null, now() - interval '6 days' + interval '30 minutes'),
+  ('e0000000-0000-0000-0000-000000000023', 'courier_assigned', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '6 days' + interval '33 minutes'),
+  ('e0000000-0000-0000-0000-000000000023', 'picked_up', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '6 days' + interval '38 minutes'),
+  ('e0000000-0000-0000-0000-000000000023', 'en_route', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '6 days' + interval '42 minutes'),
+  ('e0000000-0000-0000-0000-000000000023', 'delivered', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '6 days' + interval '50 minutes'),
+  -- X
+  ('e0000000-0000-0000-0000-000000000024', 'pending_restaurant', 'customer', 'b0000000-0000-0000-0000-000000000007', null, now() - interval '5 days'),
+  ('e0000000-0000-0000-0000-000000000024', 'accepted', 'restaurant_partner', null, null, now() - interval '5 days' + interval '6 minutes'),
+  ('e0000000-0000-0000-0000-000000000024', 'ready_for_pickup', 'restaurant_partner', null, null, now() - interval '5 days' + interval '36 minutes'),
+  ('e0000000-0000-0000-0000-000000000024', 'courier_assigned', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '5 days' + interval '40 minutes'),
+  ('e0000000-0000-0000-0000-000000000024', 'picked_up', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '5 days' + interval '46 minutes'),
+  ('e0000000-0000-0000-0000-000000000024', 'en_route', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '5 days' + interval '50 minutes'),
+  ('e0000000-0000-0000-0000-000000000024', 'delivered', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '5 days' + interval '60 minutes'),
+  -- Y
+  ('e0000000-0000-0000-0000-000000000025', 'pending_restaurant', 'customer', 'b0000000-0000-0000-0000-000000000009', null, now() - interval '2 hours'),
+  ('e0000000-0000-0000-0000-000000000025', 'accepted', 'restaurant_partner', null, null, now() - interval '2 hours' + interval '5 minutes'),
+  ('e0000000-0000-0000-0000-000000000025', 'ready_for_pickup', 'restaurant_partner', null, null, now() - interval '2 hours' + interval '25 minutes'),
+  ('e0000000-0000-0000-0000-000000000025', 'courier_assigned', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '2 hours' + interval '28 minutes'),
+  ('e0000000-0000-0000-0000-000000000025', 'picked_up', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '2 hours' + interval '32 minutes'),
+  ('e0000000-0000-0000-0000-000000000025', 'en_route', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '2 hours' + interval '35 minutes'),
+  ('e0000000-0000-0000-0000-000000000025', 'delivered', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '2 hours' + interval '38 minutes'),
+  -- Z (delivered, neîncasat)
+  ('e0000000-0000-0000-0000-000000000026', 'pending_restaurant', 'customer', 'b0000000-0000-0000-0000-000000000010', null, now() - interval '1 hour'),
+  ('e0000000-0000-0000-0000-000000000026', 'accepted', 'restaurant_partner', null, null, now() - interval '1 hour' + interval '5 minutes'),
+  ('e0000000-0000-0000-0000-000000000026', 'ready_for_pickup', 'restaurant_partner', null, null, now() - interval '1 hour' + interval '15 minutes'),
+  ('e0000000-0000-0000-0000-000000000026', 'courier_assigned', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '1 hour' + interval '18 minutes'),
+  ('e0000000-0000-0000-0000-000000000026', 'picked_up', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '1 hour' + interval '22 minutes'),
+  ('e0000000-0000-0000-0000-000000000026', 'en_route', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '1 hour' + interval '25 minutes'),
+  ('e0000000-0000-0000-0000-000000000026', 'delivered', 'courier', 'a0000000-0000-0000-0000-000000000002', null, now() - interval '1 hour' + interval '30 minutes');
+
 -- audit #9/#18: stamp delivered_at from the delivered event trail so the payout +
 -- earnings pipeline (which keys off delivered_at) sees these historical orders.
 update public.orders o

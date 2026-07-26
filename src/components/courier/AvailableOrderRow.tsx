@@ -27,7 +27,12 @@ export function AvailableOrderRow({ order, disabled }: { order: Order; disabled?
           <p className="mt-0.5 text-sm text-white/50">
             De încasat: <span className="font-semibold text-white/80">{order.total_mdl} MDL</span>
           </p>
-          <p className="text-sm font-bold text-gold">Câștig: {order.delivery_fee_mdl} MDL</p>
+          <p className="text-sm font-bold text-gold">
+            Câștig: {order.delivery_fee_mdl} MDL
+            {Number(order.tip_mdl) > 0 && (
+              <span className="ml-1.5 font-semibold text-emerald-400">+{order.tip_mdl} bacșiș</span>
+            )}
+          </p>
           {error && <p className="mt-1 text-xs text-primary">{error}</p>}
         </div>
       </div>
