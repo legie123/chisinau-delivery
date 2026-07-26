@@ -1,12 +1,32 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
 import { useHydrated } from "@/hooks/useHydrated";
+import { createClient } from "@/lib/supabase/client";
 
 export function CartView() {
   const { restaurantId, restaurantName, lines, setQuantity, removeItem } = useCartStore();
   const hydrated = useHydrated();
+  // #9 — fetch the restaurant's fee + minimum so the cart can show the FULL total,
+  // not just a subtotal the button implied was the total.
+  const [summary, setSummary] = useState<{ delivery_fee_mdl: number; min_order_amount_mdl: number } | null>(null);
+  useEffect(() => {
+    if (!restaurantId) return;
+    let stale = false;
+    createClient()
+      .from("restaurants")
+      .select("delivery_fee_mdl, min_order_amount_mdl")
+      .eq("id", restaurantId)
+      .single()
+      .then(({ data }) => {
+        if (!stale) setSummary(data);
+      });
+    return () => {
+      stale = true;
+    };
+  }, [restaurantId]);
 
   // Until hydrated, render the same empty branch the server did (the persisted
   // cart isn't available server-side) — prevents a hydration mismatch/flash.
@@ -76,16 +96,43 @@ export function CartView() {
       <div className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <div className="flex items-center justify-between text-white">
           <span className="font-medium">Subtotal</span>
-          <span className="text-lg font-bold">{subtotal} MDL</span>
+          <span className="font-semibold">{subtotal} MDL</span>
         </div>
-        <p className="mt-1 text-xs text-white/40">Taxa de livrare se adaugă la checkout.</p>
+        {summary && (
+          <>
+            <div className="mt-1.5 flex items-center justify-between text-sm text-white/60">
+              <span>Livrare</span>
+              <span>{Number(summary.delivery_fee_mdl) === 0 ? "Gratuită" : `${summary.delivery_fee_mdl} MDL`}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-2">
+              <span className="font-medium">Total</span>
+              <span className="text-lg font-bold text-gold">{subtotal + Number(summary.delivery_fee_mdl)} MDL</span>
+            </div>
+            {subtotal < Number(summary.min_order_amount_mdl) && (
+              <p className="mt-2 text-xs text-primary">
+                Comandă minimă {summary.min_order_amount_mdl} MDL — mai adaugă{" "}
+                {Number(summary.min_order_amount_mdl) - subtotal} MDL.
+              </p>
+            )}
+          </>
+        )}
+        <p className="mt-1 text-xs text-white/40">Bacșișul (opțional) se adaugă la checkout.</p>
       </div>
 
       <Link
         href="/checkout"
-        className="rounded-full bg-primary-dark py-4 text-center text-[15px] font-semibold text-white transition hover:bg-primary-darker"
+        aria-disabled={summary ? subtotal < Number(summary.min_order_amount_mdl) : undefined}
+        className={`rounded-full py-4 text-center text-[15px] font-semibold text-white transition ${
+          summary && subtotal < Number(summary.min_order_amount_mdl)
+            ? "pointer-events-none bg-white/10 text-white/40"
+            : "bg-primary-dark hover:bg-primary-darker"
+        }`}
       >
-        Continuă spre plată · {subtotal} MDL
+        {summary
+          ? subtotal < Number(summary.min_order_amount_mdl)
+            ? "Comandă sub minim"
+            : `Continuă spre plată · ${subtotal + Number(summary.delivery_fee_mdl)} MDL`
+          : `Continuă spre plată · ${subtotal} MDL`}
       </Link>
     </div>
   );
