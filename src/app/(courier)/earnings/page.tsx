@@ -1,6 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
-import { currentWeekRange, summarizeEarnings, type EarningsOrder } from "@/app/(courier)/_lib/earnings";
-import type { Payout } from "@/lib/types/domain";
+import {
+  currentWeekRange,
+  summarizeEarnings,
+  summarizeShifts,
+  type EarningsOrder,
+  type ShiftEarningsOrder,
+} from "@/app/(courier)/_lib/earnings";
+import type { CourierShift, Payout } from "@/lib/types/domain";
+
+// Faza 5 #5 go/no-go band for gross/shift ("tura") — 600-1000 MDL, Chișinău
+// modal interval from the audit (§Faza 5). Purely a display cue, not a limit.
+const SHIFT_TARGET_MIN = 600;
+const SHIFT_TARGET_MAX = 1000;
+
+function fmtDuration(startIso: string, endIso: string): string {
+  const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+  const hours = Math.floor(ms / 3_600_000);
+  const minutes = Math.round((ms % 3_600_000) / 60_000);
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
 
 // "Câștiguri" — the courier's own money view: #3b canonical model — net after
 // commission, tips included, scoped to the current calendar week (same Mon-Sun
@@ -43,7 +61,7 @@ export default async function CourierEarningsPage() {
 
   const { start: weekStart, end: weekEnd } = currentWeekRange();
 
-  const [{ data: weekOrders }, { data: payoutRows }] = await Promise.all([
+  const [{ data: weekOrders }, { data: payoutRows }, { data: closedShifts }] = await Promise.all([
     supabase
       .from("orders")
       .select("delivery_fee_mdl, tip_mdl, payment_status")
@@ -57,11 +75,35 @@ export default async function CourierEarningsPage() {
       .eq("recipient_type", "courier")
       .eq("recipient_id", courier.id)
       .order("created_at", { ascending: false }),
+    // Faza 5 #5 — last 10 completed shifts ("ture"), most recent first.
+    supabase
+      .from("courier_shifts")
+      .select("id, started_at, ended_at")
+      .eq("courier_id", courier.id)
+      .not("ended_at", "is", null)
+      .order("started_at", { ascending: false })
+      .limit(10),
   ]);
 
   const week = (weekOrders ?? []) as EarningsOrder[];
   const weekSummary = summarizeEarnings(week);
   const payouts = (payoutRows ?? []) as Payout[];
+
+  // ended_at is guaranteed non-null by the query filter above; narrow the type
+  // once here instead of casting at every call site below.
+  const shifts = ((closedShifts ?? []) as Pick<CourierShift, "id" | "started_at" | "ended_at">[]).filter(
+    (s): s is { id: string; started_at: string; ended_at: string } => s.ended_at != null,
+  );
+  const earliestShiftStart = shifts.length > 0 ? shifts[shifts.length - 1].started_at : null;
+  const { data: shiftOrders } = earliestShiftStart
+    ? await supabase
+        .from("orders")
+        .select("delivery_fee_mdl, tip_mdl, payment_status, delivered_at")
+        .eq("courier_id", courier.id)
+        .eq("status", "delivered")
+        .gte("delivered_at", earliestShiftStart)
+    : { data: [] as ShiftEarningsOrder[] };
+  const shiftSummaries = summarizeShifts(shifts, (shiftOrders ?? []) as ShiftEarningsOrder[]);
 
   // Tariff transparency (audit §2.1): show the CURRENT versioned tariff. Rates change
   // only via a new immutable version, announced in advance — never silently.
@@ -106,6 +148,38 @@ export default async function CourierEarningsPage() {
           </p>
         )}
       </section>
+
+      {/* Faza 5 #5 — gross earnings PER SHIFT ("tura"). Band cue only (600-1000 MDL
+          audit target), never a limit — a short shift with few orders is expected. */}
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/60">Ture recente</h2>
+      {shiftSummaries.length === 0 ? (
+        <div className="mb-8 rounded-2xl bg-white/[0.04] px-4 py-8 text-center text-sm text-white/50 ring-1 ring-white/[0.06]">
+          Nicio tură încheiată încă — apare aici după ce te deconectezi din livrare.
+        </div>
+      ) : (
+        <ul className="mb-8 flex flex-col gap-2.5">
+          {shiftSummaries.map((s) => {
+            const inBand = s.grossMdl >= SHIFT_TARGET_MIN && s.grossMdl <= SHIFT_TARGET_MAX;
+            return (
+              <li
+                key={s.id}
+                className="flex items-center justify-between gap-4 rounded-xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]"
+              >
+                <div>
+                  <p className="text-sm font-medium text-white">
+                    {new Date(s.startedAt).toLocaleDateString("ro-RO", { day: "numeric", month: "short" })} ·{" "}
+                    {fmtDuration(s.startedAt, s.endedAt)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-white/50">
+                    {s.ordersCount} {s.ordersCount === 1 ? "livrare" : "livrări"}
+                  </p>
+                </div>
+                <p className={`text-lg font-semibold ${inBand ? "text-gold" : "text-white/70"}`}>{s.grossMdl} MDL</p>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/60">Plăți</h2>
       {payouts.length === 0 ? (

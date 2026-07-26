@@ -9,6 +9,7 @@ import {
   declineDispatchOffer,
   RpcError,
   setCourierOnlineStatus,
+  submitCourierSatisfaction,
 } from "@chisinau/shared-api";
 import { asOfferId, asOrderId, type OrderStatus } from "@chisinau/shared-types";
 
@@ -90,6 +91,25 @@ export async function acceptOffer(offerId: string): Promise<ActionResult> {
     await acceptDispatchOffer(supabase, asOfferId(offerId));
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : "Nu am putut accepta oferta." };
+  }
+  revalidatePath("/deliveries");
+  return { error: null };
+}
+
+// Faza 5 #5 — weekly courier satisfaction pulse (target >=4.5/5). The RPC
+// computes week_start server-side and enforces one-per-week + immutability.
+export async function submitSatisfaction(stars: number, comment?: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+
+  try {
+    await submitCourierSatisfaction(supabase, stars, comment);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut trimite răspunsul." };
   }
   revalidatePath("/deliveries");
   return { error: null };

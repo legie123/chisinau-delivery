@@ -5,7 +5,9 @@ import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
 import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
 import { OfferCard } from "@/components/courier/OfferCard";
 import { OffersLive } from "@/components/courier/OffersLive";
+import { SatisfactionPrompt } from "@/components/courier/SatisfactionPrompt";
 import { PushOptIn } from "@/components/shared/PushOptIn";
+import { currentWeekRange } from "@/app/(courier)/_lib/earnings";
 import { ORDER_STATUS_LABEL, type DispatchOffer, type Order } from "@/lib/types/domain";
 
 export default async function DeliveriesPage() {
@@ -29,26 +31,37 @@ export default async function DeliveriesPage() {
     );
   }
 
-  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("*")
-      .eq("courier_id", courier.id)
-      .in("status", ["courier_assigned", "picked_up", "en_route"]),
-    supabase.from("orders").select("*").eq("status", "ready_for_pickup").is("courier_id", null).order("created_at"),
-    // WS2 — the courier's single live push offer (RLS also scopes it to them).
-    supabase
-      .from("dispatch_offers")
-      .select("*, orders(*)")
-      .eq("courier_id", courier.id)
-      .eq("status", "offered")
-      .gt("expires_at", new Date().toISOString())
-      .maybeSingle(),
-  ]);
+  // Faza 5 #5 — same Mon-Sun boundary the earnings page + payout periods use.
+  const weekStartIso = currentWeekRange().start.toISOString().slice(0, 10);
+
+  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }, { data: survey }] =
+    await Promise.all([
+      supabase
+        .from("orders")
+        .select("*")
+        .eq("courier_id", courier.id)
+        .in("status", ["courier_assigned", "picked_up", "en_route"]),
+      supabase.from("orders").select("*").eq("status", "ready_for_pickup").is("courier_id", null).order("created_at"),
+      // WS2 — the courier's single live push offer (RLS also scopes it to them).
+      supabase
+        .from("dispatch_offers")
+        .select("*, orders(*)")
+        .eq("courier_id", courier.id)
+        .eq("status", "offered")
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle(),
+      supabase
+        .from("courier_satisfaction_surveys")
+        .select("id")
+        .eq("courier_id", courier.id)
+        .eq("week_start", weekStartIso)
+        .maybeSingle(),
+    ]);
 
   const active = (activeOrders ?? []) as Order[];
   const available = (availableOrders ?? []) as Order[];
   const offer = (liveOffer as DispatchOffer | null) ?? null;
+  const surveyAnswered = survey != null;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
@@ -59,6 +72,9 @@ export default async function DeliveriesPage() {
       <div className="mb-4">
         <PushOptIn />
       </div>
+
+      {/* Faza 5 #5 — weekly satisfaction pulse; hidden once this week is answered. */}
+      {!surveyAnswered && <SatisfactionPrompt />}
 
       {/* WS2 — push-dispatch offer takes the top slot when one is live. */}
       {offer && <OfferCard offer={offer} />}

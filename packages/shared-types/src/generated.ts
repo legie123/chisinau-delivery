@@ -202,6 +202,13 @@ export type Database = {
             foreignKeyName: "courier_locations_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: true
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "courier_locations_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: true
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
           },
@@ -209,6 +216,101 @@ export type Database = {
             foreignKeyName: "courier_locations_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: true
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_satisfaction_surveys: {
+        Row: {
+          comment: string | null
+          courier_id: string
+          created_at: string
+          id: string
+          stars: number
+          week_start: string
+        }
+        Insert: {
+          comment?: string | null
+          courier_id: string
+          created_at?: string
+          id?: string
+          stars: number
+          week_start: string
+        }
+        Update: {
+          comment?: string | null
+          courier_id?: string
+          created_at?: string
+          id?: string
+          stars?: number
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_satisfaction_surveys_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "courier_satisfaction_surveys_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_satisfaction_surveys_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_shifts: {
+        Row: {
+          courier_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          started_at: string
+        }
+        Insert: {
+          courier_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+        }
+        Update: {
+          courier_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_shifts_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "courier_shifts_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_shifts_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -252,6 +354,13 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "courier_suspensions_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
           {
             foreignKeyName: "courier_suspensions_courier_id_fkey"
             columns: ["courier_id"]
@@ -421,6 +530,13 @@ export type Database = {
             foreignKeyName: "dispatch_offers_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "dispatch_offers_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
           },
@@ -467,6 +583,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dispatch_scoring_config: {
+        Row: {
+          alpha0: number
+          alpha1: number
+          alpha2: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          alpha0?: number
+          alpha1?: number
+          alpha2?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          alpha0?: number
+          alpha1?: number
+          alpha2?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: []
       }
       favorites: {
         Row: {
@@ -530,6 +679,13 @@ export type Database = {
           reviewed_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fraud_flags_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
           {
             foreignKeyName: "fraud_flags_courier_id_fkey"
             columns: ["courier_id"]
@@ -1004,6 +1160,13 @@ export type Database = {
             foreignKeyName: "orders_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
           },
@@ -1368,6 +1531,13 @@ export type Database = {
             foreignKeyName: "ratings_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "ratings_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
           },
@@ -1635,6 +1805,19 @@ export type Database = {
       }
     }
     Views: {
+      admin_courier_pilot_kpis: {
+        Row: {
+          avg_orders_per_shift_14d: number | null
+          courier_id: string | null
+          full_name: string | null
+          is_active: boolean | null
+          median_gross_per_shift_14d: number | null
+          satisfaction_avg_4w: number | null
+          satisfaction_responses_4w: number | null
+          shifts_14d: number | null
+        }
+        Relationships: []
+      }
       admin_fleet_status: {
         Row: {
           active_order_id: string | null
@@ -1679,6 +1862,13 @@ export type Database = {
           total_mdl: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
           {
             foreignKeyName: "orders_courier_id_fkey"
             columns: ["courier_id"]
@@ -1772,6 +1962,13 @@ export type Database = {
             foreignKeyName: "orders_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
           },
@@ -1816,6 +2013,25 @@ export type Database = {
       admin_generate_payouts: {
         Args: { p_end: string; p_start: string }
         Returns: number
+      }
+      admin_get_dispatch_scoring_config: {
+        Args: never
+        Returns: {
+          alpha0: number
+          alpha1: number
+          alpha2: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dispatch_scoring_config"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       admin_mark_payout_paid: {
         Args: { p_payout_id: string }
@@ -1863,6 +2079,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      close_stale_courier_shifts: { Args: never; Returns: number }
       confirm_catering_quote: {
         Args: { p_order_id: string }
         Returns: undefined
@@ -1885,6 +2102,25 @@ export type Database = {
         Returns: boolean
       }
       current_courier_id: { Args: never; Returns: string }
+      current_dispatch_scoring_config: {
+        Args: never
+        Returns: {
+          alpha0: number
+          alpha1: number
+          alpha2: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "dispatch_scoring_config"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_pricing_config: {
         Args: never
         Returns: {
@@ -2043,6 +2279,16 @@ export type Database = {
         Args: { p_status: string }
         Returns: undefined
       }
+      set_dispatch_scoring_config: {
+        Args: {
+          p_alpha0: number
+          p_alpha1: number
+          p_alpha2?: number
+          p_effective_from?: string
+          p_note?: string
+        }
+        Returns: string
+      }
       set_order_tip: {
         Args: { p_order_id: string; p_tip_mdl: number }
         Returns: undefined
@@ -2059,6 +2305,10 @@ export type Database = {
       start_online_payment: { Args: { p_order_id: string }; Returns: string }
       submit_catering_quote: {
         Args: { p_order_id: string; p_quoted_total_mdl: number }
+        Returns: undefined
+      }
+      submit_courier_satisfaction: {
+        Args: { p_comment?: string; p_stars: number }
         Returns: undefined
       }
       submit_onboarding_application: {

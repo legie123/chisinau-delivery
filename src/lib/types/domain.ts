@@ -369,6 +369,42 @@ export interface AdminPaymentQueueRow {
   courier_name: string | null;
 }
 
+// Faza 5 #5 — one row per continuous online->offline courier session ("tura").
+// RPC-only writes (set_courier_online_status); ended_at null = currently open.
+export interface CourierShift {
+  id: string;
+  courier_id: string;
+  started_at: string;
+  ended_at: string | null;
+  created_at: string;
+}
+
+// Faza 5 #5 — weekly 1-5 courier satisfaction pulse. RPC-only writes
+// (submit_courier_satisfaction); one row per courier per ISO week (Mon-Sun,
+// same boundary as payout periods / currentWeekRange()), immutable once set.
+export interface CourierSatisfactionSurvey {
+  id: string;
+  courier_id: string;
+  week_start: string;
+  stars: number;
+  comment: string | null;
+  created_at: string;
+}
+
+// Faza 5 §8 go/no-go KPI read surface: satisfaction (target >=4.5, rolling 4
+// weeks) + gross earnings per completed shift (target 600-1000 MDL, rolling
+// 14 days). security_invoker — a courier sees only their own row, admin sees all.
+export interface AdminCourierPilotKpiRow {
+  courier_id: string;
+  full_name: string;
+  is_active: boolean;
+  satisfaction_avg_4w: number | null;
+  satisfaction_responses_4w: number;
+  shifts_14d: number;
+  median_gross_per_shift_14d: number | null;
+  avg_orders_per_shift_14d: number | null;
+}
+
 export interface DeliveryStatusEvent {
   id: string;
   order_id: string;

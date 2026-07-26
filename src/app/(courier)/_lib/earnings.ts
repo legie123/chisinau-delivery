@@ -54,6 +54,41 @@ export function netForOrder(o: EarningsOrder, commissionPct: number = COMMISSION
   return round2(fee + Number(o.tip_mdl ?? 0) - commission);
 }
 
+// Faza 5 #5 — gross earnings PER SHIFT ("tura"), the audit's go/no-go instrument
+// (target 600-1000 MDL/tura completa). A shift is [started_at, ended_at) from
+// courier_shifts; only delivered+paid orders whose delivered_at falls in that
+// window count, same predicate as netForOrder/summarizeEarnings above.
+export type ShiftEarningsOrder = EarningsOrder & { delivered_at: string };
+
+export type ShiftSummary = {
+  id: string;
+  startedAt: string;
+  endedAt: string;
+  ordersCount: number;
+  grossMdl: number;
+};
+
+export function summarizeShifts(
+  shifts: { id: string; started_at: string; ended_at: string }[],
+  orders: ShiftEarningsOrder[],
+): ShiftSummary[] {
+  return shifts.map((s) => {
+    const start = new Date(s.started_at).getTime();
+    const end = new Date(s.ended_at).getTime();
+    let ordersCount = 0;
+    let grossMdl = 0;
+    for (const o of orders) {
+      if (o.payment_status !== "paid") continue;
+      const deliveredAt = new Date(o.delivered_at).getTime();
+      if (deliveredAt >= start && deliveredAt < end) {
+        ordersCount += 1;
+        grossMdl += Number(o.delivery_fee_mdl) + Number(o.tip_mdl ?? 0);
+      }
+    }
+    return { id: s.id, startedAt: s.started_at, endedAt: s.ended_at, ordersCount, grossMdl: round2(grossMdl) };
+  });
+}
+
 export type EarningsSummary = {
   ordersCount: number;
   grossMdl: number;

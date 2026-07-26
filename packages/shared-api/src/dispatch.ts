@@ -21,9 +21,23 @@ export async function declineDispatchOffer(db: Db, offerId: OfferId): Promise<vo
   if (error) throw new RpcError(error);
 }
 
-/** Courier toggles their availability (online ↔ offline) for dispatch. */
+/**
+ * Courier toggles their availability (online ↔ offline) for dispatch.
+ * Also opens/closes the courier_shifts log ("tura") server-side — the
+ * earnings-per-shift KPI instrument (Faza 5 #5) has no separate write path.
+ */
 export async function setCourierOnlineStatus(db: Db, online: boolean): Promise<void> {
   const { error } = await db.rpc("set_courier_online_status", { p_status: online ? "online" : "offline" });
+  if (error) throw new RpcError(error);
+}
+
+/**
+ * Weekly 1-5 courier satisfaction pulse (Faza 5 #5, go/no-go target >=4.5,
+ * Wolt benchmark 4.57). Idempotent identical retry; a DIFFERENT value for a
+ * week already answered is rejected (immutable trend series, not a profile field).
+ */
+export async function submitCourierSatisfaction(db: Db, stars: number, comment?: string): Promise<void> {
+  const { error } = await db.rpc("submit_courier_satisfaction", { p_stars: stars, p_comment: comment });
   if (error) throw new RpcError(error);
 }
 

@@ -78,6 +78,15 @@ npm run dev          # dev server
 - `20260726000300_confirm_online_payment_service_gate` — confirm_online_payment gated to service-role/admin (self-confirm exploit closed).
 - `20260726000400_admin_reassign_courier` — admin_reassign_courier RPC (honest rescue for a ghosting courier).
 - `20260726000500_gdpr_retention` — purge_expired_pii cron + erase_customer_pii (right to erasure).
+- `20260726000600_catering_requote` — partner can re-quote while quote_status in (requested,quoted) & order pending_restaurant.
+- `20260727000000_fk_covering_indexes` — 12 FK covering indexes + notification_outbox deny-all RLS note.
+- `20260727000100_money_column_checks` — `>= 0` CHECKs on orders/order_items/catering money columns.
+- `20260727000200_gdpr_retention_align` — GPS 2yr, dormant 3yr anonymize (orders kept 10yr fiscal), old order-note scrub.
+- `20260727000300_payout_immutability` — paid payouts + their payout_orders frozen by trigger (corrections = new transactions).
+- `20260727000400_pricing_config` — versioned immutable commission history + set_pricing_config (announces via outbox).
+- `20260727000500_courier_suspension` — EU 2024/2831 human-in-loop suspend/reinstate_courier + courier_suspensions.
+- `20260727000600_dispatch_scoring_config` — master-audit Faza 3 #3: versioned `dispatch_scoring_config` (alpha0/alpha1/alpha2, admin-only, immutable-history, mirrors `pricing_config`) + `dispatch_order` rewired to read alpha0/alpha1 live instead of hardcoded 1x/10x; alpha2 reserved for Faza 4 NSGA-II tuning.
+- `20260727000700_courier_pilot_kpis` — master-audit Faza 5 #5: `courier_shifts` (one row per online→offline session, RPC-only via extended `set_courier_online_status`) + `courier_satisfaction_surveys` (weekly 1-5 pulse, `submit_courier_satisfaction`, immutable/idempotent like ratings) + `close_stale_courier_shifts` safety-net cron (16h cap) + `admin_courier_pilot_kpis` view (satisfaction avg 4w, median gross/shift 14d) for the go/no-go KPI table.
 - `.env.local` holds `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (real, gitignored). `SUPABASE_SERVICE_ROLE_KEY` intentionally absent until needed by admin invite flows (`src/lib/supabase/admin.ts` throws without it).
 - `NEXT_PUBLIC_*` vars are inlined at build time — changing `.env.local` requires rebuild + server restart.
 - Test account: `client@test.md` / `parola123`. SQL-created auth users need token columns set to `''` not NULL, else GoTrue 500s on login.
