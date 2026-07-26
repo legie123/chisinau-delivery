@@ -126,13 +126,17 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
             </span>
           </h1>
         </div>
-        {!isTerminal && (
-          <div className="flex flex-col items-end gap-2">
-            <StuckOrderActions orderId={o.id} status={o.status} />
-            {IN_FLIGHT.includes(o.status) && <ReassignCourierControl orderId={o.id} couriers={availableCouriers} />}
-            <PaymentActions orderId={o.id} status={o.payment_status} />
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-2">
+          {!isTerminal && <StuckOrderActions orderId={o.id} status={o.status} />}
+          {!isTerminal && IN_FLIGHT.includes(o.status) && (
+            <ReassignCourierControl orderId={o.id} couriers={availableCouriers} />
+          )}
+          {/* Payment actions render even for a terminal (delivered) order — a
+              refund/dispute (paid → refund_pending → refunded → clawback) is
+              opened AFTER delivery. PaymentActions self-hides when the current
+              payment status has no valid transitions. */}
+          <PaymentActions orderId={o.id} status={o.payment_status} />
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
