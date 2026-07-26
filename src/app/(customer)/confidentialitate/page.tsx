@@ -24,10 +24,30 @@ export default function PrivacyPage() {
         </section>
         <section>
           <h2 className="mb-2 font-semibold text-white">Cât timp păstrăm datele</h2>
-          <p>
-            Poziția GPS a curierului (ultima locație cunoscută) se șterge automat după 180 de zile de inactivitate.
-            Detaliile sensibile de acces la adresă (codul de interfon și notele de livrare) se șterg automat după 365
-            de zile fără nicio comandă. Istoricul comenzilor se păstrează pentru evidențe financiare și fiscale.
+          <p className="mb-3">
+            Publicăm ferestrele exacte de retenție — puțini o fac. Ștergerea rulează automat, zilnic:
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            <li className="flex justify-between gap-4 border-b border-white/[0.06] pb-1.5">
+              <span>Poziția GPS a curierului</span>
+              <span className="shrink-0 font-medium text-gold">2 ani</span>
+            </li>
+            <li className="flex justify-between gap-4 border-b border-white/[0.06] pb-1.5">
+              <span>Cod interfon + note de livrare (client inactiv)</span>
+              <span className="shrink-0 font-medium text-gold">1 an</span>
+            </li>
+            <li className="flex justify-between gap-4 border-b border-white/[0.06] pb-1.5">
+              <span>Cont inactiv (fără comenzi) → anonimizat</span>
+              <span className="shrink-0 font-medium text-gold">3 ani</span>
+            </li>
+            <li className="flex justify-between gap-4">
+              <span>Istoric comenzi (evidențe fiscale obligatorii)</span>
+              <span className="shrink-0 font-medium text-gold">10 ani</span>
+            </li>
+          </ul>
+          <p className="mt-3 text-sm text-white/50">
+            Ștergerea unui cont anonimizează datele personale (nume, telefon, adresă), dar păstrează comenzile în formă
+            anonimă — legislația fiscală impune păstrarea 10 ani.
           </p>
         </section>
         <section>

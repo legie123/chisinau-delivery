@@ -10,10 +10,10 @@ declare
 begin
   select id into v_cA from public.couriers limit 1;
   select id into v_cB from public.couriers where id <> v_cA limit 1;
-  -- one stale last-known position (courier left) + one fresh
+  -- one stale last-known position >2yr (Bolt window) + one fresh
   insert into public.courier_locations (courier_id, lat, lng, updated_at)
-  values (v_cA, 47.0, 28.8, now() - interval '200 days')
-  on conflict (courier_id) do update set updated_at = now() - interval '200 days';
+  values (v_cA, 47.0, 28.8, now() - interval '800 days')
+  on conflict (courier_id) do update set updated_at = now() - interval '800 days';
   insert into public.courier_locations (courier_id, lat, lng, updated_at)
   values (v_cB, 47.0, 28.8, now())
   on conflict (courier_id) do update set updated_at = now();
@@ -28,7 +28,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
   perform public.purge_expired_pii();
 
-  select count(*) into v_gone from public.courier_locations where courier_id = v_cA and updated_at < now() - interval '180 days';
+  select count(*) into v_gone from public.courier_locations where courier_id = v_cA and updated_at < now() - interval '2 years';
   select count(*) into v_kept from public.courier_locations where courier_id = v_cB;
   if v_gone <> 0 then raise exception 'FAIL E1: stale courier GPS not purged'; end if;
   if v_kept <> 1 then raise exception 'FAIL E1: fresh courier GPS was purged'; end if;
