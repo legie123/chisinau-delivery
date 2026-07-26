@@ -66,6 +66,12 @@ export function hasPendingChange(orderId: string): boolean {
   return readPendingQueue().some((e) => e.orderId === orderId);
 }
 
+// Total pending changes across ALL orders — drives the app-level "N acțiuni în
+// așteptare" banner in the courier layout (not order-scoped like hasPendingChange).
+export function pendingQueueCount(): number {
+  return readPendingQueue().length;
+}
+
 function isInvalidTransitionError(message: string | null): boolean {
   return !!message && message.includes("invalid transition");
 }

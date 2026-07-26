@@ -8,9 +8,8 @@ vi.stubGlobal("localStorage", {
   removeItem: (k: string) => void storage.delete(k),
 });
 
-const { readPendingQueue, enqueueStatusChange, hasPendingChange, drainPendingQueue, isNetworkError } = await import(
-  "@/lib/offline/statusQueue"
-);
+const { readPendingQueue, enqueueStatusChange, hasPendingChange, pendingQueueCount, drainPendingQueue, isNetworkError } =
+  await import("@/lib/offline/statusQueue");
 
 describe("offline courier status queue — comanda nu se pierde fără semnal", () => {
   beforeEach(() => {
@@ -67,6 +66,24 @@ describe("offline courier status queue — comanda nu se pierde fără semnal", 
     await drainPendingQueue(advance);
     expect(advance).toHaveBeenCalledTimes(2);
     expect(readPendingQueue()).toHaveLength(0);
+  });
+
+  it("pendingQueueCount reflects the app-level banner count and clears after a full drain", async () => {
+    expect(pendingQueueCount()).toBe(0);
+    enqueueStatusChange({ orderId: "o1", newStatus: "picked_up", ts: 1 });
+    enqueueStatusChange({ orderId: "o2", newStatus: "en_route", ts: 2 });
+    expect(pendingQueueCount()).toBe(2); // banner would show "2 acțiuni în așteptare"
+
+    const advance = vi.fn().mockResolvedValue({ error: null });
+    await drainPendingQueue(advance);
+    expect(pendingQueueCount()).toBe(0); // drained → banner hides, router.refresh() fires
+  });
+
+  it("pendingQueueCount keeps counting entries stuck offline (banner stays up)", async () => {
+    enqueueStatusChange({ orderId: "o1", newStatus: "picked_up", ts: 1 });
+    const advance = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    await drainPendingQueue(advance);
+    expect(pendingQueueCount()).toBe(1); // still offline → banner remains
   });
 
   it("isNetworkError recognizes fetch-level failures", () => {

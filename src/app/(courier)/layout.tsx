@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { CourierOfflineSync } from "@/components/courier/CourierOfflineSync";
 
 export default function CourierLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,6 +22,8 @@ export default function CourierLayout({ children }: { children: React.ReactNode 
           <SignOutButton />
         </nav>
       </header>
+      {/* App-level offline drain + "N acțiuni în așteptare" banner (Wave C). */}
+      <CourierOfflineSync />
       {children}
     </div>
   );
