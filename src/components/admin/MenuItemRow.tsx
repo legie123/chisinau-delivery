@@ -9,16 +9,18 @@ import {
 } from "@/app/(admin)/restaurant/menu/actions";
 import { createClient } from "@/lib/supabase/client";
 import { uploadMenuPhoto } from "@/lib/storage/uploadMenuPhoto";
-import type { MenuCategory, MenuItem } from "@/lib/types/domain";
+import type { MenuCategory, MenuItem, MenuOptionGroup } from "@/lib/types/domain";
+import { ItemModifiersManager } from "@/components/admin/ItemModifiersManager";
 
 const inputClass =
   "rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60";
 
-export function MenuItemRow({ item }: { item: MenuItem }) {
+export function MenuItemRow({ item, optionGroups = [] }: { item: MenuItem; optionGroups?: MenuOptionGroup[] }) {
   const [isAvailable, setIsAvailable] = useState(item.is_available);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [showModifiers, setShowModifiers] = useState(false);
 
   // #17 — inline edit (expand-to-form). Categories are fetched on demand so
   // this row doesn't need a new prop threaded through the server page.
@@ -180,6 +182,16 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
               Editează
             </button>
           )}
+          {/* Menu-modifier authoring toggle */}
+          <button
+            type="button"
+            onClick={() => setShowModifiers((v) => !v)}
+            className={`text-xs underline underline-offset-4 transition ${
+              showModifiers ? "text-gold" : "text-gold/70 hover:text-gold"
+            }`}
+          >
+            Modificatori{optionGroups.length > 0 ? ` (${optionGroups.length})` : ""}
+          </button>
           {confirmingDelete ? (
             <span className="flex items-center gap-2">
               <button
@@ -211,6 +223,8 @@ export function MenuItemRow({ item }: { item: MenuItem }) {
         </div>
       </div>
       {error && <p className="text-xs text-red-400">{error}</p>}
+
+      {showModifiers && <ItemModifiersManager itemId={item.id} groups={optionGroups} />}
 
       {editing && (
         <form

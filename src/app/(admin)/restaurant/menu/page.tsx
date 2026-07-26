@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { AddCategoryForm } from "@/components/admin/AddCategoryForm";
 import { AddMenuItemForm } from "@/components/admin/AddMenuItemForm";
 import { MenuItemRow } from "@/components/admin/MenuItemRow";
-import type { MenuCategory, MenuItem } from "@/lib/types/domain";
+import type { MenuCategory, MenuItem, MenuOptionGroup } from "@/lib/types/domain";
 
 export default async function RestaurantMenuPage() {
   const supabase = await createClient();
@@ -39,6 +39,20 @@ export default async function RestaurantMenuPage() {
   const itemList = (items ?? []) as MenuItem[];
   const uncategorized = itemList.filter((item) => !item.category_id);
 
+  // Menu modifiers: option groups + options for this restaurant's items → itemId map.
+  const groupsByItem: Record<string, MenuOptionGroup[]> = {};
+  if (itemList.length > 0) {
+    const { data: groups } = await supabase
+      .from("menu_option_groups")
+      .select("*, menu_options(*)")
+      .in("menu_item_id", itemList.map((i) => i.id))
+      .order("sort_order")
+      .order("sort_order", { referencedTable: "menu_options" });
+    for (const g of (groups ?? []) as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
+      (groupsByItem[g.menu_item_id] ??= []).push({ ...g, options: g.menu_options ?? [] });
+    }
+  }
+
   return (
     <main className="flex-1 px-6 py-10">
       <h1 className="mb-6 text-2xl font-semibold">Meniul meu{restaurantName ? ` — ${restaurantName}` : ""}</h1>
@@ -58,7 +72,7 @@ export default async function RestaurantMenuPage() {
                 <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">{category.name}</h2>
                 <ul className="flex flex-col gap-2">
                   {categoryItems.map((item) => (
-                    <MenuItemRow key={item.id} item={item} />
+                    <MenuItemRow key={item.id} item={item} optionGroups={groupsByItem[item.id] ?? []} />
                   ))}
                 </ul>
               </section>
@@ -69,7 +83,7 @@ export default async function RestaurantMenuPage() {
               <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">Fără categorie</h2>
               <ul className="flex flex-col gap-2">
                 {uncategorized.map((item) => (
-                  <MenuItemRow key={item.id} item={item} />
+                  <MenuItemRow key={item.id} item={item} optionGroups={groupsByItem[item.id] ?? []} />
                 ))}
               </ul>
             </section>
