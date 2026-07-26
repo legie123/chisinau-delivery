@@ -222,7 +222,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         p_restaurant_id: restaurantId,
         p_order_type: "standard",
         p_payment_method: paymentMethod,
-        p_items: lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity })),
+        p_items: lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.optionIds })),
         p_delivery_address_id: deliveryAddressId,
         p_requested_for: requestedForIso,
         // Same token on retry ⇒ place_order returns the existing order, no duplicate.
@@ -317,11 +317,12 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         </h2>
         <ul className="flex flex-col gap-2 text-[15px]">
           {lines.map((l) => (
-            <li key={l.menuItemId} className="flex justify-between text-white/90">
-              <span>
+            <li key={l.lineId} className="flex justify-between gap-3 text-white/90">
+              <span className="min-w-0">
                 {l.quantity}× {l.name}
+                {l.optionsLabel && <span className="block truncate text-xs text-white/40">{l.optionsLabel}</span>}
               </span>
-              <span>{l.priceMdl * l.quantity} MDL</span>
+              <span className="shrink-0">{l.priceMdl * l.quantity} MDL</span>
             </li>
           ))}
         </ul>

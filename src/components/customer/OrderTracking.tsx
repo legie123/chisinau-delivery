@@ -207,11 +207,16 @@ export function OrderTracking({
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Comanda ta</h2>
         <ul className="flex flex-col gap-2 text-[15px]">
           {items.map((item) => (
-            <li key={item.id} className="flex justify-between text-white/90">
-              <span>
+            <li key={item.id} className="flex justify-between gap-3 text-white/90">
+              <span className="min-w-0">
                 {item.quantity}× {item.item_name_snapshot}
+                {item.selected_options?.length > 0 && (
+                  <span className="block text-xs text-white/40">
+                    {item.selected_options.map((o) => o.name).join(", ")}
+                  </span>
+                )}
               </span>
-              <span>{item.line_total_mdl} MDL</span>
+              <span className="shrink-0">{item.line_total_mdl} MDL</span>
             </li>
           ))}
         </ul>

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { CoverImage } from "@/components/customer/CoverImage";
 import { MenuBrowser } from "@/components/customer/MenuBrowser";
-import type { MenuCategory, MenuItem, PrepEstimate, Restaurant } from "@/lib/types/domain";
+import type { MenuCategory, MenuItem, MenuOptionGroup, PrepEstimate, Restaurant } from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
 
 export default async function RestaurantMenuPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -27,6 +27,22 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   const typedRestaurant = restaurant as Restaurant & { menu_categories: MenuCategory[]; menu_items: MenuItem[] };
   const categories = typedRestaurant.menu_categories;
   const items = typedRestaurant.menu_items;
+
+  // Menu modifiers: option groups + options for this restaurant's items → itemId map.
+  const optionGroups: Record<string, MenuOptionGroup[]> = {};
+  const itemIds = items.map((i) => i.id);
+  if (itemIds.length > 0) {
+    const { data: groups } = await supabase
+      .from("menu_option_groups")
+      .select("*, menu_options(*)")
+      .in("menu_item_id", itemIds)
+      .order("sort_order")
+      .order("sort_order", { referencedTable: "menu_options" });
+    for (const g of (groups ?? []) as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
+      const group: MenuOptionGroup = { ...g, options: (g.menu_options ?? []).filter((o) => o.is_available) };
+      (optionGroups[g.menu_item_id] ??= []).push(group);
+    }
+  }
 
   // WS4 — live prep estimate for this one restaurant (falls back to static column).
   const { data: prepRows } = await supabase.rpc("get_prep_estimates", {
@@ -74,7 +90,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
       )}
 
       <div className="mt-5">
-        <MenuBrowser restaurant={typedRestaurant} categories={categories} items={items} />
+        <MenuBrowser restaurant={typedRestaurant} categories={categories} items={items} optionGroups={optionGroups} />
       </div>
     </main>
   );

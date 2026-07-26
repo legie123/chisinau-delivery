@@ -26,6 +26,22 @@ describe("cart store — banii clientului", () => {
     expect(lines[0].quantity).toBe(2);
   });
 
+  it("same item with different options makes distinct lines; same options increments", () => {
+    const { addItem } = useCartStore.getState();
+    // base 180 + Teriyaki(10) → unit 190, options [o1]
+    addItem("r1", "Sakura", item("a", 180), { optionIds: ["o1"], optionsLabel: "Teriyaki", unitPriceMdl: 190 });
+    // same item, different option → separate line
+    addItem("r1", "Sakura", item("a", 180), { optionIds: ["o2"], optionsLabel: "Unagi", unitPriceMdl: 195 });
+    // identical options → increments the first line
+    addItem("r1", "Sakura", item("a", 180), { optionIds: ["o1"], optionsLabel: "Teriyaki", unitPriceMdl: 190 });
+    const { lines } = useCartStore.getState();
+    expect(lines).toHaveLength(2);
+    const teriyaki = lines.find((l) => l.optionsLabel === "Teriyaki");
+    expect(teriyaki?.quantity).toBe(2);
+    expect(teriyaki?.priceMdl).toBe(190);
+    expect(cartSubtotal(lines)).toBe(190 * 2 + 195); // 575
+  });
+
   it("switching restaurants holds a pendingSwitch instead of silently wiping the cart (#38)", () => {
     const { addItem } = useCartStore.getState();
     addItem("r1", "Sakura", item("a", 180));

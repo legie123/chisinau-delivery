@@ -2,18 +2,27 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export interface CartLine {
+  lineId: string; // menuItemId, or menuItemId::sortedOptionIds when customized
   menuItemId: string;
   name: string;
-  priceMdl: number;
+  priceMdl: number; // UNIT price incl. option deltas
   quantity: number;
+  optionIds: string[];
+  optionsLabel: string; // human summary e.g. "Teriyaki, Wasabi extra"
 }
 
-// A different-restaurant add is held here instead of silently wiping the cart —
-// the UI (MenuBrowser) renders an inline confirm and calls confirmSwitch/cancelSwitch.
+// Options chosen in the modifier modal; omitted for a plain add.
+export interface ChosenOptions {
+  optionIds: string[];
+  optionsLabel: string;
+  unitPriceMdl: number; // base + deltas
+}
+
 interface PendingSwitch {
   restaurantId: string;
   restaurantName: string;
   item: { id: string; name: string; price_mdl: number };
+  options?: ChosenOptions;
 }
 
 interface CartState {
@@ -21,12 +30,31 @@ interface CartState {
   restaurantName: string | null;
   lines: CartLine[];
   pendingSwitch: PendingSwitch | null;
-  addItem: (restaurantId: string, restaurantName: string, item: { id: string; name: string; price_mdl: number }) => void;
+  addItem: (
+    restaurantId: string,
+    restaurantName: string,
+    item: { id: string; name: string; price_mdl: number },
+    options?: ChosenOptions,
+  ) => void;
   confirmSwitch: () => void;
   cancelSwitch: () => void;
-  removeItem: (menuItemId: string) => void;
-  setQuantity: (menuItemId: string, quantity: number) => void;
+  removeItem: (lineId: string) => void;
+  setQuantity: (lineId: string, quantity: number) => void;
   clear: () => void;
+}
+
+function makeLine(item: { id: string; name: string; price_mdl: number }, options?: ChosenOptions): CartLine {
+  const optionIds = options?.optionIds ?? [];
+  const lineId = optionIds.length ? `${item.id}::${[...optionIds].sort().join(",")}` : item.id;
+  return {
+    lineId,
+    menuItemId: item.id,
+    name: item.name,
+    priceMdl: options?.unitPriceMdl ?? item.price_mdl,
+    quantity: 1,
+    optionIds,
+    optionsLabel: options?.optionsLabel ?? "",
+  };
 }
 
 export const useCartStore = create<CartState>()(
@@ -37,22 +65,22 @@ export const useCartStore = create<CartState>()(
       lines: [],
       pendingSwitch: null,
 
-      addItem: (restaurantId, restaurantName, item) => {
+      addItem: (restaurantId, restaurantName, item, options) => {
         const current = get();
         const switchingRestaurant = current.restaurantId !== null && current.restaurantId !== restaurantId;
 
-        // Cross-restaurant orders aren't supported — but wiping without asking lost
-        // orders silently (#38). Hold the add and let the UI confirm first.
+        // Cross-restaurant orders aren't supported — hold the add and let the UI confirm (#38).
         if (switchingRestaurant && current.lines.length > 0) {
-          set({ pendingSwitch: { restaurantId, restaurantName, item } });
+          set({ pendingSwitch: { restaurantId, restaurantName, item, options } });
           return;
         }
 
         const lines = switchingRestaurant ? [] : current.lines;
-        const existing = lines.find((l) => l.menuItemId === item.id);
+        const line = makeLine(item, options);
+        const existing = lines.find((l) => l.lineId === line.lineId);
         const nextLines = existing
-          ? lines.map((l) => (l.menuItemId === item.id ? { ...l, quantity: l.quantity + 1 } : l))
-          : [...lines, { menuItemId: item.id, name: item.name, priceMdl: item.price_mdl, quantity: 1 }];
+          ? lines.map((l) => (l.lineId === line.lineId ? { ...l, quantity: l.quantity + 1 } : l))
+          : [...lines, line];
 
         set({ restaurantId, restaurantName, lines: nextLines, pendingSwitch: null });
       },
@@ -60,32 +88,31 @@ export const useCartStore = create<CartState>()(
       confirmSwitch: () => {
         const { pendingSwitch } = get();
         if (!pendingSwitch) return;
-        const { restaurantId, restaurantName, item } = pendingSwitch;
+        const { restaurantId, restaurantName, item, options } = pendingSwitch;
         set({
           restaurantId,
           restaurantName,
-          lines: [{ menuItemId: item.id, name: item.name, priceMdl: item.price_mdl, quantity: 1 }],
+          lines: [makeLine(item, options)],
           pendingSwitch: null,
         });
       },
 
       cancelSwitch: () => set({ pendingSwitch: null }),
 
-      removeItem: (menuItemId) => set((state) => ({ lines: state.lines.filter((l) => l.menuItemId !== menuItemId) })),
+      removeItem: (lineId) => set((state) => ({ lines: state.lines.filter((l) => l.lineId !== lineId) })),
 
-      setQuantity: (menuItemId, quantity) =>
+      setQuantity: (lineId, quantity) =>
         set((state) => ({
           lines:
             quantity <= 0
-              ? state.lines.filter((l) => l.menuItemId !== menuItemId)
-              : state.lines.map((l) => (l.menuItemId === menuItemId ? { ...l, quantity } : l)),
+              ? state.lines.filter((l) => l.lineId !== lineId)
+              : state.lines.map((l) => (l.lineId === lineId ? { ...l, quantity } : l)),
         })),
 
       clear: () => set({ restaurantId: null, restaurantName: null, lines: [], pendingSwitch: null }),
     }),
     {
       name: "chisinau-delivery-cart",
-      // pendingSwitch is transient UI state — don't persist a stale confirm banner.
       partialize: (state) => ({ restaurantId: state.restaurantId, restaurantName: state.restaurantName, lines: state.lines }),
     },
   ),

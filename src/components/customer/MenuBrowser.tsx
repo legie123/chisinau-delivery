@@ -2,18 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useCartStore } from "@/lib/orders/cart";
-import type { MenuCategory, MenuItem, Restaurant } from "@/lib/types/domain";
+import type { MenuCategory, MenuItem, MenuOptionGroup, Restaurant } from "@/lib/types/domain";
+import { ItemModifierModal } from "@/components/customer/ItemModifierModal";
 
 export function MenuBrowser({
   restaurant,
   categories,
   items,
+  optionGroups = {},
 }: {
   restaurant: Restaurant;
   categories: MenuCategory[];
   items: MenuItem[];
+  optionGroups?: Record<string, MenuOptionGroup[]>;
 }) {
   const addItem = useCartStore((s) => s.addItem);
+  // item currently being customized in the modifier modal (has option groups)
+  const [customizing, setCustomizing] = useState<MenuItem | null>(null);
   const lines = useCartStore((s) => s.lines);
   const cartRestaurantName = useCartStore((s) => s.restaurantName);
   const pendingSwitch = useCartStore((s) => s.pendingSwitch);
@@ -44,7 +49,16 @@ export function MenuBrowser({
 
   const filtered = selected === "all" ? items : items.filter((i) => (i.category_id ?? null) === selected);
 
-  const qtyInCart = (itemId: string) => lines.find((l) => l.menuItemId === itemId)?.quantity ?? 0;
+  // An item can now sit in the cart as several option-lines — sum them.
+  const qtyInCart = (itemId: string) =>
+    lines.filter((l) => l.menuItemId === itemId).reduce((s, l) => s + l.quantity, 0);
+  const groupsFor = (itemId: string) => optionGroups[itemId] ?? [];
+
+  // Add: if the item has option groups, open the modifier modal; else add directly.
+  function handleAdd(item: MenuItem) {
+    if (groupsFor(item.id).length > 0) setCustomizing(item);
+    else addItem(restaurant.id, restaurant.name, item);
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -120,7 +134,7 @@ export function MenuBrowser({
                   <span className="text-[15px] font-bold text-primary">{item.price_mdl} MDL</span>
                   <button
                     type="button"
-                    onClick={() => addItem(restaurant.id, restaurant.name, item)}
+                    onClick={() => handleAdd(item)}
                     disabled={!restaurant.accepting_orders}
                     className="flex items-center gap-1.5 rounded-full bg-primary-dark px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -129,6 +143,8 @@ export function MenuBrowser({
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/25 text-xs font-bold">{inCart}</span>
                         Adaugă încă
                       </>
+                    ) : groupsFor(item.id).length > 0 ? (
+                      <>Alege +</>
                     ) : (
                       <>Adaugă +</>
                     )}
@@ -143,6 +159,18 @@ export function MenuBrowser({
           );
         })}
       </div>
+
+      {customizing && (
+        <ItemModifierModal
+          item={customizing}
+          groups={groupsFor(customizing.id)}
+          onClose={() => setCustomizing(null)}
+          onAdd={(options) => {
+            addItem(restaurant.id, restaurant.name, customizing, options);
+            setCustomizing(null);
+          }}
+        />
+      )}
     </div>
   );
 }

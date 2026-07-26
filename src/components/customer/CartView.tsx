@@ -59,16 +59,17 @@ export function CartView() {
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/50">{restaurantName}</h2>
         <ul className="flex flex-col gap-4">
           {lines.map((line) => (
-            <li key={line.menuItemId} className="flex items-center justify-between gap-3">
+            <li key={line.lineId} className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-white">{line.name}</p>
+                {line.optionsLabel && <p className="truncate text-xs text-white/40">{line.optionsLabel}</p>}
                 <p className="text-sm text-white/50">{line.priceMdl} MDL</p>
               </div>
               {/* Bolt-style quantity stepper */}
               <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
                 <button
                   type="button"
-                  onClick={() => setQuantity(line.menuItemId, line.quantity - 1)}
+                  onClick={() => setQuantity(line.lineId, line.quantity - 1)}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-white/80 transition hover:bg-white/10"
                   aria-label="Scade cantitatea"
                 >
@@ -77,7 +78,7 @@ export function CartView() {
                 <span className="w-7 text-center text-sm font-bold text-white">{line.quantity}</span>
                 <button
                   type="button"
-                  onClick={() => setQuantity(line.menuItemId, line.quantity + 1)}
+                  onClick={() => setQuantity(line.lineId, line.quantity + 1)}
                   className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-white/80 transition hover:bg-white/10"
                   aria-label="Crește cantitatea"
                 >
@@ -90,7 +91,7 @@ export function CartView() {
                   type="button"
                   onClick={() => {
                     setAnnounce(`${line.name} eliminat din coș`);
-                    removeItem(line.menuItemId);
+                    removeItem(line.lineId);
                   }}
                   aria-label={`Șterge ${line.name} din coș`}
                   className="text-xs text-white/40 underline underline-offset-4 transition hover:text-primary"
