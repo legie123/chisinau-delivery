@@ -50,3 +50,6 @@ ruvector.db
 
 # local-only push-drain secret (do not commit)
 supabase/seeds/local_secrets.sql
+
+# Local operational-server master creds (never commit)
+scripts/.dev-local.env
