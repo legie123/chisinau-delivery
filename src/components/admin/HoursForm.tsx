@@ -26,6 +26,10 @@ export function HoursForm({ hours }: { hours: RestaurantHours[] }) {
           și apeși Salvează.
         </p>
       )}
+      <p className="text-xs text-white/40">
+        O zi cu orele de deschidere/închidere goale este salvată automat drept <strong>închisă</strong> — nu
+        presupunem un program implicit.
+      </p>
       {DAY_LABELS.map((label, day) => {
         const existing = byDay.get(day);
         return (
@@ -48,7 +52,7 @@ export function HoursForm({ hours }: { hours: RestaurantHours[] }) {
               <input type="checkbox" name={`day_${day}_closed`} defaultChecked={existing?.is_closed ?? false} />
               Închis
             </label>
-            {!existing && <span className="text-xs text-white/35">(neconfigurat, implicit 11:00–22:00)</span>}
+            {!existing && <span className="text-xs text-white/35">(gol → salvat drept închis)</span>}
           </div>
         );
       })}

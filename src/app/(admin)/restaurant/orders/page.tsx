@@ -44,6 +44,7 @@ export default async function RestaurantOrdersPage() {
     .order("created_at");
 
   const orderList = (orders ?? []) as Order[];
+  const pendingCount = orderList.filter((o) => o.status === "pending_restaurant").length;
 
   // Pickup coordination: a courier assigned to one of our orders is heading here.
   const assigned = orderList.find((o) => o.status === "courier_assigned" && o.courier_id);
@@ -62,7 +63,7 @@ export default async function RestaurantOrdersPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
-      {staffRow && <OrderQueueLive restaurantId={staffRow.restaurant_id} />}
+      {staffRow && <OrderQueueLive restaurantId={staffRow.restaurant_id} pendingCount={pendingCount} />}
       {restaurantPoint && pickupCourier && (
         <RestaurantPickupMap
           restaurant={restaurantPoint}

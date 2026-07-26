@@ -11,16 +11,28 @@ export async function updateHours(_prev: ActionState, formData: FormData): Promi
   try {
     const { supabase, restaurantId } = await requireOwnRestaurant();
 
-    const rows = DAYS.map((day) => ({
-      restaurant_id: restaurantId,
-      day_of_week: day,
+    const rows = DAYS.map((day) => {
       // HoursForm no longer pre-fills these visually (an unconfigured day
       // must look unconfigured, not already-set) — so a field left blank
-      // submits "" here, not undefined. `||` catches that; `??` wouldn't.
-      opens_at: String(formData.get(`day_${day}_opens`) || "11:00"),
-      closes_at: String(formData.get(`day_${day}_closes`) || "22:00"),
-      is_closed: formData.get(`day_${day}_closed`) === "on",
-    }));
+      // submits "" here, not undefined.
+      const opensRaw = String(formData.get(`day_${day}_opens`) ?? "").trim();
+      const closesRaw = String(formData.get(`day_${day}_closes`) ?? "").trim();
+      const checkedClosed = formData.get(`day_${day}_closed`) === "on";
+      // #15 — a day left blank used to silently default to open 11:00–22:00,
+      // which reads as deliberately configured. An incomplete day (either
+      // time missing) is unconfigured, not open: save it as closed instead
+      // of guessing hours. 11:00/22:00 are just harmless placeholders here
+      // since is_closed=true means nothing ever reads opens_at/closes_at
+      // (see src/app/(customer)/restaurants/page.tsx).
+      const incomplete = !opensRaw || !closesRaw;
+      return {
+        restaurant_id: restaurantId,
+        day_of_week: day,
+        opens_at: opensRaw || "11:00",
+        closes_at: closesRaw || "22:00",
+        is_closed: checkedClosed || incomplete,
+      };
+    });
 
     const { error } = await supabase
       .from("restaurant_hours")
