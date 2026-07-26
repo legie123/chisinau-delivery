@@ -31,7 +31,53 @@ npm run dev          # dev server
 ## Backend (Supabase)
 
 - Live project: `rdowjxnuyawhrjppxzuu` (shared with dormant Trade-AI tables — do NOT touch `poly_*`, `polymarket_*`, `gladiator*`, `equity_history`, `syndicate_audits`, etc.).
-- Schema lives in `supabase/migrations/` (13 numbered files, order matters: couriers before orders). Migrations have been applied remotely via MCP `apply_migration`; keep local files and remote in sync.
+- Schema lives in `supabase/migrations/` (44 numbered files, order matters: couriers before orders). Migrations applied locally via `supabase db reset`; remote sync (via MCP `apply_migration` or CLI) is a deliberate pre-launch step — keep local files authoritative.
+
+### Migrations index (terse — one line each; `scripts/check-doc-drift.sh` verifies every file is listed)
+- `20260708000000_roles_and_profiles` — profiles + role check + has_role helpers.
+- `20260708000100_couriers` — couriers + courier_locations + self-read RLS.
+- `20260708000200_restaurants_and_menu` — restaurants, menu, restaurant_staff, has_restaurant_access.
+- `20260708000300_addresses` — customer addresses (street/intercom/notes/geo).
+- `20260708000400_orders_and_catering` — orders, order_items, catering_details + scoped RLS.
+- `20260708000500_status_events_and_rpcs` — delivery_status_events + the lifecycle RPCs (place_order/accept/reject/ready/assign/advance/cancel/catering).
+- `20260708000600_storage_buckets` — restaurant-photos bucket + path-scoped storage RLS.
+- `20260708000700_realtime_publication` — adds tables to supabase_realtime publication.
+- `20260708000800_function_hardening` — revoke/grant tightening on the RPCs.
+- `20260708000900_courier_address_read` — courier reads the delivery address of its order.
+- `20260708001000_fix_rls_recursion` — de-recursed scoped-read policies (events/items/couriers).
+- `20260708001100_perf_indexes` — hot-path indexes (order_items(order_id), etc.).
+- `20260708001200_courier_catering_read` — courier read access for catering orders.
+- `20260708001300_state_machine_hardening` — transition guards + expire_stale_orders cron.
+- `20260717001400_dynamic_eta` — restaurant_prep_stats + get_prep_estimates + refresh cron.
+- `20260717001500_ratings` — ratings table + submit_rating + denormalized averages.
+- `20260717001600_dispatch_offers` — WS2 push dispatch: dispatch_offers, dispatch_order, accept/decline, expire cron, courier_has_capacity.
+- `20260717001700_ws10_gps_plausibility` — fraud_flags + GPS speed-plausibility trigger.
+- `20260717001800_admin_ops_views` — admin ops views + admin_update_payment_status.
+- `20260717001900_ws3_postgis_geo` — PostGIS geo columns + nearby_restaurants + location guards.
+- `20260717002000_backtest_hardening` — adversarial fixes (catering confirm guard, rating column guard, capacity locks).
+- `20260717002100_ws3b_private_location_channel` — private realtime GPS channel RLS.
+- `20260717002200_grants_parity` — grant parity across the RPC surface.
+- `20260717002300_fix_profile_role_escalation` — block self role-escalation on profiles.
+- `20260717002400_backtest2_hardening` — round-2 adversarial hardening.
+- `20260717002500_dispatch_plausible` — dispatch skips implausible/teleporting couriers.
+- `20260717002600_restaurant_courier_location` — restaurant reads assigned courier position for pickup.
+- `20260718000000_platform_foundation` — notifications/payments/onboarding/UX: push_subscriptions, payment_intents, payouts, onboarding_applications, kyc, start/confirm_online_payment.
+- `20260718000100_set_order_tip` — set_order_tip RPC.
+- `20260718000200_notification_outbox` — durable notification_outbox + drain cron.
+- `20260725000000_search_menu_items` — cross-restaurant search_menu_items RPC.
+- `20260725000100_money_integrity` — payout_orders ledger, delivery-payment gate, start_online_payment.
+- `20260725000200_restaurant_platform_columns_guard` — is_active guard on restaurant/platform columns.
+- `20260725000300_money_integrity_2` — clawback-on-refund, catering confirm tip-on-top.
+- `20260725000400_wave4_correctness` — hours gate in place_order, address ownership, atomic outbox claim.
+- `20260725000500_master_audit_remediation` — tip freeze after online capture, pending_capture escape, overnight hours, admin_update_payment_status matrix.
+- `20260725000600_wave9_backlog` — backlog fixes wave 9.
+- `20260725000700_wave9b_payout_lock` — advisory-locked payout generation (no double payout).
+- `20260726000000_checkout_idempotency` — place_order idempotency_key + frozen confirm amount.
+- `20260726000100_menu_modifiers` — menu_option_groups/options + order_items.selected_options + place_order recompute.
+- `20260726000200_customer_push_outbox` — delivery_status_events trigger → customer status pushes via outbox.
+- `20260726000300_confirm_online_payment_service_gate` — confirm_online_payment gated to service-role/admin (self-confirm exploit closed).
+- `20260726000400_admin_reassign_courier` — admin_reassign_courier RPC (honest rescue for a ghosting courier).
+- `20260726000500_gdpr_retention` — purge_expired_pii cron + erase_customer_pii (right to erasure).
 - `.env.local` holds `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (real, gitignored). `SUPABASE_SERVICE_ROLE_KEY` intentionally absent until needed by admin invite flows (`src/lib/supabase/admin.ts` throws without it).
 - `NEXT_PUBLIC_*` vars are inlined at build time — changing `.env.local` requires rebuild + server restart.
 - Test account: `client@test.md` / `parola123`. SQL-created auth users need token columns set to `''` not NULL, else GoTrue 500s on login.
