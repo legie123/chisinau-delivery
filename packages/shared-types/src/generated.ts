@@ -1818,6 +1818,10 @@ export type Database = {
         Returns: undefined
       }
       dispatch_order: { Args: { p_order_id: string }; Returns: string }
+      erase_customer_pii: {
+        Args: { p_customer_id: string }
+        Returns: undefined
+      }
       expire_dispatch_offers: { Args: never; Returns: number }
       expire_stale_orders: { Args: never; Returns: number }
       generate_order_number: { Args: never; Returns: string }
@@ -1897,6 +1901,7 @@ export type Database = {
         }
         Returns: string
       }
+      purge_expired_pii: { Args: never; Returns: undefined }
       refresh_prep_stats: { Args: never; Returns: number }
       reject_order: {
         Args: { p_order_id: string; p_reason: string }

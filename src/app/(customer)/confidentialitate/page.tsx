@@ -10,9 +10,9 @@ export default function PrivacyPage() {
         <section>
           <h2 className="mb-2 font-semibold text-white">Ce date colectăm</h2>
           <p>
-            Colectăm datele necesare livrării: nume, telefon, adresă de livrare și coordonate GPS (doar când le
-            oferi), istoricul comenzilor și preferințele tale. Nu stocăm datele cardului — plățile online sunt
-            procesate de furnizorul de plăți.
+            Colectăm datele necesare livrării: nume, telefon, adresă de livrare (inclusiv cod interfon și
+            instrucțiuni de acces, dacă le oferi), coordonate GPS și istoricul comenzilor. În etapa pilot plata se
+            face la livrare (numerar sau card la POS-ul curierului) — nu colectăm și nu stocăm datele cardului.
           </p>
         </section>
         <section>
@@ -23,13 +23,22 @@ export default function PrivacyPage() {
           </p>
         </section>
         <section>
+          <h2 className="mb-2 font-semibold text-white">Cât timp păstrăm datele</h2>
+          <p>
+            Poziția GPS a curierului (ultima locație cunoscută) se șterge automat după 180 de zile de inactivitate.
+            Detaliile sensibile de acces la adresă (codul de interfon și notele de livrare) se șterg automat după 365
+            de zile fără nicio comandă. Istoricul comenzilor se păstrează pentru evidențe financiare și fiscale.
+          </p>
+        </section>
+        <section>
           <h2 className="mb-2 font-semibold text-white">Drepturile tale</h2>
           <p>
             Poți solicita accesul, corectarea sau ștergerea datelor tale scriind la{" "}
             <a href="mailto:contact@dragonsdelivery.md" className="text-gold underline underline-offset-4">
               contact@dragonsdelivery.md
             </a>
-            .
+            . La cerere îți anonimizăm datele personale (nume, telefon, adresă), păstrând comenzile doar în formă
+            anonimă pentru evidențele financiare obligatorii.
           </p>
         </section>
       </div>

@@ -19,8 +19,8 @@ export default function TermsPage() {
           <h2 className="mb-2 font-semibold text-white">2. Comenzi și plăți</h2>
           <p>
             Prețurile sunt afișate în lei moldovenești (MDL) și includ taxa de livrare acolo unde se aplică.
-            Plata se poate face cu numerar sau card la livrare, ori online. Confirmarea comenzii nu garantează
-            disponibilitatea; restaurantul poate refuza o comandă, caz în care nu se percepe nicio sumă.
+            În etapa pilot plata se face la livrare — numerar sau card la POS-ul curierului. Confirmarea comenzii nu
+            garantează disponibilitatea; restaurantul poate refuza o comandă, caz în care nu se percepe nicio sumă.
           </p>
         </section>
         <section>
