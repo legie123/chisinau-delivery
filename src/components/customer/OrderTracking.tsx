@@ -116,7 +116,11 @@ export function OrderTracking({
                 const done = i <= current;
                 const active = i === current + 1 && !done;
                 return (
-                  <div key={step.label} className="flex flex-1 flex-col items-center gap-1.5">
+                  <div
+                    key={step.label}
+                    className="flex flex-1 flex-col items-center gap-1.5"
+                    aria-current={active ? "step" : undefined}
+                  >
                     <div className="flex w-full items-center">
                       <div className={`h-1 flex-1 rounded ${i === 0 ? "opacity-0" : i <= current ? "bg-primary" : "bg-white/10"}`} />
                       <span

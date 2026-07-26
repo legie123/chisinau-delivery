@@ -87,12 +87,21 @@ export default async function OrdersPage() {
                   href={order.order_type === "catering" ? `/catering/${order.id}` : `/orders/${order.id}`}
                   className="flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06] transition hover:ring-white/20"
                 >
-                  <div>
-                    <p className="font-semibold text-white">
-                      {order.order_number}
+                  <div className="min-w-0">
+                    {/* #7 — restaurant name + a short item summary so the row is
+                        recognizable at a glance, not just an opaque order number. */}
+                    <p className="truncate font-semibold text-white">
+                      {order.restaurants?.name ?? "Restaurant"}
                       {order.order_type === "catering" && <span className="ml-2 text-xs text-gold">CATERING</span>}
                     </p>
-                    <p className="mt-0.5 text-sm text-white/50">{formatDate.format(new Date(order.created_at))}</p>
+                    {order.order_items.length > 0 && (
+                      <p className="mt-0.5 truncate text-sm text-white/60">
+                        {order.order_items.map((it) => `${it.quantity}× ${it.item_name_snapshot}`).join(", ")}
+                      </p>
+                    )}
+                    <p className="mt-0.5 text-xs text-white/40">
+                      {order.order_number} · {formatDate.format(new Date(order.created_at))}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusTone(order.status)}`}>

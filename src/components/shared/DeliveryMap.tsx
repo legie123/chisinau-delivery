@@ -179,7 +179,12 @@ export function DeliveryMap({
 
   return (
     <div className="relative">
-      <div ref={containerRef} className={`z-0 w-full overflow-hidden rounded-2xl ring-1 ring-white/10 ${heightClass}`} />
+      <div
+        ref={containerRef}
+        role="img"
+        aria-label="Hartă live cu poziția curierului, punctul de ridicare și adresa de livrare"
+        className={`z-0 w-full overflow-hidden rounded-2xl ring-1 ring-white/10 ${heightClass}`}
+      />
       {etaLabel && (
         <div className="pointer-events-none absolute bottom-2 left-2 z-10 rounded-full bg-[#0d0d1f] px-3 py-1 text-xs font-semibold text-[#f5a623] shadow ring-1 ring-white/10">
           {etaLabel}
