@@ -1,23 +1,36 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  declineCateringQuote as declineCateringQuoteRpc,
+  markReadyForPickup as markReadyRpc,
+  RpcError,
+  submitCateringQuote as submitCateringQuoteRpc,
+} from "@chisinau/shared-api";
+import { asOrderId } from "@chisinau/shared-types";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActionResult = { error: string | null };
 
-export async function submitCateringQuote(orderId: string, quotedTotalMdl: number): Promise<ActionResult> {
+// Catering-quote lifecycle. Every RPC goes through a typed @chisinau/shared-api
+// wrapper (the single contract source, shared with Expo); RpcError carries a
+// uniform Romanian userMessage.
+async function currentClient() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  return { supabase, user };
+}
+
+export async function submitCateringQuote(orderId: string, quotedTotalMdl: number): Promise<ActionResult> {
+  const { supabase, user } = await currentClient();
   if (!user) return { error: "Neautentificat." };
-
-  const { error } = await supabase.rpc("submit_catering_quote", {
-    p_order_id: orderId,
-    p_quoted_total_mdl: quotedTotalMdl,
-  });
-  if (error) return { error: error.message };
-
+  try {
+    await submitCateringQuoteRpc(supabase, asOrderId(orderId), quotedTotalMdl);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
+  }
   revalidatePath("/restaurant/catering");
   return { error: null };
 }
@@ -28,29 +41,25 @@ export async function submitCateringQuote(orderId: string, quotedTotalMdl: numbe
 // mark_ready_for_pickup runs the same transition + auth checks + dispatch_order()
 // hook as a standard order.
 export async function markCateringReady(orderId: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await currentClient();
   if (!user) return { error: "Neautentificat." };
-
-  const { error } = await supabase.rpc("mark_ready_for_pickup", { p_order_id: orderId });
-  if (error) return { error: error.message };
-
+  try {
+    await markReadyRpc(supabase, asOrderId(orderId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
+  }
   revalidatePath("/restaurant/catering");
   return { error: null };
 }
 
 export async function declineCateringQuote(orderId: string, reason: string): Promise<ActionResult> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await currentClient();
   if (!user) return { error: "Neautentificat." };
-
-  const { error } = await supabase.rpc("decline_catering_quote", { p_order_id: orderId, p_reason: reason });
-  if (error) return { error: error.message };
-
+  try {
+    await declineCateringQuoteRpc(supabase, asOrderId(orderId), reason);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
+  }
   revalidatePath("/restaurant/catering");
   return { error: null };
 }
