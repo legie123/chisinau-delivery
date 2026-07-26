@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { advanceStatus } from "@/app/(courier)/deliveries/actions";
 import { useBroadcastCourierLocation } from "@/hooks/useBroadcastCourierLocation";
+import { useOfflinePendingStatusQueue } from "@/hooks/useOfflinePendingStatusQueue";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 
 const NEXT_STEP: Record<string, { next: string; label: string; emoji: string }> = {
@@ -21,12 +22,13 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
 
   const step = NEXT_STEP[order.status];
   const [confirmingPayment, setConfirmingPayment] = useState(false);
+  const { queued, advanceOrEnqueue } = useOfflinePendingStatusQueue(order.id, advanceStatus);
 
   function advance(paymentConfirmed?: boolean) {
     if (!step) return;
     setConfirmingPayment(false);
     startTransition(async () => {
-      const result = await advanceStatus(order.id, step.next, paymentConfirmed);
+      const result = await advanceOrEnqueue(step.next, paymentConfirmed);
       setError(result.error);
     });
   }
@@ -57,15 +59,20 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
         </p>
       )}
       {step && !confirmingPayment && (
-        <button
-          type="button"
-          onClick={handleAdvance}
-          disabled={pending}
-          className="flex items-center justify-center gap-2.5 rounded-full bg-primary-dark py-4 text-[15px] font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
-        >
-          <span aria-hidden>{step.emoji}</span>
-          {pending ? "Se actualizează..." : step.label}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={handleAdvance}
+            disabled={pending}
+            className="flex items-center justify-center gap-2.5 rounded-full bg-primary-dark py-4 text-[15px] font-semibold text-white transition hover:bg-primary-darker disabled:opacity-50"
+          >
+            <span aria-hidden>{step.emoji}</span>
+            {pending ? "Se actualizează..." : step.label}
+          </button>
+          {queued && (
+            <p className="px-1 text-xs text-white/50">📡 Fără semnal — se va sincroniza când revii online.</p>
+          )}
+        </>
       )}
       {confirmingPayment && (
         <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-gold/30">
