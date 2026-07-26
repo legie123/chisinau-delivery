@@ -72,6 +72,35 @@ export interface MenuItem {
   updated_at: string;
 }
 
+// Menu modifiers — an item can have option groups (required/optional), each with
+// options carrying a price delta. place_order validates + recomputes server-side.
+export interface MenuOption {
+  id: string;
+  group_id: string;
+  name: string;
+  price_delta_mdl: number;
+  is_available: boolean;
+  sort_order: number;
+}
+
+export interface MenuOptionGroup {
+  id: string;
+  menu_item_id: string;
+  name: string;
+  is_required: boolean;
+  min_select: number;
+  max_select: number;
+  sort_order: number;
+  options: MenuOption[];
+}
+
+// The snapshot of a chosen option stored on an order line.
+export interface SelectedOption {
+  group: string;
+  name: string;
+  price_delta_mdl: number;
+}
+
 export interface RestaurantHours {
   id: string;
   restaurant_id: string;
@@ -224,6 +253,7 @@ export interface OrderItem {
   quantity: number;
   line_total_mdl: number;
   notes: string | null;
+  selected_options: SelectedOption[];
 }
 
 export type QuoteStatus = "requested" | "quoted" | "confirmed" | "declined";
