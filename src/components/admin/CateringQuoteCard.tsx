@@ -56,6 +56,10 @@ export function CateringQuoteCard({
   // kitchen prepares it, then marks it ready so dispatch offers go out.
   const canMarkReady = details.quote_status === "confirmed" && order.status === "accepted";
 
+  // The partner can send OR correct the quote until the customer confirms it — a
+  // mis-typed price ('1' instead of '1000') must be fixable, not a locked loss.
+  const canQuote = !isTerminal && (details.quote_status === "requested" || details.quote_status === "quoted");
+
   const statusLabel = isTerminal
     ? ORDER_STATUS_LABEL[order.status]
     : details.quote_status === "requested"
@@ -102,62 +106,62 @@ export function CateringQuoteCard({
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 
-      {!isTerminal && details.quote_status === "requested" && (
-        <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            Ofertă finală (MDL)
-            <input
-              type="number"
-              min={1}
-              step="0.01"
-              required
-              value={quote}
-              onChange={(e) => setQuote(Number(e.target.value))}
-              className="w-32 rounded-lg bg-white/5 px-2.5 py-1.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-full bg-primary-dark px-5 py-2 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
-          >
-            {pending ? "..." : "Trimite oferta"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeclining((v) => !v)}
-            disabled={pending}
-            className="rounded-full border border-white/15 px-5 py-2 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-50"
-          >
-            Refuză
-          </button>
-        </form>
-      )}
-
-      {declining && !isTerminal && details.quote_status === "requested" && (
-        <div className="flex items-center gap-2">
-          <input
-            value={declineReason}
-            onChange={(e) => setDeclineReason(e.target.value)}
-            placeholder="Motivul refuzului (obligatoriu)"
-            className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
-          />
-          <button
-            type="button"
-            onClick={handleDecline}
-            disabled={pending || !declineReason.trim()}
-            className="rounded-full bg-primary-dark px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
-          >
-            Trimite refuzul
-          </button>
-        </div>
-      )}
-
-      {!isTerminal && details.quote_status === "quoted" && (
-        <p className="text-sm text-white/50">
-          Ofertă trimisă: <span className="font-medium">{details.quoted_total_mdl} MDL</span> — așteptăm
-          confirmarea clientului.
-        </p>
+      {canQuote && (
+        <>
+          {details.quote_status === "quoted" && (
+            <p className="text-sm text-white/50">
+              Ofertă curentă: <span className="font-medium text-white/80">{details.quoted_total_mdl} MDL</span> — o poți
+              corecta până confirmă clientul.
+            </p>
+          )}
+          <form onSubmit={handleSubmit} className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              {details.quote_status === "quoted" ? "Corectează oferta (MDL)" : "Ofertă finală (MDL)"}
+              <input
+                type="number"
+                min={1}
+                step="0.01"
+                required
+                value={quote}
+                onChange={(e) => setQuote(Number(e.target.value))}
+                className="w-32 rounded-lg bg-white/5 px-2.5 py-1.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-full bg-primary-dark px-5 py-2 text-sm text-white transition hover:bg-primary-darker disabled:opacity-50"
+            >
+              {pending ? "..." : details.quote_status === "quoted" ? "Actualizează oferta" : "Trimite oferta"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeclining((v) => !v)}
+              disabled={pending}
+              className="rounded-full border border-white/15 px-5 py-2 text-sm text-white/80 transition hover:bg-white/10 disabled:opacity-50"
+            >
+              Refuză
+            </button>
+          </form>
+          {declining && (
+            <div className="flex items-center gap-2">
+              <input
+                value={declineReason}
+                onChange={(e) => setDeclineReason(e.target.value)}
+                placeholder="Motivul refuzului (obligatoriu)"
+                className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
+              />
+              <button
+                type="button"
+                onClick={handleDecline}
+                disabled={pending || !declineReason.trim()}
+                className="rounded-full bg-primary-dark px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+              >
+                Trimite refuzul
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {canMarkReady && (
