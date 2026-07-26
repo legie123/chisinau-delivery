@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCartStore } from "@/lib/orders/cart";
 import type { MenuCategory, MenuItem, Restaurant } from "@/lib/types/domain";
 
@@ -27,6 +27,20 @@ export function MenuBrowser({
   }, [categories, items]);
 
   const [selected, setSelected] = useState<string | null | "all">("all");
+  // #12 — a dish-search result deep-links here with ?item=<id>: scroll to it and
+  // briefly highlight it so the customer lands on the exact dish, not just the page.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    const target = new URLSearchParams(window.location.search).get("item");
+    if (!target) return;
+    const el = document.getElementById(`item-${target}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHighlightId(target);
+    const t = setTimeout(() => setHighlightId(null), 2400);
+    return () => clearTimeout(t);
+  }, []);
 
   const filtered = selected === "all" ? items : items.filter((i) => (i.category_id ?? null) === selected);
 
@@ -94,7 +108,10 @@ export function MenuBrowser({
           return (
             <div
               key={item.id}
-              className="flex items-stretch justify-between gap-4 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06] transition hover:ring-white/15"
+              id={`item-${item.id}`}
+              className={`flex items-stretch justify-between gap-4 rounded-2xl bg-white/[0.04] p-4 ring-1 transition ${
+                highlightId === item.id ? "ring-2 ring-gold" : "ring-white/[0.06] hover:ring-white/15"
+              }`}
             >
               <div className="flex min-w-0 flex-1 flex-col">
                 <h3 className="font-semibold text-white">{item.name}</h3>

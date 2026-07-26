@@ -144,7 +144,7 @@ export function RestaurantBrowser({
             {dishHits.map((hit) => (
               <Link
                 key={hit.item_id}
-                href={`/restaurants/${hit.restaurant_slug}`}
+                href={`/restaurants/${hit.restaurant_slug}?item=${hit.item_id}`}
                 className="flex w-56 shrink-0 flex-col gap-1 rounded-xl bg-white/5 p-3 ring-1 ring-white/10 transition hover:ring-gold/40"
               >
                 <span className="truncate text-sm font-semibold text-white">{hit.item_name}</span>
