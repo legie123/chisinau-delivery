@@ -348,6 +348,21 @@ export interface AdminWaitMetricsRow {
   avoidable_wait_orders_7d: number;
 }
 
+// Vetted order 10 #1 — 7-day dispatch KPI summary tile source (single-row view,
+// platform_admin only — see admin_dispatch_metrics's has_role gate).
+export interface AdminDispatchMetricsRow {
+  time_to_assign_avg_seconds: number | null;
+  first_offer_acceptance_rate: number | null;
+  decline_cascade_depth_avg: number | null;
+  // ready_for_pickup -> picked_up: INCLUDES courier travel time to the
+  // restaurant, so this is an UPPER BOUND on the true restaurant-side wait,
+  // not the wait itself. The real arrival-clock-based wait lives in
+  // admin_wait_metrics (avg_wait_minutes_7d).
+  restaurant_handover_avg_seconds: number | null;
+  total_delivery_avg_minutes: number | null;
+  unfinished_order_rate: number | null;
+}
+
 // Order 4 — partner-facing wait/prep KPI chip row (has_restaurant_access scoped).
 export interface RestaurantWaitKpiRow {
   restaurant_id: string;

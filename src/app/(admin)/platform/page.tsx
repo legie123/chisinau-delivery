@@ -1,23 +1,36 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import type { AdminFleetRow, AdminOrderBoardRow, AdminWaitMetricsRow } from "@/lib/types/domain";
+import type {
+  AdminDispatchMetricsRow,
+  AdminFleetRow,
+  AdminOrderBoardRow,
+  AdminWaitMetricsRow,
+} from "@/lib/types/domain";
 import { OpsLive } from "./OpsLive";
 
 export default async function PlatformOpsPage() {
   const supabase = await createClient();
 
-  const [{ data: board }, { data: fleet }, { count: stuckCount }, { count: payCount }, { data: waitMetrics }] =
-    await Promise.all([
-      supabase.from("admin_order_board").select("*").order("in_state_seconds", { ascending: false }),
-      supabase.from("admin_fleet_status").select("*").order("full_name"),
-      supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
-      supabase.from("admin_payment_queue").select("id", { count: "exact", head: true }),
-      supabase.from("admin_wait_metrics").select("*").maybeSingle(),
-    ]);
+  const [
+    { data: board },
+    { data: fleet },
+    { count: stuckCount },
+    { count: payCount },
+    { data: waitMetrics },
+    { data: dispatchMetrics },
+  ] = await Promise.all([
+    supabase.from("admin_order_board").select("*").order("in_state_seconds", { ascending: false }),
+    supabase.from("admin_fleet_status").select("*").order("full_name"),
+    supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
+    supabase.from("admin_payment_queue").select("id", { count: "exact", head: true }),
+    supabase.from("admin_wait_metrics").select("*").maybeSingle(),
+    supabase.from("admin_dispatch_metrics").select("*").maybeSingle(),
+  ]);
 
   const orders = (board ?? []) as AdminOrderBoardRow[];
   const fleetRows = (fleet ?? []) as AdminFleetRow[];
   const wait = (waitMetrics as AdminWaitMetricsRow | null) ?? null;
+  const dispatch = (dispatchMetrics as AdminDispatchMetricsRow | null) ?? null;
 
   return (
     <main className="flex-1 px-6 py-8">
@@ -37,6 +50,7 @@ export default async function PlatformOpsPage() {
         initialStuck={stuckCount ?? 0}
         initialPay={payCount ?? 0}
         initialWait={wait}
+        initialDispatch={dispatch}
       />
     </main>
   );

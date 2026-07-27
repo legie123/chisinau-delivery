@@ -2145,6 +2145,17 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_dispatch_metrics: {
+        Row: {
+          decline_cascade_depth_avg: number | null
+          first_offer_acceptance_rate: number | null
+          restaurant_handover_avg_seconds: number | null
+          time_to_assign_avg_seconds: number | null
+          total_delivery_avg_minutes: number | null
+          unfinished_order_rate: number | null
+        }
+        Relationships: []
+      }
       admin_fleet_status: {
         Row: {
           active_order_id: string | null
