@@ -15,6 +15,26 @@ describe("formatPrepRange", () => {
   it("never shows a low bound below 1 min", () => {
     expect(formatPrepRange(0)).toBe(`1–${1 + DELIVERY_BUFFER_MIN} min`);
   });
+
+  it("uses p90 as the upper bound when it's meaningfully above the average", () => {
+    expect(formatPrepRange({ prep_minutes: 25, p90_prep_minutes: 45 })).toBe("25–45 min");
+  });
+
+  it("floors the spread instead of a near-zero-width range when p90 barely exceeds the average", () => {
+    expect(formatPrepRange({ prep_minutes: 25, p90_prep_minutes: 26 })).toBe("25–30 min");
+  });
+
+  it("falls back to the fixed buffer when p90 is null (no sample yet)", () => {
+    expect(formatPrepRange({ prep_minutes: 25, p90_prep_minutes: null })).toBe(
+      `25–${25 + DELIVERY_BUFFER_MIN} min`,
+    );
+  });
+
+  it("falls back to the fixed buffer when p90 is at or below the average (bad data guard)", () => {
+    expect(formatPrepRange({ prep_minutes: 25, p90_prep_minutes: 25 })).toBe(
+      `25–${25 + DELIVERY_BUFFER_MIN} min`,
+    );
+  });
 });
 
 describe("minutesUntil", () => {

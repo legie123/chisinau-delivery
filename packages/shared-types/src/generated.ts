@@ -2588,6 +2588,7 @@ export type Database = {
       get_prep_estimates: {
         Args: { p_restaurant_ids: string[] }
         Returns: {
+          p90_prep_minutes: number
           prep_minutes: number
           restaurant_id: string
           sample_count: number
@@ -2661,6 +2662,7 @@ export type Database = {
         }
         Returns: string
       }
+      prune_notification_outbox: { Args: never; Returns: number }
       purge_expired_pii: { Args: never; Returns: undefined }
       record_cash_offload: {
         Args: { p_amount_mdl: number; p_courier_id: string; p_note?: string }

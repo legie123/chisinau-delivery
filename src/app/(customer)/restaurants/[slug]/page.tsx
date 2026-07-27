@@ -47,8 +47,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
 
   // WS4 — live prep estimate for this one restaurant (falls back to static column).
   const prepRows = await getPrepEstimates(supabase, [typedRestaurant.id]);
-  const prepMinutes =
-    ((prepRows ?? []) as PrepEstimate[])[0]?.prep_minutes ?? typedRestaurant.avg_prep_minutes;
+  const prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0];
 
   return (
     <main className="flex-1 px-5 pb-24 pt-6">
@@ -69,7 +68,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
                 ? `${Number(typedRestaurant.rating_avg).toFixed(1)} (${typedRestaurant.rating_count})`
                 : "Nou"}
             </span>
-            <span>{formatPrepRange(prepMinutes)}</span>
+            <span>{formatPrepRange(prepEstimate ?? typedRestaurant.avg_prep_minutes)}</span>
             <span>·</span>
             <span>
               {Number(typedRestaurant.delivery_fee_mdl) === 0

@@ -251,7 +251,7 @@ export function RestaurantBrowser({
                     </span>
                     <span className="text-white/40">·</span>
                     <span className="text-white/70">
-                      {formatPrepRange(estimates[r.id]?.prep_minutes ?? r.avg_prep_minutes)}
+                      {formatPrepRange(estimates[r.id] ?? r.avg_prep_minutes)}
                     </span>
                     {distanceLabel(r.distance_m) && (
                       <>

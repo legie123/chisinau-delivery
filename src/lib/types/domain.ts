@@ -247,6 +247,8 @@ export type PrepEstimate = {
   prep_minutes: number;
   source: "hourly" | "overall" | "static";
   sample_count: number;
+  // null when source="static" (no restaurant_prep_stats sample backs the estimate).
+  p90_prep_minutes: number | null;
 };
 
 export interface OrderItem {
