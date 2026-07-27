@@ -37,3 +37,30 @@ export async function courierArrivedAtRestaurant(db: Db, orderId: OrderId): Prom
   const { error } = await db.rpc("courier_arrived_at_restaurant", { p_order_id: orderId });
   if (error) throw new RpcError(error);
 }
+
+export type GeofenceKind = "pickup" | "dropoff";
+
+/**
+ * Order 5 — PICKUP/DROP-OFF GEOFENCE HINT. A soft, discreet signal only —
+ * NEVER delivery proof, and zero coupling to advance_delivery_status (this
+ * call can fail silently from the UI's point of view without blocking any
+ * status change). The assigned courier only; the RPC recomputes the distance
+ * to the order's pickup/dropoff point server-side, so `lat`/`lng` are the
+ * courier's own position — the UI's <=150m gate only decides whether to fire
+ * the call at all.
+ */
+export async function recordGeofenceEvent(
+  db: Db,
+  orderId: OrderId,
+  kind: GeofenceKind,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  const { error } = await db.rpc("record_geofence_event", {
+    p_order_id: orderId,
+    p_kind: kind,
+    p_lat: lat,
+    p_lng: lng,
+  });
+  if (error) throw new RpcError(error);
+}

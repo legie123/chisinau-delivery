@@ -868,6 +868,96 @@ export type Database = {
           },
         ]
       }
+      geofence_events: {
+        Row: {
+          courier_id: string
+          created_at: string
+          dist_m: number
+          id: string
+          kind: string
+          lat: number
+          lng: number
+          order_id: string
+        }
+        Insert: {
+          courier_id: string
+          created_at?: string
+          dist_m: number
+          id?: string
+          kind: string
+          lat: number
+          lng: number
+          order_id: string
+        }
+        Update: {
+          courier_id?: string
+          created_at?: string
+          dist_m?: number
+          id?: string
+          kind?: string
+          lat?: number
+          lng?: number
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geofence_events_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "geofence_events_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "geofence_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kyc_documents: {
         Row: {
           application_id: string
@@ -2571,6 +2661,15 @@ export type Database = {
       record_cash_offload: {
         Args: { p_amount_mdl: number; p_courier_id: string; p_note?: string }
         Returns: string
+      }
+      record_geofence_event: {
+        Args: {
+          p_kind: string
+          p_lat: number
+          p_lng: number
+          p_order_id: string
+        }
+        Returns: undefined
       }
       refresh_prep_stats: { Args: never; Returns: number }
       reinstate_courier: {

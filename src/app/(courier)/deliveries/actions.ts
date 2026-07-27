@@ -8,9 +8,11 @@ import {
   claimOrderAsCourier,
   courierArrivedAtRestaurant,
   declineDispatchOffer,
+  recordGeofenceEvent,
   RpcError,
   setCourierOnlineStatus,
   submitCourierSatisfaction,
+  type GeofenceKind,
 } from "@chisinau/shared-api";
 import { asOfferId, asOrderId, type OrderStatus } from "@chisinau/shared-types";
 
@@ -93,6 +95,29 @@ export async function arrivedAtRestaurant(orderId: string): Promise<ActionResult
   revalidatePath("/deliveries");
   revalidatePath(`/deliveries/${orderId}`);
   return { error: null };
+}
+
+// Order 5 — soft geofence hint (never delivery proof, zero coupling to
+// advance_delivery_status). Fire-and-forget from the caller's perspective:
+// no revalidatePath, no UI-visible error surfaced — a failure here must never
+// block or confuse the real "arrived"/"delivered" action it rides alongside.
+export async function recordGeofenceHit(
+  orderId: string,
+  kind: GeofenceKind,
+  lat: number,
+  lng: number,
+): Promise<void> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch {
+    return;
+  }
+  try {
+    await recordGeofenceEvent(supabase, asOrderId(orderId), kind, lat, lng);
+  } catch {
+    // best-effort hint only — never surfaced, never retried
+  }
 }
 
 // WS2 — push-dispatch offer response. The RPCs authorize via couriers.user_id

@@ -1,10 +1,20 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { advanceStatus, arrivedAtRestaurant } from "@/app/(courier)/deliveries/actions";
+import { advanceStatus, arrivedAtRestaurant, recordGeofenceHit } from "@/app/(courier)/deliveries/actions";
 import { useBroadcastCourierLocation } from "@/hooks/useBroadcastCourierLocation";
 import { useOfflinePendingStatusQueue } from "@/hooks/useOfflinePendingStatusQueue";
+import type { MapPoint } from "@/components/shared/DeliveryMap";
+import { haversineM } from "@/lib/routing/route";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
+
+// Order 5 — geofence hint threshold. Within this radius, an arrive-press
+// (pickup or dropoff) fires the soft, never-blocking record_geofence_event RPC.
+const GEOFENCE_ARRIVE_M = 150;
+
+function formatDistance(m: number): string {
+  return m < 1000 ? `~${Math.round(m / 10) * 10} m` : `~${(m / 1000).toFixed(1)} km`;
+}
 
 const NEXT_STEP: Record<string, { next: string; label: string; emoji: string }> = {
   courier_assigned: { next: "picked_up", label: "Am ridicat comanda", emoji: "🥡" },
@@ -41,7 +51,17 @@ function ElapsedWait({ since }: { since: string }) {
   );
 }
 
-export function DeliveryStatusControls({ order, courierId }: { order: Order; courierId: string }) {
+export function DeliveryStatusControls({
+  order,
+  courierId,
+  pickup = null,
+  dropoff = null,
+}: {
+  order: Order;
+  courierId: string;
+  pickup?: MapPoint | null;
+  dropoff?: MapPoint | null;
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -49,12 +69,39 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
   const broadcasting = order.status === "picked_up" || order.status === "en_route";
   const { error: geoError } = useBroadcastCourierLocation(order.id, courierId, broadcasting);
 
+  // Order 5 — pickup/dropoff geofence hint. Own lightweight watch (independent
+  // of useBroadcastCourierLocation, which is only active picked_up/en_route and
+  // is scoped to the courier's live-tracking broadcast, not this hint). A soft
+  // discreet chip only — never blocks, never gates any button.
+  const [myPos, setMyPos] = useState<MapPoint | null>(null);
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => setMyPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {}, // denial/unavailable → hint chip just doesn't show
+      { enableHighAccuracy: true, maximumAge: 10_000 },
+    );
+    return () => navigator.geolocation.clearWatch(id);
+  }, []);
+
+  const geofenceKind: "pickup" | "dropoff" | null =
+    order.status === "courier_assigned" ? "pickup" : order.status === "en_route" ? "dropoff" : null;
+  const geofenceTarget = geofenceKind === "pickup" ? pickup : geofenceKind === "dropoff" ? dropoff : null;
+  const geofenceDistM = myPos && geofenceTarget ? haversineM(myPos, geofenceTarget) : null;
+
   const step = NEXT_STEP[order.status];
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const { queued, advanceOrEnqueue } = useOfflinePendingStatusQueue(order.id, advanceStatus);
 
   const [arrivePending, startArriveTransition] = useTransition();
   function handleArrived() {
+    // Soft geofence hint — fire-and-forget alongside the real arrival stamp,
+    // never awaited and never allowed to affect `error`/`arrivePending`. A
+    // courier without GPS, or one who never gets within 150m, still arrives
+    // normally; this is a hint, never delivery proof.
+    if (myPos && pickup && haversineM(myPos, pickup) <= GEOFENCE_ARRIVE_M) {
+      void recordGeofenceHit(order.id, "pickup", myPos.lat, myPos.lng);
+    }
     startArriveTransition(async () => {
       const result = await arrivedAtRestaurant(order.id);
       setError(result.error);
@@ -72,6 +119,12 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
 
   function handleAdvance() {
     if (!step) return;
+    // Soft geofence hint on the dropoff leg — same fire-and-forget contract as
+    // handleArrived's pickup hint. Fires once, at the actual arrival moment
+    // (this press), regardless of the cash-confirmation step that may follow.
+    if (step.next === "delivered" && myPos && dropoff && haversineM(myPos, dropoff) <= GEOFENCE_ARRIVE_M) {
+      void recordGeofenceHit(order.id, "dropoff", myPos.lat, myPos.lng);
+    }
     // window.confirm can be suppressed in installed PWAs — collect the cash
     // confirmation with an in-app step instead.
     if (step.next === "delivered" && order.payment_method !== "online_gateway") {
@@ -93,6 +146,13 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
         <p className="flex items-center gap-2 px-1 text-xs text-white/50">
           <span className={`h-2 w-2 rounded-full ${geoError ? "bg-primary" : "animate-pulse bg-emerald-400"}`} aria-hidden />
           {geoError ? `GPS indisponibil: ${geoError}` : "Locația ta se transmite live clientului"}
+        </p>
+      )}
+      {/* Order 5 — discreet proximity chip. Never blocks anything; just a hint. */}
+      {geofenceDistM != null && (
+        <p className="flex items-center gap-2 px-1 text-xs text-white/50">
+          <span className="h-2 w-2 rounded-full bg-white/30" aria-hidden />
+          {formatDistance(geofenceDistM)} până la {geofenceKind === "pickup" ? "restaurant" : "client"}
         </p>
       )}
       {/* Order 3 — observe-only arrival clock, no money involved. Only makes

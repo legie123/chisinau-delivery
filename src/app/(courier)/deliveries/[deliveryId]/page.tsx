@@ -150,7 +150,12 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
         </div>
       </section>
 
-      <DeliveryStatusControls order={typedOrder} courierId={courier.id} />
+      <DeliveryStatusControls
+        order={typedOrder}
+        courierId={courier.id}
+        pickup={pickupPoint}
+        dropoff={dropoffPoint}
+      />
     </main>
   );
 }
