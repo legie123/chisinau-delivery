@@ -374,6 +374,29 @@ export interface RestaurantWaitKpiRow {
   avoidable_wait_grace_minutes: number | null;
 }
 
+// Partner analytics (migration 20260728000000) — zero-filled histogram rows
+// for the /restaurant/analytics dashboard (has_restaurant_access scoped).
+export interface RestaurantAnalyticsHourlyRow {
+  restaurant_id: string;
+  hour_of_day: number;
+  orders_count: number;
+  revenue_mdl: number;
+}
+
+export interface RestaurantAnalyticsDailyRow {
+  restaurant_id: string;
+  day: string;
+  orders_count: number;
+  revenue_mdl: number;
+}
+
+export interface RestaurantTopItemRow {
+  restaurant_id: string;
+  item_name: string;
+  qty: number;
+  revenue_mdl: number;
+}
+
 export interface AdminStuckOrderRow extends AdminOrderBoardRow {
   stuck_reason: string;
 }
