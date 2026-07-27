@@ -9,20 +9,27 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
   const formRef = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [hasPhoto, setHasPhoto] = useState(false);
+
+  function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    setHasPhoto(!!event.currentTarget.files?.[0]);
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+
+    const formData = new FormData(event.currentTarget);
+    const photo = formData.get("photo") as File | null;
+    if (!photo || photo.size === 0) {
+      setError("Fotografie obligatorie: preparatul întreg, centrat, clar, fără colaj/text/persoane.");
+      return;
+    }
+
     setPending(true);
-
     try {
-      const formData = new FormData(event.currentTarget);
-      const photo = formData.get("photo") as File | null;
-
-      if (photo && photo.size > 0) {
-        const url = await uploadMenuPhoto(restaurantId, photo);
-        formData.set("photo_url", url);
-      }
+      const url = await uploadMenuPhoto(restaurantId, photo);
+      formData.set("photo_url", url);
       formData.delete("photo");
 
       const result = await createMenuItem({ error: null }, formData);
@@ -30,6 +37,7 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
         setError(result.error);
       } else {
         formRef.current?.reset();
+        setHasPhoto(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "A apărut o eroare.");
@@ -56,7 +64,12 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
             </option>
           ))}
         </select>
-        <input name="photo" type="file" accept="image/*" className="text-sm" />
+        <div className="flex flex-col gap-1 sm:col-span-2">
+          <input name="photo" type="file" accept="image/*" required onChange={handlePhotoChange} className="text-sm" />
+          <p className="text-xs text-white/50">
+            Fotografie obligatorie: preparatul întreg, centrat, clar, fără colaj/text/persoane (recomandat 16:9).
+          </p>
+        </div>
         <textarea
           name="description"
           placeholder="Descriere (opțional)"
@@ -70,7 +83,7 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
       {error && <p className="text-sm text-red-400">{error}</p>}
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || !hasPhoto}
         className="pg-cta w-fit rounded-full px-5 py-2 text-sm disabled:opacity-50"
       >
         {pending ? "Se salvează..." : "Adaugă articol"}

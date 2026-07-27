@@ -60,6 +60,7 @@ export async function createMenuItem(_prev: ActionState, formData: FormData): Pr
     const isCateringOnly = formData.get("is_catering_only") === "on";
 
     if (!name || priceMdl <= 0) return { error: "Nume și preț valid sunt obligatorii." };
+    if (!photoUrl) return { error: "Fotografie obligatorie: preparatul întreg, centrat, clar, fără colaj/text/persoane." };
 
     // #41 — sort_order was never written; scope the running max to the same
     // restaurant + category so a new item lands after the existing ones there.
