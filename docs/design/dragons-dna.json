@@ -1,0 +1,326 @@
+{
+  "meta": {
+    "name": "Dragons Alliance Premium",
+    "description": "Restrained-luxury dark UI for Chișinău Delivery — deep navy substrate, brushed-gold primary metal, amethyst crystal secondary jewel, red CTA/danger accent, Playfair Display serif wordmark over Geist sans body. Crystalline glass cards, faceted rim-light, gold hairline shimmer sweeps and WAAPI arrival reveals — all CSS/SVG/WAAPI, zero WebGL.",
+    "source_references": [
+      "src/app/globals.css",
+      "src/app/(admin)/restaurant/premium.css",
+      "src/components/admin/premium/PremiumReveal.tsx",
+      "src/app/layout.tsx",
+      "src/app/(customer)/layout.tsx",
+      "src/app/(marketing)/page.tsx",
+      "src/app/(customer)/restaurants/page.tsx",
+      "src/app/(admin)/restaurant/earnings/page.tsx",
+      "docs monogram palette: deep navy #0a0a14/#0d0d1f, brushed gold #b8860b→#d4af37→#f5c542→#fff3c4, amethyst #6d28d9→#7c3aed→#a855f7→#c084fc, red #e94560/#c73050"
+    ],
+    "created_at": "2026-07-28"
+  },
+  "design_system": {
+    "color": {
+      "palette_type": "analogous",
+      "primary": {
+        "hex": "#e94560",
+        "role": "CTA fill, danger/reject accent, primary brand red (the courier/customer surfaces' main action color; text/badge use reads at >=4.5:1 on the dark background — buttons must use primary-dark instead)"
+      },
+      "secondary": {
+        "hex": "#d4af37",
+        "role": "brushed-gold metal — brand wordmark ('Dragons'), CTAs on the restaurant-partner premium surface, crests, live shimmer sweeps, key numeric values (earnings, prices)"
+      },
+      "accent": {
+        "hex": "#a855f7",
+        "role": "amethyst crystal jewel — secondary/live-state accent: realtime pulse dots, glow highlights, secondary CTA (pg-cta-amethyst), 'listening' indicators"
+      },
+      "neutral": {
+        "scale": ["#0a0a14", "#0d0d1f", "#111118", "#14141f", "#16162a", "#1a1a2e", "#1e1e35", "#ffffff"],
+        "usage": "near-black navy substrate stack (0a0a14 deepest → 1e1e35 elevated card) for all backgrounds/surfaces; white only for foreground text, stepped down via opacity (white/10 … white/90) for all secondary/tertiary text and hairline borders instead of a separate grey scale"
+      },
+      "semantic": {
+        "success": "#22c55e",
+        "warning": "#f5a623",
+        "error": "#e94560",
+        "info": "#a855f7"
+      },
+      "surface": {
+        "background": "#0a0a14",
+        "card": "#1e1e35",
+        "elevated": "#16162a"
+      },
+      "contrast_strategy": "dark-on-light inverted — pure dark-mode app (color-scheme: dark forced in :root so native form controls stay dark too); white text at stepped opacity for hierarchy, gold/amethyst reserved for brand and state, CTA fills always use primary-dark (#c73050, 5.29:1) not primary itself (3.83:1) to clear WCAG AA on white text"
+    },
+    "typography": {
+      "type_scale": {
+        "display": { "size": "2.25rem", "weight": "700", "line_height": "1.15", "tracking": "0.02em" },
+        "heading_1": { "size": "1.875rem", "weight": "700", "line_height": "1.2", "tracking": "0.02em" },
+        "heading_2": { "size": "1.5rem", "weight": "700", "line_height": "1.25", "tracking": "0em" },
+        "heading_3": { "size": "1.25rem", "weight": "600", "line_height": "1.3", "tracking": "0em" },
+        "body": { "size": "1rem", "weight": "400", "line_height": "1.5", "tracking": "0em" },
+        "body_small": { "size": "0.875rem", "weight": "400", "line_height": "1.45", "tracking": "0em" },
+        "caption": { "size": "0.75rem", "weight": "500", "line_height": "1.35", "tracking": "0.02em" },
+        "overline": { "size": "0.6875rem", "weight": "600", "line_height": "1.2", "tracking": "0.28em" }
+      },
+      "font_families": {
+        "heading": "'Playfair Display', Georgia, serif — brand wordmark ('Dragons'), page H1s, crest strip, gold headline numerals",
+        "body": "Geist, Arial, Helvetica, sans-serif — all UI copy, nav, forms, cards",
+        "mono": "Geist Mono — order IDs, timestamps, technical/debug strings only"
+      },
+      "font_style_notes": "high-contrast luxury display serif (Playfair Display) paired with a clean geometric-humanist sans (Geist) — the serif is used sparingly and only for brand-weight moments (wordmark, section H1, big earnings numerals), never body copy; overline tracking is unusually wide (0.28em, seen on .pg-crest-mark) to read as an engraved crest label"
+    },
+    "spacing": {
+      "base_unit": "4px (Tailwind default rem-based scale, 0.25rem increments)",
+      "scale": ["0.25rem", "0.5rem", "0.75rem", "1rem", "1.25rem", "1.5rem", "2rem", "2.5rem", "3rem", "4rem"],
+      "content_density": "comfortable",
+      "section_rhythm": "generous top-level rhythm (mt-16 between footer and content, gap-8 grid rows) contracted to tight rhythm inside cards (gap-2/gap-3, px-4 py-2 on the crest strip) — density increases the deeper you nest"
+    },
+    "layout": {
+      "grid_system": "single-column content flow inside a centered max-width shell; CSS grid only for footer link columns (sm:grid-cols-3) and dashboard tile rows",
+      "max_content_width": "max-w-5xl (64rem) is the dominant shell width across customer header/footer/restaurant crest; max-w-3xl for reading-width legal/marketing text; max-w-md/max-w-sm for auth/modal-scale forms",
+      "columns": "1 (mobile) → up to 3 (sm:grid-cols-3, footer/tile rows)",
+      "gutter": "1rem–1.25rem (px-4/px-5, gap-x-4)",
+      "breakpoints": { "sm": "640px", "md": "768px", "lg": "1024px" },
+      "alignment_tendency": "centered shell, left-aligned content and text — nav/footer items use flex-wrap with justify-between at the shell level, strict left alignment within"
+    },
+    "shape": {
+      "border_radius": {
+        "small": "0.375rem (rounded-md) — chips, small badges",
+        "medium": "0.75rem (rounded-xl) — buttons, inputs, list rows",
+        "large": "1rem (rounded-2xl) — cards, panels, modals (also .pg-card's 1rem)",
+        "pill": "9999px (rounded-full) — avatars, status dots, badge pills, the live-indicator dot — the single most-used radius token in the codebase (201 occurrences)"
+      },
+      "border_usage": "subtle 1px hairlines at low white-opacity (border-white/10 dominant, border-white/5 for barely-there separators, border-white/15 for slightly firmer emphasis) — never a bold/heavy border; premium surfaces swap the hairline color to var(--pg-gold-line) / var(--pg-amethyst-line)",
+      "divider_style": "1px hairline, color-tinted by context — plain white/10 on standard surfaces, gold or amethyst gradient-fading-to-transparent hairline (.pg-crest::after, pg-divider-gold/amethyst) on premium/restaurant surfaces"
+    },
+    "elevation": {
+      "shadow_style": "soft diffused, dark and negative-spread (shadows are near-black with large negative spread, e.g. 0 18px 40px -28px rgba(0,0,0,0.9)) rather than colored ambient light except on gold/amethyst glow states",
+      "levels": {
+        "low": "0 0 0 1px rgba(255,255,255,0.08)",
+        "medium": "0 18px 40px -28px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.06)",
+        "high": "0 26px 50px -26px rgba(0,0,0,0.95) with a 1px gold-line ring on hover-elevated cards"
+      },
+      "depth_cues": "layered gradients + blur/glass (backdrop-filter: blur(6px) on .pg-card) + inset top-edge rim-light rather than pure box-shadow; state (new/live) communicated by animated gold/amethyst glow instead of elevation change"
+    },
+    "iconography": {
+      "style": "outline/filled hybrid inline SVG, hand-authored (no icon library — repo forbids new npm deps)",
+      "stroke_weight": "n/a for filled marks (fill=currentColor paths, e.g. the location pin in the customer header); line icons where used follow a ~1.5px stroke",
+      "size_scale": "h-4 w-4 (1rem) inline-with-text icons up to h-6 w-6 for standalone action icons",
+      "preferred_set": "none — bespoke inline SVG per use, currentColor-tinted so it inherits text-primary/text-gold contextually"
+    },
+    "motion": {
+      "easing": "cubic-bezier(0.22, 1, 0.36, 1) — a single soft-decel 'arrival' ease shared by every entrance/hover transition (--pg-ease)",
+      "duration_scale": {
+        "micro": "180ms (button hover/press)",
+        "normal": "520ms (arrival reveal — pg-arrival / PremiumReveal mount)",
+        "macro": "2000ms–3400ms (ambient loops: glow-pulse 2000ms, shimmer 2200ms, crystal-glint 3400ms)"
+      },
+      "entrance_pattern": "rise + fade + faint scale-in (translate3d(0,14px,0) scale(0.985) → identity), transform+opacity only for compositor-only 60fps, staggered via delay = index * 60ms for lists",
+      "exit_pattern": "no dedicated exit choreography observed — elements are removed/replaced by Next.js navigation rather than animated out",
+      "philosophy": "minimal functional at the interaction layer (snappy 180ms hover), cinematic at the ambient layer (slow multi-second gold/amethyst breathing glows and glints) — motion is restrained and purposeful, never decorative-only, and every animation/transition is stripped under prefers-reduced-motion leaving only the static color/gradient/glass treatment"
+    },
+    "components": {
+      "button_style": "solid-fill primary (bg-primary-dark, white text) for standard surfaces; on the premium restaurant surface, gold-gradient metallic CTA (.pg-cta: var(--pg-gold-grad) fill, dark #241a02 text, diagonal shimmer sweep overlay, -1px translateY + brightness(1.06) on hover) with an amethyst-gradient secondary variant (.pg-cta-amethyst); rounded-xl, font-semibold/bold, disabled = opacity 0.5",
+      "input_style": "dark filled field (bg matching surface/card tone), 1px white/10-15 border, rounded-xl, no visible focus ring pattern beyond browser default (color-scheme:dark forces native controls dark too)",
+      "card_style": "glass/gradient hybrid — two-layer linear-gradient background (subtle top-lit sheen + navy base wash), 1px hairline ring via box-shadow (not border), backdrop-filter blur(6px), rounded-2xl, inset top rim-light pseudo-element masked to the top ~30%; hover lifts translateY(-2px) and swaps the ring to gold",
+      "navigation_pattern": "sticky top header, backdrop-blur over translucent navy (bg-[#0a0a14]/95), horizontally-scrollable no-scrollbar row on admin surfaces, flat text links with hover:text-white/hover:text-gold, role-gated route groups ((customer)/(courier)/(admin)) each render their own header/nav shell",
+      "modal_style": "not a distinct pattern in this codebase — repo rule explicitly forbids window.confirm; destructive/confirm actions render as inline card-embedded confirmation states rather than a portal/dialog overlay",
+      "list_style": "card-per-row lists (each row = a .pg-card or plain bordered rounded-2xl panel) wrapped in <PremiumReveal as=\"li\" delay={i*60}> for staggered arrival, rather than dense table rows",
+      "component_notes": "the same visual language runs in two registers: a 'standard' register (globals.css tokens: navy/red/gold-orange, used on customer/courier/marketing surfaces) and a 'premium' register (premium.css pg-* tokens: deeper navy + brushed-gold + amethyst crystal, used on the restaurant partner surface) — the premium register is the aspirational target this DNA should be pulled toward platform-wide"
+    }
+  },
+  "design_style": {
+    "aesthetic": {
+      "mood": ["luxurious", "nocturnal", "confident", "precise", "warm-metallic"],
+      "visual_metaphor": "a jeweled dragon crest catching torchlight — faceted crystal surfaces, brushed metal, gemstone glow",
+      "era_influence": "contemporary dark-mode SaaS premium (2024-2026 fintech/luxury-app aesthetic) crossed with heraldic/crest motifs (crest strip, wordmark tracking, gold/jewel palette)",
+      "genre": "luxury editorial meets operational dashboard — restrained fine-dining branding applied to a logistics/delivery product",
+      "personality_traits": ["meticulous", "understated", "trustworthy", "a little theatrical at rest, disciplined in motion"],
+      "adjectives": ["crystalline", "gilded", "nocturnal", "restrained", "precise", "jewel-toned"]
+    },
+    "visual_language": {
+      "complexity": "moderate",
+      "ornamentation": "subtle accents — gold hairlines, faceted glints, dragon-scale dot-lattice texture — decorative but never busy; ornamentation concentrates on brand/state moments (crest, new-order glow) and stays absent from dense data surfaces (tables, forms)",
+      "whitespace_usage": "generous at the shell level (max-w-5xl centered, mt-16 section breaks), tightened inside functional clusters (cards, KPI tiles) to keep operational density readable",
+      "visual_weight_distribution": "dark base carries near-zero visual weight so gold/amethyst/red accents read as the only 'loud' elements — weight is concentrated in a handful of brand/CTA/status touches per screen, not spread evenly",
+      "focal_strategy": "single hero element per section (crest wordmark, primary CTA, or the 'new order' glowing card) with everything else receding into the navy field",
+      "contrast_level": "high for accent-vs-background (gold/amethyst/red on near-black), low/subtle for structure (hairline borders, stepped white-opacity text) — contrast is spent deliberately on meaning (brand, state, CTA), not on decoration",
+      "texture_usage": "faint dragon-scale dot-lattice (two offset radial-gradient dot fields, masked to fade top-to-bottom) as an ambient background texture on premium surfaces only; standard surfaces stay flat"
+    },
+    "composition": {
+      "hierarchy_method": "color weight + typographic hierarchy — gold/serif marks the top of the hierarchy, white-opacity steps (90/80/70/60/50/45/40/35/30/25/20) do the rest without changing scale much",
+      "balance_type": "asymmetric within a symmetric shell — the outer shell (header/footer/max-w container) is centered and balanced, but content inside (crest wordmark left, live indicator right; card internals) is deliberately asymmetric",
+      "flow_direction": "top-to-bottom single-column scroll, left-to-right reading within rows",
+      "grouping_strategy": "card/panel boundaries (glass background + hairline ring) group related data; color (gold vs amethyst vs red) groups by semantic role (brand/value vs live/secondary vs danger/CTA) across the whole app",
+      "negative_space_role": "negative space is the dominant surface — the deep navy field is treated as active 'space' (with its own ambient gradient glow and texture) rather than empty background, letting a small number of jeweled elements read as precious"
+    },
+    "imagery": {
+      "photo_treatment": "menu/restaurant photos are presented in clean rounded-xl/2xl frames with no filter overlay; a mandatory-photo gate exists for menu items (conversion lever) but the treatment itself is neutral/realistic, not stylized",
+      "illustration_style": "no illustration system — bespoke inline SVG icons only (pins, simple glyphs), no character illustration or spot-illustration library",
+      "graphic_elements": "gold/amethyst gradient hairlines, faceted glint sweeps, dragon-scale dot-lattice texture, radial rim-light glows positioned at screen corners",
+      "pattern_usage": "one recurring background pattern (dragon-scale dot lattice, 44px tile, two offset layers) used sparingly as an ambient texture, masked to fade rather than tile edge-to-edge",
+      "image_shape": "rounded rectangles (rounded-xl/2xl) for photos and cards; rounded-full exclusively for avatars/badges/status dots — no free-form or clipped shapes"
+    },
+    "interaction_feel": {
+      "feedback_style": "color + motion combined — hover lifts (translateY) paired with a brightness/shadow shift, live/realtime state signaled by a breathing amethyst dot plus a 'Live' label rather than a toast",
+      "hover_behavior": "buttons: -1px lift + brightness(1.06) + deeper shadow; cards: -2px lift + hairline ring swaps from white/gold-tinted to solid gold; links: plain color transition (hover:text-white / hover:text-gold), no underline animation",
+      "transition_personality": "smooth glide — soft-decel custom easing everywhere, never bouncy/elastic, never abrupt/snappy at the ambient layer though micro-interactions (180ms button hover) do read as brisk",
+      "loading_style": "shimmer sweep (diagonal gold sheen crossing a bar/chip, .pg-shimmer) for in-progress/ready states rather than a spinner; realtime freshness shown via a small pulsing amethyst dot, not a skeleton screen system",
+      "microinteraction_density": "moderate — reserved for entrance (arrival reveal), hover (lift/shimmer), and live-state (pulse/glint) moments; dense data areas (tables, forms) carry none"
+    },
+    "brand_voice_in_ui": {
+      "tone": "warm and precise, quietly confident — Romanian-language copy that's direct without being cold ('Cerere trimisă ✓', 'Câștiguri')",
+      "formality": "semi-formal — professional but approachable, second-person informal Romanian, no corporate jargon",
+      "cta_style": "direct imperative kept short ('Devino partener', 'Intră în cont') paired with the gold-metallic visual treatment on premium surfaces to feel earned/premium rather than pushy",
+      "empty_state_approach": "not heavily systematized in-repo yet — where present, plain centered text in muted white-opacity tone; no illustrated empty states observed",
+      "error_tone": "calm and factual, red (#e94560) reserved strictly for actual danger/error/reject states so it retains urgency — never used decoratively, which is what makes it legible as 'something needs attention' every time it appears"
+    }
+  },
+  "visual_effects": {
+    "overview": {
+      "effect_intensity": "subtle-accent",
+      "performance_tier": "lightweight",
+      "fallback_strategy": "reduce to CSS static — every keyframe/animation/transition is stripped under prefers-reduced-motion: reduce (see premium.css's dedicated reduced-motion block and PremiumReveal's matchMedia check), leaving only the static gradients, glass, and color treatment; no JS-driven effect ships without this fallback per repo-wide rule",
+      "primary_technology": "CSS only (keyframes, gradients, backdrop-filter) plus targeted Web Animations API (PremiumReveal's el.animate for mount reveals) — no Canvas, no WebGL, no external animation library (repo forbids new npm deps; hand-rolled only)"
+    },
+    "background_effects": {
+      "type": "gradient-animation",
+      "description": "static multi-layer ambient field: two corner radial-gradient rim-light glows (gold top-left, amethyst mid-right) plus a bottom amethyst wash, layered over a faint dot-grid and a top-to-bottom navy linear-gradient — the field itself doesn't animate, only accent elements within it do (shimmer hairlines, glint sweeps)",
+      "technology": "CSS layered background-image (radial-gradient × 3 + radial-gradient dot pattern + linear-gradient), background-attachment: fixed on the glow layers for a parallax-like fixed-in-viewport feel while content scrolls",
+      "params": {
+        "color_palette": ["#0a0a14", "#0d0d1f", "rgba(212,175,55,0.10)", "rgba(124,58,237,0.12)", "rgba(109,40,217,0.08)"],
+        "speed": "static (no animation on the base field)",
+        "density": "low — 3 soft radial glows + one faint 22x34px dot lattice",
+        "opacity": "0.02–0.12 per layer, additive",
+        "blend_mode": "normal (no mix-blend-mode on the base field; mix-blend-mode: screen is used only on the crystal-glint accent)"
+      }
+    },
+    "particle_systems": {
+      "enabled": false,
+      "type": "none",
+      "description": "no particle system in this codebase — the closest analog is the static dragon-scale dot lattice, which is a fixed CSS background pattern, not simulated particles",
+      "technology": "n/a",
+      "params": {
+        "count": "0",
+        "shape": "n/a",
+        "size_range": "n/a",
+        "movement_pattern": "n/a",
+        "color_behavior": "n/a",
+        "interaction": "none",
+        "spawn_area": "n/a"
+      }
+    },
+    "3d_elements": {
+      "enabled": false,
+      "type": "none",
+      "description": "no 3D in this codebase. A separate, adjacent 'godmode' design lab (~/code/godmode-lab, GODMODE stack) owns Three.js/WebGL/3D exploration for the Dragons Alliance family of products — if the platform ever adopts a 3D hero/monogram, prototype it there first and graft in, per the project's own working convention (see dragons-tracking-lab R3F prototype).",
+      "technology": "n/a — would be Three.js if/when adopted, per house convention",
+      "params": {
+        "renderer": "n/a",
+        "lighting": "n/a",
+        "camera": "n/a",
+        "materials": "n/a",
+        "geometry": "n/a",
+        "post_processing": "n/a",
+        "interaction_model": "n/a"
+      }
+    },
+    "shader_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "no GLSL/shader work in this codebase — all 'shimmer'/'glint' effects are CSS background-position keyframe sweeps and gradient masks, not fragment shaders. Custom-GLSL work, if ever needed, belongs in the godmode lab, not this app.",
+      "technology": "n/a",
+      "params": {
+        "uniforms": "n/a",
+        "vertex_manipulation": "n/a",
+        "fragment_output": "n/a",
+        "noise_type": "n/a",
+        "distortion": "n/a"
+      }
+    },
+    "scroll_effects": {
+      "parallax": {
+        "enabled": false,
+        "layers": "0",
+        "depth_range": "n/a",
+        "speed_curve": "n/a — background-attachment: fixed on the ambient glow layers produces a mild fixed-in-viewport effect but this is not scroll-speed-differentiated parallax"
+      },
+      "scroll_triggered_animations": {
+        "enabled": false,
+        "trigger_points": "none observed — PremiumReveal fires on mount, not on scroll-into-view; no IntersectionObserver usage found for animation triggering",
+        "animation_type": "n/a",
+        "scrub_behavior": "n/a"
+      },
+      "scroll_morphing": {
+        "enabled": false,
+        "description": "not used"
+      }
+    },
+    "text_effects": {
+      "type": "gradient-fill",
+      "description": "the .pg-gold-text utility clips the brushed-gold sheen gradient to text (background-clip: text) for the 'Dragons' wordmark and key gold numerals; the --live variant animates the gradient's background-position for a slow brushed-metal shimmer crossing the letterforms",
+      "technology": "CSS background-clip: text + @keyframes background-position animation",
+      "params": {
+        "split_strategy": "none — the effect applies to the whole text node, not per-character/word",
+        "animation_per_unit": "whole-string (single gradient sweep, not staggered per glyph)",
+        "stagger": "none",
+        "effect_style": "brushed-metal sheen sweep, 2200ms linear loop"
+      }
+    },
+    "cursor_effects": {
+      "enabled": false,
+      "type": "none",
+      "description": "default system cursor throughout — no custom cursor, magnetic buttons, spotlight, or trail effects in the codebase",
+      "params": {
+        "shape": "n/a",
+        "size": "n/a",
+        "blend_mode": "n/a",
+        "trail": "n/a",
+        "interaction_zone": "n/a"
+      }
+    },
+    "image_effects": {
+      "type": "hover-transform",
+      "description": "cards containing photos (menu items, restaurants) inherit the shared .pg-card--hover / generic card hover treatment — a -2px lift and shadow/ring shift on hover — rather than an image-specific filter or distortion effect; images themselves are not manipulated on hover",
+      "technology": "CSS transform + box-shadow transition (240ms, --pg-ease)",
+      "params": {
+        "filter_pipeline": "none — no CSS filter() manipulation applied to photos",
+        "hover_transform": "translateY(-2px) on the containing card",
+        "reveal_animation": "shares the pg-arrival / PremiumReveal mount reveal (opacity 0→1, translateY 14px→0, scale 0.985→1) when first rendered in a list",
+        "distortion_type": "none"
+      }
+    },
+    "glassmorphism_neumorphism": {
+      "enabled": true,
+      "style": "frosted-layers",
+      "params": {
+        "blur_radius": "6px (backdrop-filter: blur(6px) on .pg-card; the customer header uses the same backdrop-blur utility at its default Tailwind radius)",
+        "transparency": "rgba(255,255,255,0.045)–0.07 glass fill layered over rgba navy at 0.35–0.55 alpha — very low-opacity, so the effect reads as a faint frost rather than heavy glass",
+        "border_treatment": "1px hairline ring simulated via box-shadow (0 0 0 1px var(--pg-facet-line)) rather than a literal border, so it composites cleanly with the blur and rounded corners",
+        "shadow_type": "soft diffused dark shadow (large negative spread) beneath, plus an inset top-edge rim-light gradient masked to the top ~22-30% of the card to fake a catching-light bevel",
+        "light_source_angle": "top-left-ish, ~160-180deg gradient angle — consistent with the ambient background's top-left gold glow"
+      }
+    },
+    "canvas_drawings": {
+      "enabled": false,
+      "type": "none",
+      "description": "no Canvas2D drawing in this codebase — the admin ops map (OpsMap) and courier route map are zero-dep SVG, not Canvas, and are structural/data-viz rather than a decorative 'visual effect'",
+      "technology": "n/a (SVG, not Canvas, when a map-like visual is needed)",
+      "params": {
+        "draw_method": "n/a",
+        "animation_loop": "n/a",
+        "color_scheme": "n/a",
+        "responsiveness": "n/a",
+        "interaction": "n/a"
+      }
+    },
+    "svg_animations": {
+      "enabled": true,
+      "type": "decorative-loop",
+      "description": "small looping SVG/CSS-driven marks: the amethyst live-pulse dot (.pg-live-dot, scale+opacity breathing loop signaling an active realtime subscription) is the primary example; inline SVG icons themselves are static (currentColor fills), only the live-indicator dot loops",
+      "params": {
+        "animation_method": "CSS @keyframes (pg-live-pulse) driving transform: scale + opacity on a rounded-full div with a box-shadow glow — not true SVG SMIL, but functions as the SVG/vector-mark animation layer of the system",
+        "path_morphing": "not used",
+        "stroke_animation": "not used — no stroke-dasharray draw-on effects present",
+        "filter_effects": "glow via box-shadow, not SVG <feGaussianBlur> filters"
+      }
+    },
+    "composite_notes": "Two effect registers coexist: (1) 'standard' surfaces (customer/courier/marketing, driven by globals.css tokens) use effects sparingly — sticky blurred header, plain color transitions, no shimmer/glint; (2) the 'premium' restaurant-partner register (premium.css, pg-* utilities) is where every effect in this DNA lives — arrival reveals, gold text shimmer, crystal glint sweeps, glow-pulse new-order state, CTA shimmer sweep, live-pulse dot, faceted glass cards. The explicit house direction (per user-provided monogram brief) is to pull the standard register toward the premium one over time, so any new UI should default to the premium treatment unless a surface has a specific reason to stay plain. All effects are cheap (compositor-only transform/opacity, or background-position/gradient animation) — nothing here approaches Canvas/WebGL cost, matching effect_intensity=subtle-accent and performance_tier=lightweight. Reduced-motion is handled centrally in one @media block in premium.css plus a per-component matchMedia check in PremiumReveal.tsx, so any new pg-* utility must be added to that block to inherit the fallback."
+  }
+}
