@@ -15,6 +15,13 @@ const SECTOR: Record<string, { email: string; to: string }> = {
 
 const DEMO_PASSWORD = "parola123";
 
+// A typed/bookmarked URL arrives as GET — without this handler the browser shows
+// a raw 405 error page that reads as "the app is broken". Sign-in stays POST-only
+// (prefetch/CSRF, see above); GET just lands the visitor on the hub to pick a tile.
+export async function GET(request: NextRequest) {
+  return NextResponse.redirect(new URL("/", request.url), 303);
+}
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ role: string }> }) {
   // Master Council Phase 0: the passwordless demo doorway must not exist in
   // production — real users go through /login (sign-in + sign-up). It stays fully
