@@ -26,3 +26,14 @@ export async function advanceDeliveryStatus(
   });
   if (error) throw new RpcError(error);
 }
+
+/**
+ * Order 3 (observe-only, no auto-compensation) — the assigned courier stamps
+ * the moment they physically arrive at the restaurant. Idempotent (a retry is
+ * a no-op) and only valid while status = 'courier_assigned'. Powers ops/partner
+ * wait KPIs only; it never feeds courier_fee_mdl.
+ */
+export async function courierArrivedAtRestaurant(db: Db, orderId: OrderId): Promise<void> {
+  const { error } = await db.rpc("courier_arrived_at_restaurant", { p_order_id: orderId });
+  if (error) throw new RpcError(error);
+}

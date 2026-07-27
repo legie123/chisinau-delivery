@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
-import type { AdminFleetRow, AdminOrderBoardRow } from "@/lib/types/domain";
+import type { AdminFleetRow, AdminOrderBoardRow, AdminWaitMetricsRow } from "@/lib/types/domain";
 import { OrdersBoard } from "./OrdersBoard";
 import { FleetPanel } from "./FleetPanel";
 import { OpsMap } from "./OpsMap";
@@ -28,39 +28,44 @@ function Tile({ label, value, tone, href }: { label: string; value: number; tone
 // Live ops center. Subscribes to orders + couriers + courier_locations whole-table
 // (admin RLS scopes the rows; this is the sanctioned unfiltered case) and refetches
 // the admin views on any event, debounced. Falls back to 30s polling if realtime
-// degrades. ALL four KPI tiles derive from the live state (board/fleet + refetched
-// stuck/payment counts) so they never drift from the kanban below.
+// degrades. ALL five KPI tiles derive from the live state (board/fleet + refetched
+// stuck/payment/wait counts) so they never drift from the kanban below.
 export function OpsLive({
   initialBoard,
   initialFleet,
   initialStuck,
   initialPay,
+  initialWait,
 }: {
   initialBoard: AdminOrderBoardRow[];
   initialFleet: AdminFleetRow[];
   initialStuck: number;
   initialPay: number;
+  initialWait: AdminWaitMetricsRow | null;
 }) {
   const [board, setBoard] = useState(initialBoard);
   const [fleet, setFleet] = useState(initialFleet);
   const [stuck, setStuck] = useState(initialStuck);
   const [pay, setPay] = useState(initialPay);
+  const [wait, setWait] = useState(initialWait);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refetch = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       const supabase = createClient();
-      const [{ data: b }, { data: f }, { count: sc }, { count: pc }] = await Promise.all([
+      const [{ data: b }, { data: f }, { count: sc }, { count: pc }, { data: w }] = await Promise.all([
         supabase.from("admin_order_board").select("*").order("in_state_seconds", { ascending: false }),
         supabase.from("admin_fleet_status").select("*").order("full_name"),
         supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
         supabase.from("admin_payment_queue").select("id", { count: "exact", head: true }),
+        supabase.from("admin_wait_metrics").select("*").maybeSingle(),
       ]);
       if (b) setBoard(b as AdminOrderBoardRow[]);
       if (f) setFleet(f as AdminFleetRow[]);
       if (sc !== null) setStuck(sc);
       if (pc !== null) setPay(pc);
+      if (w) setWait(w as AdminWaitMetricsRow);
     }, 400);
   }, []);
 
@@ -114,7 +119,7 @@ export function OpsLive({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Tile label="Comenzi active" value={board.length} tone="bg-white/[0.04] ring-white/[0.06]" />
         <Tile label="Curieri activi" value={couriersWorking} tone="bg-emerald-500/10 ring-emerald-500/20" />
         <Tile
@@ -122,6 +127,17 @@ export function OpsLive({
           value={stuck}
           tone={stuck ? "bg-primary/15 ring-primary/30" : "bg-white/[0.04] ring-white/[0.06]"}
           href="/platform/queues"
+        />
+        {/* Order 3/4 — observe-only wait KPI (arrival clock → pickup, avoidable
+            beyond the admin-tunable grace). No auto-compensation attached. */}
+        <Tile
+          label={`Așteptare evitabilă (7z) · medie ${wait?.avg_wait_minutes_7d ?? "—"} min`}
+          value={wait?.avoidable_wait_orders_7d ?? 0}
+          tone={
+            (wait?.avoidable_wait_orders_7d ?? 0) > 0
+              ? "bg-gold/15 ring-gold/30"
+              : "bg-white/[0.04] ring-white/[0.06]"
+          }
         />
         <Tile
           label="Dispute plăți"

@@ -27,6 +27,17 @@ export async function markReadyForPickup(db: Db, orderId: OrderId): Promise<void
   if (error) throw new RpcError(error);
 }
 
+/**
+ * Order 4 (Glovo model) — merchant overrides the prep-time estimate BEFORE
+ * accepting. accept_order prefers this over the statistical get_prep_estimates()
+ * when stamping estimated_ready_at. Rejected by the RPC once the order is no
+ * longer pending_restaurant (no post-accept goalpost moves).
+ */
+export async function setPrepTimeEstimate(db: Db, orderId: OrderId, minutes: number): Promise<void> {
+  const { error } = await db.rpc("set_prep_time_estimate", { p_order_id: orderId, p_minutes: minutes });
+  if (error) throw new RpcError(error);
+}
+
 /** Partner submits a catering quote (catering_details.quote_status → quoted). */
 export async function submitCateringQuote(db: Db, orderId: OrderId, quotedTotalMdl: number): Promise<void> {
   const { error } = await db.rpc("submit_catering_quote", { p_order_id: orderId, p_quoted_total_mdl: quotedTotalMdl });

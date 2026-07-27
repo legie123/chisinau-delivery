@@ -163,6 +163,12 @@ export interface Order {
   // Both null until stamped; UI/earnings code must fall back to delivery_fee_mdl.
   courier_fee_quoted_mdl: number | null;
   courier_fee_mdl: number | null;
+  // Order 3 (observe-only, no auto-compensation) — the assigned courier's
+  // arrival-at-restaurant clock. Powers ops/partner wait KPIs only.
+  courier_arrived_restaurant_at: string | null;
+  // Order 4 (Glovo model) — merchant prep-time override, editable pre-accept
+  // only. accept_order prefers this over the statistical estimate.
+  prep_time_override_minutes: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -324,6 +330,26 @@ export interface AdminOrderBoardRow {
   delivery_lng: number | null;
   in_state_since: string;
   in_state_seconds: number;
+  // Order 3 — arrival clock, additive columns.
+  courier_arrived_restaurant_at: string | null;
+  wait_seconds_since_arrival: number | null;
+}
+
+// Order 3 — 7-day ops summary tile source (single-row view).
+export interface AdminWaitMetricsRow {
+  avg_wait_minutes_7d: number | null;
+  avoidable_wait_orders_7d: number;
+}
+
+// Order 4 — partner-facing wait/prep KPI chip row (has_restaurant_access scoped).
+export interface RestaurantWaitKpiRow {
+  restaurant_id: string;
+  restaurant_name: string;
+  reject_rate_pct: number | null;
+  prep_accuracy_avg_minutes: number | null;
+  avg_courier_wait_minutes: number | null;
+  avoidable_wait_orders: number;
+  avoidable_wait_grace_minutes: number | null;
 }
 
 export interface AdminStuckOrderRow extends AdminOrderBoardRow {

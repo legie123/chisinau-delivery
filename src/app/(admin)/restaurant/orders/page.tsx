@@ -3,8 +3,9 @@ import { getPrepEstimates } from "@chisinau/shared-api";
 import { OrderQueueRow } from "@/components/admin/OrderQueueRow";
 import { OrderQueueLive } from "@/components/admin/OrderQueueLive";
 import { RestaurantPickupMap } from "@/components/admin/RestaurantPickupMap";
+import { RestaurantWaitKpiChips } from "@/components/admin/RestaurantWaitKpiChips";
 import { PushOptIn } from "@/components/shared/PushOptIn";
-import type { Order, OrderItem, PrepEstimate } from "@/lib/types/domain";
+import type { Order, OrderItem, PrepEstimate, RestaurantWaitKpiRow } from "@/lib/types/domain";
 
 const QUEUE_STATUSES = ["pending_restaurant", "accepted", "ready_for_pickup", "courier_assigned", "picked_up", "en_route"];
 
@@ -32,9 +33,15 @@ export default async function RestaurantOrdersPage() {
 
   // WS4 — the restaurant's own live prep estimate (drives the kitchen header chip).
   let prepEstimate: PrepEstimate | null = null;
+  // Order 4 — this restaurant's own wait/prep KPI row (has_restaurant_access scoped).
+  let waitKpi: RestaurantWaitKpiRow | null = null;
   if (staffRow?.restaurant_id) {
-    const prepRows = await getPrepEstimates(supabase, [staffRow.restaurant_id]);
+    const [prepRows, { data: kpiRow }] = await Promise.all([
+      getPrepEstimates(supabase, [staffRow.restaurant_id]),
+      supabase.from("restaurant_wait_kpis").select("*").eq("restaurant_id", staffRow.restaurant_id).maybeSingle(),
+    ]);
     prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0] ?? null;
+    waitKpi = (kpiRow as RestaurantWaitKpiRow | null) ?? null;
   }
 
   // RLS (orders_partner_scope) already restricts this to the caller's own
@@ -88,6 +95,7 @@ export default async function RestaurantOrdersPage() {
       <div className="mb-4">
         <PushOptIn />
       </div>
+      {waitKpi && <RestaurantWaitKpiChips kpi={waitKpi} />}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="pg-gold-text font-serif text-2xl font-bold">Comenzi</h1>

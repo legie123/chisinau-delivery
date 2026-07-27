@@ -804,6 +804,13 @@ export type Database = {
             foreignKeyName: "favorites_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "favorites_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -924,6 +931,13 @@ export type Database = {
             foreignKeyName: "menu_categories_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "menu_categories_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -989,6 +1003,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "menu_items_restaurant_id_fkey"
@@ -1244,6 +1265,7 @@ export type Database = {
       orders: {
         Row: {
           cancellation_reason: string | null
+          courier_arrived_restaurant_at: string | null
           courier_fee_mdl: number | null
           courier_fee_quoted_mdl: number | null
           courier_id: string | null
@@ -1260,6 +1282,7 @@ export type Database = {
           order_type: string
           payment_method: string
           payment_status: string
+          prep_time_override_minutes: number | null
           requested_for: string | null
           restaurant_id: string
           status: string
@@ -1270,6 +1293,7 @@ export type Database = {
         }
         Insert: {
           cancellation_reason?: string | null
+          courier_arrived_restaurant_at?: string | null
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
           courier_id?: string | null
@@ -1286,6 +1310,7 @@ export type Database = {
           order_type: string
           payment_method: string
           payment_status?: string
+          prep_time_override_minutes?: number | null
           requested_for?: string | null
           restaurant_id: string
           status?: string
@@ -1296,6 +1321,7 @@ export type Database = {
         }
         Update: {
           cancellation_reason?: string | null
+          courier_arrived_restaurant_at?: string | null
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
           courier_id?: string | null
@@ -1312,6 +1338,7 @@ export type Database = {
           order_type?: string
           payment_method?: string
           payment_status?: string
+          prep_time_override_minutes?: number | null
           requested_for?: string | null
           restaurant_id?: string
           status?: string
@@ -1355,6 +1382,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "orders_restaurant_id_fkey"
@@ -1551,18 +1585,21 @@ export type Database = {
       }
       platform_settings: {
         Row: {
+          avoidable_wait_grace_minutes: number
           courier_commission_pct: number
           id: boolean
           restaurant_commission_pct: number
           updated_at: string
         }
         Insert: {
+          avoidable_wait_grace_minutes?: number
           courier_commission_pct?: number
           id?: boolean
           restaurant_commission_pct?: number
           updated_at?: string
         }
         Update: {
+          avoidable_wait_grace_minutes?: number
           courier_commission_pct?: number
           id?: boolean
           restaurant_commission_pct?: number
@@ -1759,6 +1796,13 @@ export type Database = {
             foreignKeyName: "ratings_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "ratings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1796,6 +1840,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_hours_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "restaurant_hours_restaurant_id_fkey"
@@ -1843,6 +1894,13 @@ export type Database = {
             foreignKeyName: "restaurant_prep_stats_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "restaurant_prep_stats_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
@@ -1874,6 +1932,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_staff_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "restaurant_staff_restaurant_id_fkey"
@@ -2005,6 +2070,7 @@ export type Database = {
         Row: {
           accept_sla_minutes: number | null
           avg_prep_minutes: number | null
+          courier_arrived_restaurant_at: string | null
           courier_id: string | null
           courier_name: string | null
           courier_status: string | null
@@ -2025,6 +2091,7 @@ export type Database = {
           status: string | null
           street_address: string | null
           total_mdl: number | null
+          wait_seconds_since_arrival: number | null
         }
         Relationships: [
           {
@@ -2054,6 +2121,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "orders_restaurant_id_fkey"
@@ -2155,10 +2229,36 @@ export type Database = {
             foreignKeyName: "orders_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurants"
             referencedColumns: ["id"]
           },
         ]
+      }
+      admin_wait_metrics: {
+        Row: {
+          avg_wait_minutes_7d: number | null
+          avoidable_wait_orders_7d: number | null
+        }
+        Relationships: []
+      }
+      restaurant_wait_kpis: {
+        Row: {
+          avg_courier_wait_minutes: number | null
+          avoidable_wait_grace_minutes: number | null
+          avoidable_wait_orders: number | null
+          prep_accuracy_avg_minutes: number | null
+          reject_rate_pct: number | null
+          restaurant_id: string | null
+          restaurant_name: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -2266,6 +2366,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      courier_arrived_at_restaurant: {
+        Args: { p_order_id: string }
+        Returns: undefined
+      }
       courier_cash_balance: { Args: { p_courier_id: string }; Returns: number }
       courier_dispatch_distance_m: {
         Args: { p_courier_id: string; p_restaurant_id: string }
@@ -2276,6 +2380,7 @@ export type Database = {
         Args: { target_address: string }
         Returns: boolean
       }
+      current_avoidable_wait_grace_minutes: { Args: never; Returns: number }
       current_cash_policy: {
         Args: never
         Returns: {
@@ -2539,6 +2644,10 @@ export type Database = {
       }
       set_order_tip: {
         Args: { p_order_id: string; p_tip_mdl: number }
+        Returns: undefined
+      }
+      set_prep_time_estimate: {
+        Args: { p_minutes: number; p_order_id: string }
         Returns: undefined
       }
       set_pricing_config: {

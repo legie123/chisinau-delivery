@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { acceptOrder, markReadyForPickup, rejectOrder } from "@/app/(admin)/restaurant/orders/actions";
+import { acceptOrder, markReadyForPickup, rejectOrder, setPrepTimeEstimate } from "@/app/(admin)/restaurant/orders/actions";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
 import { ORDER_STATUS_LABEL, type Order, type OrderItem } from "@/lib/types/domain";
@@ -37,6 +37,18 @@ export function OrderQueueRow({
 
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+
+  // Order 4 (Glovo model) — prep-time override, editable ONLY pre-accept (the
+  // RPC itself also enforces this — the field just disappears once accepted).
+  const [prepMinutes, setPrepMinutes] = useState(String(order.prep_time_override_minutes ?? ""));
+  function handleSetPrepTime() {
+    const minutes = Number(prepMinutes);
+    if (!Number.isFinite(minutes) || minutes <= 0) return;
+    startTransition(async () => {
+      const result = await setPrepTimeEstimate(order.id, Math.round(minutes));
+      setError(result.error);
+    });
+  }
 
   function handleReject() {
     if (!rejectReason.trim()) return;
@@ -78,6 +90,29 @@ export function OrderQueueRow({
           {order.status === "pending_restaurant" && (
             <div className="mt-1.5">
               <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="partner" />
+            </div>
+          )}
+          {order.status === "pending_restaurant" && (
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <label htmlFor={`prep-${order.id}`} className="text-xs text-white/45">
+                ⏱ Timp de pregătire (min):
+              </label>
+              <input
+                id={`prep-${order.id}`}
+                type="number"
+                min={1}
+                value={prepMinutes}
+                onChange={(e) => setPrepMinutes(e.target.value)}
+                className="w-16 rounded-lg bg-white/5 px-2 py-1 text-xs text-white ring-1 ring-white/10 outline-none focus:ring-gold/60"
+              />
+              <button
+                type="button"
+                onClick={handleSetPrepTime}
+                disabled={pending}
+                className="rounded-full bg-white/5 px-2.5 py-1 text-xs text-white/70 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Setează
+              </button>
             </div>
           )}
           {order.status === "accepted" && order.estimated_ready_at && (

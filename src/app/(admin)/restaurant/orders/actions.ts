@@ -1,7 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { acceptOrder as acceptOrderRpc, markReadyForPickup as markReadyRpc, rejectOrder as rejectOrderRpc, RpcError } from "@chisinau/shared-api";
+import {
+  acceptOrder as acceptOrderRpc,
+  markReadyForPickup as markReadyRpc,
+  rejectOrder as rejectOrderRpc,
+  RpcError,
+  setPrepTimeEstimate as setPrepTimeEstimateRpc,
+} from "@chisinau/shared-api";
 import { asOrderId } from "@chisinau/shared-types";
 import { requireUser } from "@/lib/auth/require";
 
@@ -53,6 +59,23 @@ export async function markReadyForPickup(orderId: string): Promise<ActionResult>
   }
   try {
     await markReadyRpc(supabase, asOrderId(orderId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
+  }
+  revalidatePath("/restaurant/orders");
+  return { error: null };
+}
+
+// Order 4 (Glovo model) — merchant prep-time override, editable pre-accept only.
+export async function setPrepTimeEstimate(orderId: string, minutes: number): Promise<ActionResult> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+  try {
+    await setPrepTimeEstimateRpc(supabase, asOrderId(orderId), minutes);
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
   }

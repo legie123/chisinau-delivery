@@ -6,6 +6,7 @@ import {
   acceptDispatchOffer,
   advanceDeliveryStatus,
   claimOrderAsCourier,
+  courierArrivedAtRestaurant,
   declineDispatchOffer,
   RpcError,
   setCourierOnlineStatus,
@@ -68,6 +69,26 @@ export async function advanceStatus(
     await advanceDeliveryStatus(supabase, asOrderId(orderId), newStatus as OrderStatus, paymentConfirmed);
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : "Nu am putut actualiza starea." };
+  }
+  revalidatePath("/deliveries");
+  revalidatePath(`/deliveries/${orderId}`);
+  return { error: null };
+}
+
+// Order 3 (observe-only, no auto-compensation) — the courier stamps the moment
+// they physically arrive at the restaurant. Idempotent RPC; no money involved.
+export async function arrivedAtRestaurant(orderId: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+
+  try {
+    await courierArrivedAtRestaurant(supabase, asOrderId(orderId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut înregistra sosirea." };
   }
   revalidatePath("/deliveries");
   revalidatePath(`/deliveries/${orderId}`);

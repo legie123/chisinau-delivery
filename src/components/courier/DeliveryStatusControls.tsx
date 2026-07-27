@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { advanceStatus } from "@/app/(courier)/deliveries/actions";
+import { useEffect, useState, useTransition } from "react";
+import { advanceStatus, arrivedAtRestaurant } from "@/app/(courier)/deliveries/actions";
 import { useBroadcastCourierLocation } from "@/hooks/useBroadcastCourierLocation";
 import { useOfflinePendingStatusQueue } from "@/hooks/useOfflinePendingStatusQueue";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
@@ -11,6 +11,35 @@ const NEXT_STEP: Record<string, { next: string; label: string; emoji: string }> 
   picked_up: { next: "en_route", label: "Am pornit spre client", emoji: "🛵" },
   en_route: { next: "delivered", label: "Am livrat comanda", emoji: "✅" },
 };
+
+// Order 3 (observe-only, no auto-compensation) — client-side elapsed timer,
+// no money involved. Ticks every second off the arrival timestamp the RPC
+// already stamped; null until mounted (no SSR flash / hydration mismatch).
+function ElapsedWait({ since }: { since: string }) {
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setNow(Date.now()));
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearInterval(id);
+    };
+  }, []);
+
+  if (now === null) return null;
+
+  const totalSeconds = Math.max(0, Math.floor((now - new Date(since).getTime()) / 1000));
+  const mm = Math.floor(totalSeconds / 60);
+  const ss = totalSeconds % 60;
+
+  return (
+    <p className="flex items-center gap-2 px-1 text-xs text-white/50">
+      <span className="h-2 w-2 rounded-full bg-gold/80" aria-hidden />
+      Aștept la restaurant: {mm}:{String(ss).padStart(2, "0")}
+    </p>
+  );
+}
 
 export function DeliveryStatusControls({ order, courierId }: { order: Order; courierId: string }) {
   const [pending, startTransition] = useTransition();
@@ -23,6 +52,14 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
   const step = NEXT_STEP[order.status];
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const { queued, advanceOrEnqueue } = useOfflinePendingStatusQueue(order.id, advanceStatus);
+
+  const [arrivePending, startArriveTransition] = useTransition();
+  function handleArrived() {
+    startArriveTransition(async () => {
+      const result = await arrivedAtRestaurant(order.id);
+      setError(result.error);
+    });
+  }
 
   function advance(paymentConfirmed?: boolean) {
     if (!step) return;
@@ -57,6 +94,22 @@ export function DeliveryStatusControls({ order, courierId }: { order: Order; cou
           <span className={`h-2 w-2 rounded-full ${geoError ? "bg-primary" : "animate-pulse bg-emerald-400"}`} aria-hidden />
           {geoError ? `GPS indisponibil: ${geoError}` : "Locația ta se transmite live clientului"}
         </p>
+      )}
+      {/* Order 3 — observe-only arrival clock, no money involved. Only makes
+          sense between "assigned" and "picked up". */}
+      {order.status === "courier_assigned" && !order.courier_arrived_restaurant_at && (
+        <button
+          type="button"
+          onClick={handleArrived}
+          disabled={arrivePending}
+          className="flex items-center justify-center gap-2.5 rounded-full bg-white/5 py-3.5 text-sm font-semibold text-white/80 ring-1 ring-white/15 transition hover:bg-white/10 disabled:opacity-50"
+        >
+          <span aria-hidden>📍</span>
+          {arrivePending ? "Se înregistrează..." : "Am ajuns la restaurant"}
+        </button>
+      )}
+      {order.status === "courier_assigned" && order.courier_arrived_restaurant_at && (
+        <ElapsedWait since={order.courier_arrived_restaurant_at} />
       )}
       {step && !confirmingPayment && (
         <>
