@@ -71,3 +71,29 @@ Everything above is **local**. Pushing the schema + a real restaurant to the sha
 prod project `rdowjxnuyawhrjppxzuu` is a deliberate pre-launch step that requires
 explicit user approval (shared with dormant Trade-AI tables — never touch
 `poly_*`/`gladiator*`/`equity_history`).
+
+## Self-hosted OSRM router (2026-07-27)
+
+`src/lib/routing/route.ts` (`fetchOsrmRoute`) calls an OSRM instance for real driving
+routes/ETAs, defaulting to the public `router.project-osrm.org` if `OSRM_URL` /
+`NEXT_PUBLIC_OSRM_URL` aren't set. For local dev we now self-host instead of hitting
+the public rate-limited router:
+
+- Data: Geofabrik Moldova extract downloaded to `.osrm/moldova-latest.osm.pbf`
+  (gitignored — `.osrm/` added to `.gitignore`, ~96 MB, not committed).
+- Prepared once with the official `ghcr.io/project-osrm/osrm-backend` image —
+  `osrm-extract` (car profile) → `osrm-partition` → `osrm-customize` (MLD algorithm).
+  Peak RAM during extract ≈ 980 MB; on-disk prepared graph + source pbf ≈ 250 MB
+  under `.osrm/`.
+- Served by a detached, auto-restarting container:
+  `docker run -d --name osrm-chisinau --restart unless-stopped -p 5010:5000
+  -v "$(pwd)/.osrm":/data ghcr.io/project-osrm/osrm-backend osrm-routed
+  --algorithm mld /data/moldova-latest.osrm`
+- `scripts/dev-local.sh` now exports `OSRM_URL=http://localhost:5010` (overridable via
+  env; `.env.local` untouched) so the local :3007 server routes through the
+  self-hosted instance automatically.
+- Verified: `curl http://localhost:5010/route/v1/driving/28.8322,47.0245;28.9310,46.9277?overview=false`
+  → HTTP 200, `distance: 13536.9` m between a Chișinău center point and the airport
+  area.
+- Restart after a machine reboot: `docker start osrm-chisinau` (container has
+  `--restart unless-stopped`, so it also survives Docker Desktop restarts on its own).

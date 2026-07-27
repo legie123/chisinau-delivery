@@ -10,6 +10,11 @@
 #     echo 'export MASTER_DOORWAY_PASS=<your-password>' > scripts/.dev-local.env
 # The local Supabase keys are throwaway (per-machine) and read live from the stack.
 #
+# Routing: OSRM_URL defaults to the self-hosted Moldova router (docker container
+# "osrm-chisinau", port 5010, restart unless-stopped — see .osrm/ + docs/onboarding-runbook.md).
+# Falls back to the public router.project-osrm.org if unset AND the container isn't running,
+# per src/lib/routing/route.ts's own fallback chain.
+#
 # Usage:  bash scripts/dev-local.sh        (requires: supabase start already run)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -43,6 +48,7 @@ SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-}" \
 ENABLE_MASTER_DOORWAY="true" \
 MASTER_DOORWAY_USER="$MASTER_DOORWAY_USER" \
 MASTER_DOORWAY_PASS="${MASTER_DOORWAY_PASS:-}" \
+OSRM_URL="${OSRM_URL:-http://localhost:5010}" \
 PORT=3007 nohup npm run dev -- -p 3007 > /tmp/chisinau-local-3007.log 2>&1 &
 disown
 
