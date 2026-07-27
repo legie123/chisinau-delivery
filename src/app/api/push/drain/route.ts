@@ -23,6 +23,18 @@ export const dynamic = "force-dynamic";
 const BATCH = 50;
 // Max attempts (5) is enforced inside claim_notification_outbox itself.
 
+// Push urgency/TTL by outbox tag: dispatch-offer pushes ('offer:' — the 30s-countdown
+// courier offer, WS2) are time-critical so they go 'high'/TTL 40 (die with the offer,
+// no point delivering a stale one); customer status pushes ('order-' — order status
+// changed) are informational so they go 'normal'/TTL 600 (survive a longer offline gap).
+// Any other tag keeps web-push's own defaults.
+function pushOptionsForTag(tag: string | null): { urgency: "high" | "normal"; TTL: number } | undefined {
+  if (!tag) return undefined;
+  if (tag.startsWith("offer:")) return { urgency: "high", TTL: 40 };
+  if (tag.startsWith("order-")) return { urgency: "normal", TTL: 600 };
+  return undefined;
+}
+
 export async function POST(req: Request) {
   const secret = process.env.PUSH_DRAIN_SECRET;
   if (!secret) {
@@ -64,7 +76,12 @@ export async function POST(req: Request) {
         // with no subscriptions — legitimately "done"). If it DOES throw (audit
         // #5/#10/#16), bump attempts WITHOUT sent_at so the row is retried until
         // MAX_ATTEMPTS, then the claim RPC (attempts < 5) stops picking it up.
-        await sendPushToUser(r.user_id, { title: r.title, body: r.body, url: r.url, tag: r.tag ?? undefined });
+        // A 429 here is Chrome/FCM rate-limiting the push service, not an app bug.
+        await sendPushToUser(
+          r.user_id,
+          { title: r.title, body: r.body, url: r.url, tag: r.tag ?? undefined },
+          pushOptionsForTag(r.tag),
+        );
         await admin.from("notification_outbox").update({ sent_at: now, attempts }).eq("id", r.id);
         drained++;
       } catch {

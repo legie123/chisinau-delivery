@@ -13,17 +13,33 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return out;
 }
 
+// iOS Safari only supports Web Push from an installed (Add to Home Screen) PWA —
+// the native subscribe button is dead in a plain browser tab there, so we detect
+// that case and show install instructions instead of a button that silently fails.
+function isIosSafariNotStandalone(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const isIOS = /iPhone|iPad/.test(navigator.userAgent);
+  const isStandalone =
+    (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches;
+  return isIOS && !isStandalone;
+}
+
 // A discreet opt-in pill: registers the service worker, subscribes to Web Push,
 // and saves the subscription. Hidden entirely if the browser can't do push or
 // the user already granted (and is subscribed). Never blocks anything.
 export function PushOptIn() {
-  const [state, setState] = useState<"idle" | "unsupported" | "granted" | "working" | "error">("idle");
+  const [state, setState] = useState<"idle" | "unsupported" | "granted" | "working" | "error" | "ios-install">("idle");
 
   useEffect(() => {
     // Deferred out of the effect body (rAF) so it isn't a synchronous
     // setState-in-effect (which the compiler flags as cascading).
     const raf = requestAnimationFrame(() => {
       if (typeof window === "undefined") return;
+      if (isIosSafariNotStandalone()) {
+        setState("ios-install");
+        return;
+      }
       if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
         setState("unsupported");
       } else if (Notification.permission === "granted") {
@@ -66,6 +82,19 @@ export function PushOptIn() {
   }
 
   if (state === "unsupported" || state === "granted") return null;
+
+  if (state === "ios-install") {
+    return (
+      <div className="flex flex-col gap-1 rounded-2xl bg-white/5 p-4 text-sm ring-1 ring-white/10">
+        <p className="font-medium text-white">Activează notificările pe iPhone</p>
+        <p className="text-white/60">
+          Apasă <span className="font-semibold text-white/80">Distribuie</span> din Safari, apoi{" "}
+          <span className="font-semibold text-white/80">„Adaugă pe ecranul principal”</span>. Deschide aplicația de
+          acolo ca să poți activa notificările.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <button

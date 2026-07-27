@@ -117,8 +117,11 @@ export function MenuBrowser({
       {/* Items */}
       <div className="flex flex-col gap-3 pb-24">
         {filtered.length === 0 && <p className="py-12 text-center text-white/50">Niciun articol în această categorie.</p>}
-        {filtered.map((item) => {
+        {filtered.map((item, index) => {
           const inCart = qtyInCart(item.id);
+          // LCP fix: only the first above-fold item image loads eager/high-priority;
+          // the rest stay lazy so we don't compete with the real hero (CoverImage).
+          const isFirst = index === 0;
           return (
             <div
               key={item.id}
@@ -153,7 +156,14 @@ export function MenuBrowser({
               </div>
               {item.photo_url && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img loading="lazy" decoding="async" src={item.photo_url} alt={item.name} className="h-24 w-24 shrink-0 rounded-xl object-cover sm:h-28 sm:w-28" />
+                <img
+                  loading={isFirst ? "eager" : "lazy"}
+                  fetchPriority={isFirst ? "high" : "low"}
+                  decoding="async"
+                  src={item.photo_url}
+                  alt={item.name}
+                  className="h-24 w-24 shrink-0 rounded-xl object-cover sm:h-28 sm:w-28"
+                />
               )}
             </div>
           );

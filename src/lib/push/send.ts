@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type PushPayload = { title: string; body: string; url?: string; tag?: string };
+export type PushSendOptions = { urgency?: "very-low" | "low" | "normal" | "high"; TTL?: number };
 
 let configured = false;
 function configure(): boolean {
@@ -21,7 +22,7 @@ function configure(): boolean {
 // subscriptions with the service-role client (RLS-bypassing) because a sender
 // acts on behalf of a DIFFERENT user than the recipient. Prunes dead endpoints.
 // Fully best-effort: any failure is swallowed so it never breaks the caller.
-export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+export async function sendPushToUser(userId: string, payload: PushPayload, options?: PushSendOptions): Promise<void> {
   try {
     if (!userId || !configure()) return;
     const admin = createAdminClient();
@@ -34,12 +35,15 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
           await webpush.sendNotification(
             { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
             JSON.stringify(payload),
+            { urgency: options?.urgency, TTL: options?.TTL },
           );
         } catch (err) {
           const code = (err as { statusCode?: number })?.statusCode;
           if (code === 404 || code === 410) {
             await admin.from("push_subscriptions").delete().eq("endpoint", s.endpoint);
           }
+          // 429 = Chrome/FCM rate-limit backpressure on the push service, not an
+          // app bug — nothing to fix here, just don't prune the subscription.
         }
       }),
     );
