@@ -434,6 +434,7 @@ export interface AdminCourierPilotKpiRow {
   shifts_14d: number;
   median_gross_per_shift_14d: number | null;
   avg_orders_per_shift_14d: number | null;
+  empty_shifts_14d: number;
 }
 
 // Order 1 (pilot-critical) — cash float append-only ledger. RPC-only writes

@@ -2132,6 +2132,7 @@ export type Database = {
         Row: {
           avg_orders_per_shift_14d: number | null
           courier_id: string | null
+          empty_shifts_14d: number | null
           full_name: string | null
           is_active: boolean | null
           median_gross_per_shift_14d: number | null

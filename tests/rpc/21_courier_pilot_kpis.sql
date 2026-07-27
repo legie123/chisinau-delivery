@@ -113,5 +113,29 @@ begin
     raise exception 'FAIL: median_gross_per_shift_14d = % (expected 50.00 = 40 fee + 10 tip)', v_avg;
   end if;
 
-  raise notice 'PASS courier-pilot-kpis: shift opens/closes exactly once (idempotent toggle), satisfaction survey range-guarded + courier-only + immutable + idempotent retry, RLS blocks non-owner reads, admin KPI view aggregates correctly';
+  -- ---- Blip shift (0 orders) must count in shifts_14d/empty_shifts_14d but
+  -- NOT drag median_gross_per_shift_14d / avg_orders_per_shift_14d down ----
+  insert into public.courier_shifts (courier_id, started_at, ended_at)
+  values (v_courier, now() - interval '2 days 1 hour', now() - interval '2 days');
+
+  declare
+    v_shifts int;
+    v_empty int;
+    v_median numeric;
+    v_avg_orders numeric;
+  begin
+    select shifts_14d, empty_shifts_14d, median_gross_per_shift_14d, avg_orders_per_shift_14d
+      into v_shifts, v_empty, v_median, v_avg_orders
+      from public.admin_courier_pilot_kpis where courier_id = v_courier;
+    if v_shifts <> 2 then raise exception 'FAIL: shifts_14d = % (expected 2, real + blip)', v_shifts; end if;
+    if v_empty <> 1 then raise exception 'FAIL: empty_shifts_14d = % (expected 1 blip shift)', v_empty; end if;
+    if v_median is distinct from 50.00 then
+      raise exception 'FAIL: median_gross_per_shift_14d = % (expected 50.00 — blip shift must not dilute it)', v_median;
+    end if;
+    if v_avg_orders is distinct from 1.0 then
+      raise exception 'FAIL: avg_orders_per_shift_14d = % (expected 1.0 — blip shift must not dilute it)', v_avg_orders;
+    end if;
+  end;
+
+  raise notice 'PASS courier-pilot-kpis: shift opens/closes exactly once (idempotent toggle), satisfaction survey range-guarded + courier-only + immutable + idempotent retry, RLS blocks non-owner reads, admin KPI view aggregates correctly, blip (0-order) shifts excluded from median/avg but visible via empty_shifts_14d';
 end $$;

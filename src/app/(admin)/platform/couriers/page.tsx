@@ -41,6 +41,14 @@ function ShiftEarningsCell({ row }: { row: AdminCourierPilotKpiRow | undefined }
     <span className={inBand ? "font-medium text-emerald-400" : "font-medium text-amber-400"}>
       {row.median_gross_per_shift_14d} MDL
       <span className="ml-1 text-xs text-white/40">({row.shifts_14d} ture)</span>
+      {row.empty_shifts_14d > 0 && (
+        <span
+          className="ml-1 text-xs text-white/30"
+          title="Ture cu 0 comenzi livrate (blip) — excluse din mediană, dar numărate mai sus"
+        >
+          {row.empty_shifts_14d} goale
+        </span>
+      )}
     </span>
   );
 }
