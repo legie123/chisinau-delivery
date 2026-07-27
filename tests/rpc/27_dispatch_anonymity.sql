@@ -38,6 +38,11 @@ begin
   where courier_id in (v_courier, v_courier2) and status in ('courier_assigned','picked_up','en_route');
   update public.couriers set status = 'offline' where id <> v_courier;
   update public.couriers set status = 'online', is_active = true where id = v_courier;
+  -- seed data ships a LIVE 'offered' row for this courier; on a fresh db reset the
+  -- 15s sweeper hasn't expired it yet and it blocks candidacy (one live offer per
+  -- courier) — cancel it here so the sim is self-contained, not sweeper-dependent
+  update public.dispatch_offers set status = 'cancelled'
+  where courier_id in (v_courier, v_courier2) and status = 'offered';
 
   insert into public.courier_locations (courier_id, lat, lng, updated_at)
   values (v_courier, 47.05, 28.85, now())
