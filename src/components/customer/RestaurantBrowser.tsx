@@ -192,20 +192,29 @@ export function RestaurantBrowser({
           Deschis acum
         </button>
 
-        <div className="ml-auto flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
-          {SORTS.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => setSort(s.key)}
-              aria-pressed={sort === s.key}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                sort === s.key ? "bg-primary-dark text-white" : "text-white/60 hover:text-white"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+        <div className="ml-auto flex items-center gap-2">
+          {/* #4 — explicit sort agency: label + chevron, not a mystery toggle. */}
+          <span className="flex items-center gap-1 text-xs font-medium text-white/50">
+            Sortează
+            <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+            </svg>
+          </span>
+          <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
+            {SORTS.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setSort(s.key)}
+                aria-pressed={sort === s.key}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                  sort === s.key ? "bg-primary-dark text-white" : "text-white/60 hover:text-white"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -226,7 +235,19 @@ export function RestaurantBrowser({
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {filtered.map((r) => (
+          {filtered.map((r) => {
+            const isTop = Number(r.rating_avg) >= 4.7 && r.rating_count >= 10;
+            // #2 — closed by manual toggle OR by today's hours.
+            const isClosed = !r.accepting_orders || !openNowSet.has(r.id);
+            const ratingTierColor =
+              r.rating_count >= 3
+                ? Number(r.rating_avg) >= 4.5
+                  ? "#3fbf6b"
+                  : Number(r.rating_avg) >= 4.0
+                    ? "#f5a623"
+                    : "rgba(255,255,255,0.4)"
+                : null;
+            return (
             <div key={r.id} className="relative">
             <Link
               href={`/restaurants/${r.slug}`}
@@ -244,7 +265,16 @@ export function RestaurantBrowser({
                   </h3>
                   <p className="mt-0.5 text-sm text-white/55">{CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}</p>
                   <p className="mt-2 flex items-center gap-2 text-sm">
-                    <span className="font-semibold text-gold">
+                    <span className="flex items-center gap-1.5 font-semibold text-gold">
+                      {/* #1 — color-tier status dot lets the eye triage rating
+                          quality across a dense grid faster than reading numbers. */}
+                      {ratingTierColor && (
+                        <span
+                          aria-hidden
+                          className="h-1.5 w-1.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: ratingTierColor }}
+                        />
+                      )}
                       {/* #5 — a numeric rating from a single review reads as fake;
                           only show the score once it's backed by a few reviews. */}
                       {r.rating_count >= 3 ? `★ ${Number(r.rating_avg).toFixed(1)} (${r.rating_count})` : "★ Nou"}
@@ -261,6 +291,12 @@ export function RestaurantBrowser({
                     )}
                   </p>
                   <span className="mt-3 flex flex-wrap items-center gap-2">
+                    {/* #2b — social-proof marker on top performers. */}
+                    {isTop && (
+                      <span className="inline-block rounded-md border border-gold/60 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-gold">
+                        ★ Top
+                      </span>
+                    )}
                     <span
                       className={`inline-block rounded-md border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
                         Number(r.delivery_fee_mdl) === 0
@@ -270,12 +306,19 @@ export function RestaurantBrowser({
                     >
                       {Number(r.delivery_fee_mdl) === 0 ? "Livrare gratuită" : `Livrare ${r.delivery_fee_mdl} MDL`}
                     </span>
-                    {/* #9 — surface the minimum order before the click, not at checkout. */}
-                    {Number(r.min_order_amount_mdl) > 0 && (
-                      <span className="inline-block rounded-md border border-white/15 px-2.5 py-1 text-[11px] font-medium text-white/50">
-                        min. {r.min_order_amount_mdl} MDL
-                      </span>
-                    )}
+                    {/* #9 — surface the minimum order before the click, not at checkout.
+                        #3 — always occupy the slot (invisible placeholder when min=0) so
+                        the price/fee/min row keeps identical vertical rhythm on every card. */}
+                    <span
+                      aria-hidden={Number(r.min_order_amount_mdl) > 0 ? undefined : true}
+                      className={`inline-block w-[92px] rounded-md border px-2.5 py-1 text-center text-[11px] font-medium ${
+                        Number(r.min_order_amount_mdl) > 0
+                          ? "border-white/15 text-white/50"
+                          : "invisible border-transparent"
+                      }`}
+                    >
+                      {Number(r.min_order_amount_mdl) > 0 ? `min. ${r.min_order_amount_mdl} MDL` : "min. 0 MDL"}
+                    </span>
                   </span>
                 </div>
                 {r.cover_photo_url && (
@@ -291,14 +334,25 @@ export function RestaurantBrowser({
               </div>
               {/* #2 — closed by manual toggle OR by today's hours: visible before any
                   effort is spent, not only rejected at the final pay tap. */}
-              {(!r.accepting_orders || !openNowSet.has(r.id)) && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+              {isClosed && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/70">
                   <span className="rounded-full bg-white/95 px-4 py-1.5 text-sm font-semibold text-zinc-900">
                     {!r.accepting_orders ? "Închis momentan" : "Închis acum"}
                   </span>
                 </div>
               )}
             </Link>
+            {/* #5b — closed is a recoverable moment, not a dead end. Sibling
+                button OUTSIDE the <Link> so it triggers the filter, not navigation. */}
+            {isClosed && (
+              <button
+                type="button"
+                onClick={() => setOpenNowOnly(true)}
+                className="absolute inset-x-0 bottom-5 z-10 mx-auto w-fit rounded-full bg-gold px-4 py-1.5 text-xs font-bold text-zinc-900 shadow-lg transition hover:bg-gold/90"
+              >
+                Vezi restaurante deschise
+              </button>
+            )}
             {customerId && (
               <FavoriteButton
                 customerId={customerId}
@@ -308,7 +362,8 @@ export function RestaurantBrowser({
               />
             )}
             </div>
-          ))}
+            );
+          })}
 
           {/* VIP catering banner — gold, maps to a real action */}
           <Link
