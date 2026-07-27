@@ -41,12 +41,20 @@ export interface SvgBarsProps {
   /** Vertical mode only — show an x-axis label every Nth bar (24 hourly bars
    * would collide if every one printed its label). */
   axisLabelEvery?: number;
+  /** "brand" (default) = gold bars, amethyst `highlight`. "muted" flips it for
+   * restrained info-section charts (e.g. popular-times): non-highlighted bars
+   * render as a desaturated navy-indigo solid, `highlight` bars stay gold —
+   * "current hour gold, the rest navy-muted". */
+  theme?: "brand" | "muted";
 }
 
 const GOLD_FROM = "#b8860b";
 const GOLD_TO = "#f5c542";
 const AMETHYST_FROM = "#6d28d9";
 const AMETHYST_TO = "#c084fc";
+/** Desaturated navy-indigo — reads as "muted" against the dark navy field
+ * without disappearing into it (theme="muted" default bar fill). */
+const MUTED_FILL = "rgba(120,128,168,0.28)";
 
 /** value -> pixel length along the value axis. Guards a zero/negative max
  * or track so an all-empty dataset never divides by zero or emits NaN. */
@@ -74,6 +82,7 @@ export function SvgBars({
   valueFormatter = (v) => String(v),
   ariaLabel,
   axisLabelEvery = 1,
+  theme = "brand",
 }: SvgBarsProps) {
   const maxValue = Math.max(...data.map((d) => d.value), 0);
   const padding = {
@@ -135,7 +144,14 @@ export function SvgBars({
         const trackForSlots = orientation === "vertical" ? trackW : trackH;
         const { start, size } = barSlot(i, data.length, trackForSlots, gap);
         const barLen = Math.max(scaleToPixels(d.value, maxValue, orientation === "vertical" ? trackH : trackW), d.value > 0 ? 1 : 0);
-        const fill = d.highlight ? `url(#${hlId})` : `url(#${gradientId})`;
+        const fill =
+          theme === "muted"
+            ? d.highlight
+              ? `url(#${gradientId})`
+              : MUTED_FILL
+            : d.highlight
+              ? `url(#${hlId})`
+              : `url(#${gradientId})`;
         const title = d.tooltip ?? `${d.label}: ${valueFormatter(d.value)}`;
 
         if (orientation === "vertical") {

@@ -1,9 +1,18 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getPrepEstimates } from "@chisinau/shared-api";
+import { getPrepEstimates, getPopularHours, getRatingBreakdown } from "@chisinau/shared-api";
 import { CoverImage } from "@/components/customer/CoverImage";
 import { MenuBrowser } from "@/components/customer/MenuBrowser";
-import type { MenuCategory, MenuItem, MenuOptionGroup, PrepEstimate, Restaurant } from "@/lib/types/domain";
+import { RestaurantInsights } from "@/components/customer/RestaurantInsights";
+import type {
+  MenuCategory,
+  MenuItem,
+  MenuOptionGroup,
+  PopularHourRow,
+  PrepEstimate,
+  RatingBreakdownRow,
+  Restaurant,
+} from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
 
 export default async function RestaurantMenuPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -49,6 +58,13 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   const prepRows = await getPrepEstimates(supabase, [typedRestaurant.id]);
   const prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0];
 
+  // Info-section premium histograms — anon-reachable, aggregate-only, both
+  // soft-fail to [] on any hiccup (see shared-api/discovery.ts).
+  const [popularHours, ratingBreakdown] = await Promise.all([
+    getPopularHours(supabase, typedRestaurant.id),
+    getRatingBreakdown(supabase, typedRestaurant.id),
+  ]);
+
   return (
     <main className="flex-1 px-5 pb-24 pt-6">
       {/* Cover banner with overlaid identity — Bolt restaurant header */}
@@ -59,6 +75,10 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
         heightClass="h-52 sm:h-64"
       >
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        {/* Faceted dragon-scale texture — CSS gradient only, no image asset,
+            painted after the darkening gradient so it reads as a subtle
+            crystalline weave over the photo without touching the LCP <img>. */}
+        <div className="pg-hero-facet" aria-hidden />
         <div className="absolute bottom-0 left-0 right-0 p-5">
           <h1 className="text-2xl font-bold text-white sm:text-3xl">{typedRestaurant.name}</h1>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/80">
@@ -90,6 +110,14 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
       <div className="mt-5">
         <MenuBrowser restaurant={typedRestaurant} categories={categories} items={items} optionGroups={optionGroups} />
       </div>
+
+      {/* Discreet info section — deliberately below the menu, never above it. */}
+      <RestaurantInsights
+        popularHours={(popularHours ?? []) as PopularHourRow[]}
+        ratingBreakdown={(ratingBreakdown ?? []) as RatingBreakdownRow[]}
+        ratingAvg={Number(typedRestaurant.rating_avg)}
+        ratingCount={typedRestaurant.rating_count}
+      />
     </main>
   );
 }

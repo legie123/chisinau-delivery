@@ -316,6 +316,56 @@
 .pg-arrival { animation: pg-arrival var(--pg-arrival-ms) var(--pg-ease) both; }
 
 /* =========================================================================
+   GOLD HAIRLINE SECTION DIVIDER — a 1px gold-fading-to-transparent rule with
+   a small rotated "facet" gem at its center. Static (no animation) — a quiet
+   punctuation mark between content sections, not a motion moment.
+   ========================================================================= */
+.pg-hairline-divider {
+  position: relative;
+  height: 1px;
+  margin: 1.75rem 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--pg-gold-line) 15%,
+    var(--pg-gold-1) 50%,
+    var(--pg-gold-line) 85%,
+    transparent
+  );
+}
+.pg-hairline-divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--pg-gold-grad);
+  box-shadow: 0 0 8px -1px rgba(245, 197, 66, 0.55);
+}
+
+/* =========================================================================
+   HERO OVERLAY TEXTURE — faceted dragon-scale dot-lattice for premium hero
+   banners outside the admin/partner surface (e.g. the customer restaurant
+   detail cover). Pure CSS gradient, no image asset → zero LCP cost. Static —
+   deliberately no animation so it never competes with the hero title/photo.
+   ========================================================================= */
+.pg-hero-facet {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image:
+    radial-gradient(circle at 50% 100%, rgba(168, 85, 247, 0.12) 8px, transparent 9px),
+    radial-gradient(circle at 0 50%, rgba(212, 175, 55, 0.10) 8px, transparent 9px);
+  background-size: 44px 44px;
+  background-position: 0 0, 22px 22px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.9) 55%, transparent);
+          mask-image: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.9) 55%, transparent);
+}
+
+/* =========================================================================
    REDUCED MOTION — everything non-essential becomes instant & static.
    Colours, gradients, rim-light and glass all remain; only motion stops.
    ========================================================================= */

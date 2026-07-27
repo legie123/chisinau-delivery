@@ -397,6 +397,20 @@ export interface RestaurantTopItemRow {
   revenue_mdl: number;
 }
 
+// Public restaurant-page histograms (migration 20260728000000) — anon-reachable
+// SECURITY DEFINER RPCs, zero-filled, aggregate-only (no PII).
+export interface PopularHourRow {
+  hour_of_day: number;
+  orders_count: number;
+  intensity_pct: number;
+}
+
+export interface RatingBreakdownRow {
+  stars: number;
+  rating_count: number;
+  total_ratings: number;
+}
+
 export interface AdminStuckOrderRow extends AdminOrderBoardRow {
   stuck_reason: string;
 }

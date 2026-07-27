@@ -365,19 +365,23 @@ export function RestaurantBrowser({
             );
           })}
 
-          {/* VIP catering banner — gold, maps to a real action */}
+          {/* VIP catering banner — gold, maps to a real action. relative+overflow-hidden
+              so the pg-shimmer sweep (first child, static under reduced-motion) stays
+              clipped to the rounded card and never covers the text (it paints behind
+              the later siblings in normal DOM/paint order). */}
           <Link
             href="/catering"
-            className="flex items-center justify-between gap-4 rounded-2xl border border-gold/40 bg-gradient-to-r from-[#2a1f0a] to-[#3d2c0e] p-5 transition hover:border-gold/70"
+            className="relative flex items-center justify-between gap-4 overflow-hidden rounded-2xl border border-gold/40 bg-gradient-to-r from-[#2a1f0a] to-[#3d2c0e] p-5 transition hover:border-gold/70"
           >
-            <div className="flex items-center gap-4">
+            <span className="pg-shimmer pointer-events-none absolute inset-0" aria-hidden />
+            <div className="relative flex items-center gap-4">
               <span className="font-serif text-2xl font-bold text-gold">DA VIP</span>
               <div>
                 <p className="font-semibold text-white">Dragons Catering pentru evenimente</p>
                 <p className="text-sm text-white/50">Platouri premium, ofertă personalizată în aceeași zi</p>
               </div>
             </div>
-            <span className="shrink-0 rounded-full bg-gold px-4 py-2 text-xs font-bold uppercase tracking-wide text-zinc-900">
+            <span className="relative shrink-0 rounded-full bg-gold px-4 py-2 text-xs font-bold uppercase tracking-wide text-zinc-900">
               Cere ofertă
             </span>
           </Link>
