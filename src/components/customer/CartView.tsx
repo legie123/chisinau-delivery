@@ -2,13 +2,41 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
+import { cartLineId, cartSubtotal, useCartStore, type CartLine } from "@/lib/orders/cart";
 import { useHydrated } from "@/hooks/useHydrated";
 import { createClient } from "@/lib/supabase/client";
+import { ItemModifierModal } from "@/components/customer/ItemModifierModal";
+import type { MenuItem, MenuOptionGroup } from "@/lib/types/domain";
 
 export function CartView() {
-  const { restaurantId, restaurantName, lines, setQuantity, removeItem } = useCartStore();
+  const { restaurantId, restaurantName, lines, setQuantity, removeItem, addItem } = useCartStore();
   const hydrated = useHydrated();
+  // Edit-in-place (Baymard: remove-and-re-add for one topping drives cart
+  // abandonment) — "Modifică" fetches the item + its option groups fresh (the
+  // cart line itself only stores the flat option ids/labels) and reopens the
+  // same modifier modal pre-filled, instead of forcing a raw delete.
+  const [editing, setEditing] = useState<{ line: CartLine; item: MenuItem; groups: MenuOptionGroup[] } | null>(null);
+  const [editLoadingId, setEditLoadingId] = useState<string | null>(null);
+
+  async function openEditor(line: CartLine) {
+    setEditLoadingId(line.lineId);
+    const supabase = createClient();
+    const [{ data: itemRow }, { data: groupRows }] = await Promise.all([
+      supabase.from("menu_items").select("*").eq("id", line.menuItemId).single(),
+      supabase
+        .from("menu_option_groups")
+        .select("*, menu_options(*)")
+        .eq("menu_item_id", line.menuItemId)
+        .order("sort_order")
+        .order("sort_order", { referencedTable: "menu_options" }),
+    ]);
+    setEditLoadingId(null);
+    if (!itemRow) return;
+    const groups: MenuOptionGroup[] = ((groupRows ?? []) as unknown as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]).map(
+      (g) => ({ ...g, options: (g.menu_options ?? []).filter((o) => o.is_available) }),
+    );
+    setEditing({ line, item: itemRow as MenuItem, groups });
+  }
   // #9 — fetch the restaurant's fee + minimum so the cart can show the FULL total,
   // not just a subtotal the button implied was the total.
   const [summary, setSummary] = useState<{ delivery_fee_mdl: number; min_order_amount_mdl: number } | null>(null);
@@ -87,17 +115,35 @@ export function CartView() {
               </div>
               <div className="flex flex-col items-end gap-1">
                 <span className="w-20 text-right font-semibold text-white">{line.priceMdl * line.quantity} MDL</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAnnounce(`${line.name} eliminat din coș`);
-                    removeItem(line.lineId);
-                  }}
-                  aria-label={`Șterge ${line.name} din coș`}
-                  className="text-xs text-white/40 underline underline-offset-4 transition hover:text-primary"
-                >
-                  Șterge
-                </button>
+                <div className="flex items-center gap-2">
+                  {line.optionIds.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => openEditor(line)}
+                        disabled={editLoadingId === line.lineId}
+                        aria-label={`Modifică ${line.name}`}
+                        className="text-xs text-gold underline underline-offset-4 transition hover:text-gold-light disabled:opacity-50"
+                      >
+                        {editLoadingId === line.lineId ? "Se încarcă…" : "Modifică"}
+                      </button>
+                      <span className="text-white/20" aria-hidden>
+                        ·
+                      </span>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnnounce(`${line.name} eliminat din coș`);
+                      removeItem(line.lineId);
+                    }}
+                    aria-label={`Șterge ${line.name} din coș`}
+                    className="text-xs text-white/40 underline underline-offset-4 transition hover:text-primary"
+                  >
+                    Șterge
+                  </button>
+                </div>
               </div>
             </li>
           ))}
@@ -145,6 +191,24 @@ export function CartView() {
             : `Continuă spre plată · ${subtotal + Number(summary.delivery_fee_mdl)} MDL`
           : `Continuă spre plată · ${subtotal} MDL`}
       </Link>
+
+      {editing && (
+        <ItemModifierModal
+          item={editing.item}
+          groups={editing.groups}
+          initialOptionIds={editing.line.optionIds}
+          initialQuantity={editing.line.quantity}
+          onClose={() => setEditing(null)}
+          onAdd={(options, qty) => {
+            if (restaurantId && restaurantName) {
+              removeItem(editing.line.lineId);
+              addItem(restaurantId, restaurantName, editing.item, options);
+              if (qty > 1) setQuantity(cartLineId(editing.item.id, options.optionIds), qty);
+            }
+            setEditing(null);
+          }}
+        />
+      )}
     </div>
   );
 }

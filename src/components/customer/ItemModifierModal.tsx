@@ -4,22 +4,41 @@ import { useMemo, useState } from "react";
 import type { MenuItem, MenuOptionGroup } from "@/lib/types/domain";
 import type { ChosenOptions } from "@/lib/orders/cart";
 
-// Bolt-style item customization modal: shows the item's option groups (required =
-// single-pick radios; optional multi = checkboxes up to max_select), a live price,
-// and an Add button. Returns the chosen options to the caller, which adds to cart.
+// Bolt/Wolt-style item customization modal: full-bleed photo header, the item's
+// option groups (required = single-pick radios; optional multi = checkboxes up
+// to max_select), a qty stepper, and a sticky live-total CTA. Returns the chosen
+// options + quantity to the caller, which adds to cart.
+//
+// initialOptionIds/initialQuantity let a caller pre-fill the modal from an
+// existing cart line — the edit-in-place flow (CartView "Modifică") reopens
+// this same modal instead of forcing remove-and-re-add for one topping.
 export function ItemModifierModal({
   item,
   groups,
+  initialOptionIds,
+  initialQuantity = 1,
   onClose,
   onAdd,
 }: {
   item: MenuItem;
   groups: MenuOptionGroup[];
+  initialOptionIds?: string[];
+  initialQuantity?: number;
   onClose: () => void;
-  onAdd: (options: ChosenOptions) => void;
+  onAdd: (options: ChosenOptions, quantity: number) => void;
 }) {
-  // selected option ids, keyed by group
-  const [selected, setSelected] = useState<Record<string, string[]>>({});
+  // selected option ids, keyed by group — seeded from initialOptionIds when editing.
+  const [selected, setSelected] = useState<Record<string, string[]>>(() => {
+    if (!initialOptionIds || initialOptionIds.length === 0) return {};
+    const chosen = new Set(initialOptionIds);
+    const out: Record<string, string[]> = {};
+    for (const g of groups) {
+      const picked = g.options.filter((o) => chosen.has(o.id)).map((o) => o.id);
+      if (picked.length > 0) out[g.id] = picked;
+    }
+    return out;
+  });
+  const [qty, setQty] = useState(Math.max(1, initialQuantity));
 
   const allIds = useMemo(() => Object.values(selected).flat(), [selected]);
   const optionById = useMemo(() => {
@@ -55,7 +74,7 @@ export function ItemModifierModal({
     const label = groups
       .flatMap((g) => (selected[g.id] ?? []).map((id) => optionById.get(id)?.name).filter(Boolean))
       .join(", ");
-    onAdd({ optionIds: allIds, optionsLabel: label, unitPriceMdl: unit });
+    onAdd({ optionIds: allIds, optionsLabel: label, unitPriceMdl: unit }, qty);
   }
 
   return (
@@ -67,25 +86,33 @@ export function ItemModifierModal({
       onClick={onClose}
     >
       <div
-        className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-[#14141f] p-6 ring-1 ring-white/10 sm:rounded-3xl"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-y-auto rounded-t-3xl bg-[#14141f] ring-1 ring-white/10 sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="font-serif text-xl font-bold text-white">{item.name}</h2>
-            {item.description && <p className="mt-1 text-sm text-white/50">{item.description}</p>}
-          </div>
+        {/* Full-bleed photo header — the floating close button lives on the image. */}
+        <div className="relative h-48 w-full shrink-0 overflow-hidden bg-white/5 sm:h-56">
+          {item.photo_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={item.photo_url} alt={item.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-white/10 to-transparent" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/30" />
           <button
             type="button"
             onClick={onClose}
             aria-label="Închide"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20"
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition hover:bg-black/70"
           >
             ✕
           </button>
+          <div className="absolute inset-x-0 bottom-0 p-5">
+            <h2 className="font-serif text-xl font-bold text-white drop-shadow-sm">{item.name}</h2>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 p-6">
+          {item.description && <p className="-mt-2 text-sm text-white/50">{item.description}</p>}
           {groups.map((g) => (
             <fieldset key={g.id}>
               <legend className="mb-2 flex items-center gap-2 text-sm font-semibold text-white">
@@ -131,14 +158,36 @@ export function ItemModifierModal({
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={handleAdd}
-          disabled={!canAdd}
-          className="mt-6 w-full rounded-full bg-primary-dark py-4 text-[15px] font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {canAdd ? `Adaugă · ${unit} MDL` : "Alege opțiunile obligatorii"}
-        </button>
+        {/* Sticky footer — qty stepper doubles as the live price preview. */}
+        <div className="sticky bottom-0 flex items-center gap-4 border-t border-white/10 bg-[#14141f]/95 p-4 backdrop-blur sm:rounded-b-3xl">
+          <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
+            <button
+              type="button"
+              onClick={() => setQty((q) => Math.max(1, q - 1))}
+              aria-label="Scade cantitatea"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-white/80 transition hover:bg-white/10"
+            >
+              −
+            </button>
+            <span className="w-7 text-center text-sm font-bold text-white">{qty}</span>
+            <button
+              type="button"
+              onClick={() => setQty((q) => q + 1)}
+              aria-label="Crește cantitatea"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-white/80 transition hover:bg-white/10"
+            >
+              +
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={!canAdd}
+            className="flex-1 rounded-full bg-primary-dark py-3.5 text-[15px] font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {canAdd ? `Adaugă ${qty} · ${qty * unit} MDL` : "Alege opțiunile obligatorii"}
+          </button>
+        </div>
       </div>
     </div>
   );
