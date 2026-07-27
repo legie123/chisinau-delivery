@@ -8,8 +8,16 @@ vi.stubGlobal("localStorage", {
   removeItem: (k: string) => void storage.delete(k),
 });
 
-const { readPendingQueue, enqueueStatusChange, hasPendingChange, pendingQueueCount, drainPendingQueue, isNetworkError } =
-  await import("@/lib/offline/statusQueue");
+const {
+  readPendingQueue,
+  enqueueStatusChange,
+  hasPendingChange,
+  pendingQueueCount,
+  drainPendingQueue,
+  isNetworkError,
+  giveUpCount,
+  clearGiveUpCount,
+} = await import("@/lib/offline/statusQueue");
 
 describe("offline courier status queue — comanda nu se pierde fără semnal", () => {
   beforeEach(() => {
@@ -90,5 +98,45 @@ describe("offline courier status queue — comanda nu se pierde fără semnal", 
     expect(isNetworkError(new TypeError("Failed to fetch"))).toBe(true);
     expect(isNetworkError(new Error("network error"))).toBe(true);
     expect(isNetworkError(new Error("invalid transition picked_up -> delivered"))).toBe(false);
+  });
+
+  it("drops an entry once it hits the max attempt cap and counts it as given up", async () => {
+    enqueueStatusChange({ orderId: "o1", newStatus: "picked_up", ts: 1 });
+    const advance = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    // 8 failed attempts bring the counter to the cap; the 9th drain sees the
+    // cap already hit and gives up without calling `advance` again.
+    for (let i = 0; i < 8; i++) {
+      await drainPendingQueue(advance);
+    }
+    expect(hasPendingChange("o1")).toBe(true);
+    expect(advance).toHaveBeenCalledTimes(8);
+
+    await drainPendingQueue(advance);
+    expect(advance).toHaveBeenCalledTimes(8); // no extra attempt — already at the cap
+    expect(hasPendingChange("o1")).toBe(false);
+    expect(giveUpCount()).toBe(1);
+    clearGiveUpCount();
+  });
+
+  it("drops an entry older than 24h without retrying it, and counts it as given up", async () => {
+    enqueueStatusChange({ orderId: "o1", newStatus: "picked_up", ts: 1 });
+    // Backdate enqueuedAt past the 24h budget directly in storage.
+    const queue = readPendingQueue();
+    queue[0].enqueuedAt = Date.now() - 25 * 60 * 60 * 1000;
+    localStorage.setItem("chisinau-courier-pending-status", JSON.stringify(queue));
+
+    const advance = vi.fn().mockResolvedValue({ error: null });
+    await drainPendingQueue(advance);
+
+    expect(advance).not.toHaveBeenCalled();
+    expect(hasPendingChange("o1")).toBe(false);
+    expect(giveUpCount()).toBe(1);
+    clearGiveUpCount();
+  });
+
+  it("clearGiveUpCount dismisses the stuck-entry banner", () => {
+    expect(giveUpCount()).toBe(0);
+    clearGiveUpCount(); // no-op when already zero, shouldn't throw
+    expect(giveUpCount()).toBe(0);
   });
 });

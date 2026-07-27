@@ -9,7 +9,9 @@ import type { DispatchOffer } from "@/lib/types/domain";
 // WS2 — the courier's live offer feed. A new dispatch_offers row (or a status
 // change on theirs) refreshes the server-rendered page so the OfferCard appears
 // within ~1s of mark_ready_for_pickup. Row-filtered by courier_id per the repo
-// realtime rules; subscribeTable makes the channel name unique per mount.
+// realtime rules; subscribeTable makes the channel name unique per mount and
+// pauses/resumes this channel across pagehide/visibilitychange for bfcache
+// eligibility — no extra wiring needed here.
 export function OffersLive({ courierId }: { courierId: string }) {
   const router = useRouter();
 

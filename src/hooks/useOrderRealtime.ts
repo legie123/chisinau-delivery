@@ -8,6 +8,8 @@ import type { DeliveryStatusEvent, Order } from "@/lib/types/domain";
 // Keeps an order's status + status history live without a manual refresh —
 // filtered by order id, not a whole-table subscription (fine for an internal
 // admin tool, wrong for a customer-facing page at any real scale).
+// Both channels below inherit subscribeTable()'s pagehide/visibilitychange
+// pause+resume (bfcache eligibility) — no extra wiring needed here.
 export function useOrderRealtime(orderId: string, initialOrder: Order, initialEvents: DeliveryStatusEvent[]) {
   const [order, setOrder] = useState(initialOrder);
   const [events, setEvents] = useState(initialEvents);

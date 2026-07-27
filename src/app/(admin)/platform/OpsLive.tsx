@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
+import { startJitteredPoll, type JitteredPoll } from "@/lib/realtime/pollJitter";
 import type { AdminFleetRow, AdminOrderBoardRow, AdminWaitMetricsRow } from "@/lib/types/domain";
 import { OrdersBoard } from "./OrdersBoard";
 import { FleetPanel } from "./FleetPanel";
@@ -50,42 +51,48 @@ export function OpsLive({
   const [wait, setWait] = useState(initialWait);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Undebounced fetch — used directly by the jittered poll fallback (which
+  // already self-paces) and wrapped by `refetch` below for realtime bursts.
+  const fetchLatest = useCallback(async () => {
+    const supabase = createClient();
+    const [{ data: b }, { data: f }, { count: sc }, { count: pc }, { data: w }] = await Promise.all([
+      supabase.from("admin_order_board").select("*").order("in_state_seconds", { ascending: false }),
+      supabase.from("admin_fleet_status").select("*").order("full_name"),
+      supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
+      supabase.from("admin_payment_queue").select("id", { count: "exact", head: true }),
+      supabase.from("admin_wait_metrics").select("*").maybeSingle(),
+    ]);
+    if (b) setBoard(b as AdminOrderBoardRow[]);
+    if (f) setFleet(f as AdminFleetRow[]);
+    if (sc !== null) setStuck(sc);
+    if (pc !== null) setPay(pc);
+    if (w) setWait(w as AdminWaitMetricsRow);
+  }, []);
+
   const refetch = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(async () => {
-      const supabase = createClient();
-      const [{ data: b }, { data: f }, { count: sc }, { count: pc }, { data: w }] = await Promise.all([
-        supabase.from("admin_order_board").select("*").order("in_state_seconds", { ascending: false }),
-        supabase.from("admin_fleet_status").select("*").order("full_name"),
-        supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
-        supabase.from("admin_payment_queue").select("id", { count: "exact", head: true }),
-        supabase.from("admin_wait_metrics").select("*").maybeSingle(),
-      ]);
-      if (b) setBoard(b as AdminOrderBoardRow[]);
-      if (f) setFleet(f as AdminFleetRow[]);
-      if (sc !== null) setStuck(sc);
-      if (pc !== null) setPay(pc);
-      if (w) setWait(w as AdminWaitMetricsRow);
-    }, 400);
-  }, []);
+    timer.current = setTimeout(() => void fetchLatest(), 400);
+  }, [fetchLatest]);
 
   useEffect(() => {
     const supabase = createClient();
     let stopped = false;
-    let poll: ReturnType<typeof setInterval> | null = null;
+    // Jittered (base 30s ± 0-10s, exponential backoff on consecutive failures)
+    // — prevents every degraded admin tab from hammering Supabase in lockstep.
+    let poll: JitteredPoll | null = null;
     const degraded = new Set<string>();
 
     const startPolling = (key: string) => {
       degraded.add(key);
-      // #7: a CLOSED ack that arrives after unmount must not resurrect the interval.
+      // #7: a CLOSED ack that arrives after unmount must not resurrect the poll.
       if (stopped || poll) return;
-      poll = setInterval(refetch, 30_000);
+      poll = startJitteredPoll(fetchLatest);
     };
     const stopPollingIfHealthy = (key: string) => {
       degraded.delete(key);
       // #9: only stop the shared poll once EVERY channel has recovered.
       if (degraded.size === 0 && poll) {
-        clearInterval(poll);
+        poll.stop();
         poll = null;
       }
     };
@@ -110,10 +117,10 @@ export function OpsLive({
     return () => {
       stopped = true;
       unsubs.forEach((u) => u());
-      if (poll) clearInterval(poll);
+      if (poll) poll.stop();
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [refetch]);
+  }, [refetch, fetchLatest]);
 
   const couriersWorking = fleet.filter((c) => c.status === "online" || c.status === "on_delivery").length;
 
