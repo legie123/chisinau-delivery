@@ -538,6 +538,7 @@ export type Database = {
       }
       couriers: {
         Row: {
+          consecutive_ignored_offers: number
           created_at: string
           full_name: string
           id: string
@@ -551,6 +552,7 @@ export type Database = {
           vehicle_type: string
         }
         Insert: {
+          consecutive_ignored_offers?: number
           created_at?: string
           full_name: string
           id?: string
@@ -564,6 +566,7 @@ export type Database = {
           vehicle_type: string
         }
         Update: {
+          consecutive_ignored_offers?: number
           created_at?: string
           full_name?: string
           id?: string
