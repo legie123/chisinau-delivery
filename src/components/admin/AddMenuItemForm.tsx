@@ -26,6 +26,13 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
       return;
     }
 
+    const description = String(formData.get("description") ?? "").trim();
+    const isCateringOnly = formData.get("is_catering_only") === "on";
+    if (!isCateringOnly && !description) {
+      setError("Descrierea e obligatorie pentru articolele din meniul principal — ajută clientul să aleagă.");
+      return;
+    }
+
     setPending(true);
     try {
       const url = await uploadMenuPhoto(restaurantId, photo);
@@ -70,11 +77,16 @@ export function AddMenuItemForm({ restaurantId, categories }: { restaurantId: st
             Fotografie obligatorie: preparatul întreg, centrat, clar, fără colaj/text/persoane (recomandat 16:9).
           </p>
         </div>
-        <textarea
-          name="description"
-          placeholder="Descriere (opțional)"
-          className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60 sm:col-span-2"
-        />
+        <div className="flex flex-col gap-1 sm:col-span-2">
+          <textarea
+            name="description"
+            placeholder="ex: somon proaspăt, orez de sushi, sos teriyaki de casă, susan prăjit"
+            className="rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
+          />
+          <p className="text-xs text-white/50">
+            Ingrediente principale întâi, apoi alergeni. Obligatorie, cu excepția articolelor doar pentru catering.
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="is_catering_only" />
           Doar pentru catering

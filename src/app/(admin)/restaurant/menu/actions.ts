@@ -48,6 +48,43 @@ export async function deleteCategory(_prev: ActionState, formData: FormData): Pr
   }
 }
 
+// Category reorder — mirrors moveMenuItem's ↑/↓ sort_order swap (see below):
+// simple no-op (not an error) once at either edge. Categories were previously
+// append-only (createCategory + deleteCategory, no reorder), so a partner had
+// no way to enact a promo→popular→starters→mains→desserts ordering.
+export async function moveCategory(categoryId: string, direction: "up" | "down"): Promise<ActionState> {
+  try {
+    const { supabase, restaurantId } = await requireOwnRestaurant();
+
+    const { data: category, error: categoryError } = await supabase
+      .from("menu_categories")
+      .select("id, sort_order")
+      .eq("id", categoryId)
+      .eq("restaurant_id", restaurantId)
+      .single();
+    if (categoryError || !category) return { error: "Categoria nu a fost găsită." };
+
+    let neighborQuery = supabase.from("menu_categories").select("id, sort_order").eq("restaurant_id", restaurantId);
+    neighborQuery =
+      direction === "up"
+        ? neighborQuery.lt("sort_order", category.sort_order).order("sort_order", { ascending: false })
+        : neighborQuery.gt("sort_order", category.sort_order).order("sort_order", { ascending: true });
+
+    const { data: neighbor } = await neighborQuery.limit(1).maybeSingle();
+    if (!neighbor) return { error: null };
+
+    const { error: err1 } = await supabase.from("menu_categories").update({ sort_order: neighbor.sort_order }).eq("id", category.id);
+    if (err1) return { error: "Reordonarea a eșuat." };
+    const { error: err2 } = await supabase.from("menu_categories").update({ sort_order: category.sort_order }).eq("id", neighbor.id);
+    if (err2) return { error: "Reordonarea a eșuat." };
+
+    revalidatePath("/restaurant/menu");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
+}
+
 export async function createMenuItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { supabase, restaurantId } = await requireOwnRestaurant();

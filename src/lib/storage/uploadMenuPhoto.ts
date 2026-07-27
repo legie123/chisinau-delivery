@@ -2,11 +2,29 @@ import { createClient } from "@/lib/supabase/client";
 
 const MAX_DIMENSION = 1280;
 const JPEG_QUALITY = 0.82;
+const MIN_SHORT_SIDE = 640;
+const MIN_ASPECT_RATIO = 1.2; // longer/shorter side — rejects near-square/portrait crops
+const MAX_ASPECT_RATIO = 2.5; // rejects panorama/ultra-wide crops
+
+// Photo consistency gate (menu items only): the customer grid scans on a
+// uniform crop, so reject bitmaps below a usable resolution or far from the
+// recommended 16:9 (~1.78) before they ever get compressed/uploaded.
+function assertMenuPhotoDimensions(bitmap: ImageBitmap): void {
+  const shortSide = Math.min(bitmap.width, bitmap.height);
+  if (shortSide < MIN_SHORT_SIDE) {
+    throw new Error(`Fotografie prea mică (minim ${MIN_SHORT_SIDE}px pe latura scurtă) — încarcă o imagine de rezoluție mai mare.`);
+  }
+  const ratio = Math.max(bitmap.width, bitmap.height) / shortSide;
+  if (ratio < MIN_ASPECT_RATIO || ratio > MAX_ASPECT_RATIO) {
+    throw new Error("Cadrul e prea departe de proporția recomandată 16:9 — recadrează preparatul (fără margini excesive sau colaj).");
+  }
+}
 
 // Resize/re-encode client-side before upload, matching the pattern already
 // proven at La Fratii Bikes — keeps menu photos small without a server step.
-async function compressImage(file: File): Promise<Blob> {
+async function compressImage(file: File, validate?: (bitmap: ImageBitmap) => void): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
+  validate?.(bitmap);
   const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
@@ -29,8 +47,13 @@ async function compressImage(file: File): Promise<Blob> {
 
 // Shared compress-then-upload path — bucket + folder-scoped path, returns the
 // storage object path (not a URL; callers decide public vs signed access).
-async function uploadCompressedPhoto(bucket: string, folder: string, file: File): Promise<string> {
-  const compressed = await compressImage(file);
+async function uploadCompressedPhoto(
+  bucket: string,
+  folder: string,
+  file: File,
+  validate?: (bitmap: ImageBitmap) => void,
+): Promise<string> {
+  const compressed = await compressImage(file, validate);
   const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 
   const supabase = createClient();
@@ -43,7 +66,7 @@ async function uploadCompressedPhoto(bucket: string, folder: string, file: File)
 }
 
 export async function uploadMenuPhoto(restaurantId: string, file: File): Promise<string> {
-  const path = await uploadCompressedPhoto("restaurant-photos", restaurantId, file);
+  const path = await uploadCompressedPhoto("restaurant-photos", restaurantId, file, assertMenuPhotoDimensions);
   const supabase = createClient();
   const { data } = supabase.storage.from("restaurant-photos").getPublicUrl(path);
   return data.publicUrl;

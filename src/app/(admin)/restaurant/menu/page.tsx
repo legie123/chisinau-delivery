@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { AddCategoryForm } from "@/components/admin/AddCategoryForm";
 import { AddMenuItemForm } from "@/components/admin/AddMenuItemForm";
+import { MenuCategoryHeader } from "@/components/admin/MenuCategoryHeader";
 import { MenuItemRow } from "@/components/admin/MenuItemRow";
 import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { MenuCategory, MenuItem, MenuOptionGroup } from "@/lib/types/domain";
@@ -71,12 +72,17 @@ export default async function RestaurantMenuPage() {
         <p className="text-white/50">Niciun articol de meniu încă.</p>
       ) : (
         <div className="flex flex-col gap-6">
+          {categoryList.length > 1 && (
+            <p className="text-xs text-white/40">
+              Recomandat: promoții → populare → aperitive → feluri principale → garnituri → desert/băuturi.
+            </p>
+          )}
           {categoryList.map((category, i) => {
             const categoryItems = itemList.filter((item) => item.category_id === category.id);
             if (categoryItems.length === 0) return null;
             return (
               <PremiumReveal key={category.id} as="section" delay={i * 50}>
-                <h2 className="mb-2 text-sm font-semibold uppercase text-white/50">{category.name}</h2>
+                <MenuCategoryHeader categoryId={category.id} name={category.name} />
                 <ul className="flex flex-col gap-2">
                   {categoryItems.map((item) => (
                     <MenuItemRow key={item.id} item={item} optionGroups={groupsByItem[item.id] ?? []} />
