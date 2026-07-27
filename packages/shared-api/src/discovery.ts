@@ -67,3 +67,24 @@ export async function getPublicCourierTariffHistory(db: Db): Promise<Fns["public
   if (error) return [];
   return data ?? [];
 }
+
+// ANALYTICS DATA LAYER (migration 20260728000000) — two more anon-reachable,
+// aggregate-only SECURITY DEFINER readers for the public restaurant page's
+// histograms (Google-"popular times" style + star breakdown). Same soft-fail
+// contract as the rest of this file: a chart that fails to load must render
+// an elegant empty state, never crash the page.
+
+/** 24 hour-of-day buckets (0-23), last 28d delivered orders, raw count + 0-100
+ * intensity normalized against the restaurant's own busiest hour. Soft-fails to []. */
+export async function getPopularHours(db: Db, restaurantId: string): Promise<Fns["popular_hours"]["Returns"]> {
+  const { data, error } = await db.rpc("popular_hours", { p_restaurant_id: restaurantId });
+  if (error) return [];
+  return data ?? [];
+}
+
+/** 5 star buckets (1-5) + repeated total_ratings, aggregate-only (no PII). Soft-fails to []. */
+export async function getRatingBreakdown(db: Db, restaurantId: string): Promise<Fns["rating_breakdown"]["Returns"]> {
+  const { data, error } = await db.rpc("rating_breakdown", { p_restaurant_id: restaurantId });
+  if (error) return [];
+  return data ?? [];
+}

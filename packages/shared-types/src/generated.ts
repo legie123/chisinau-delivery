@@ -807,6 +807,20 @@ export type Database = {
             foreignKeyName: "favorites_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "favorites_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "favorites_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurant_wait_kpis"
             referencedColumns: ["restaurant_id"]
           },
@@ -1024,6 +1038,20 @@ export type Database = {
             foreignKeyName: "menu_categories_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "menu_categories_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "menu_categories_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurant_wait_kpis"
             referencedColumns: ["restaurant_id"]
           },
@@ -1096,6 +1124,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "menu_items_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "menu_items_restaurant_id_fkey"
@@ -1478,6 +1520,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "orders_restaurant_id_fkey"
@@ -1892,6 +1948,20 @@ export type Database = {
             foreignKeyName: "ratings_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "ratings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "ratings_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurant_wait_kpis"
             referencedColumns: ["restaurant_id"]
           },
@@ -1936,6 +2006,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_hours_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "restaurant_hours_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "restaurant_hours_restaurant_id_fkey"
@@ -1990,6 +2074,20 @@ export type Database = {
             foreignKeyName: "restaurant_prep_stats_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "restaurant_prep_stats_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "restaurant_prep_stats_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurant_wait_kpis"
             referencedColumns: ["restaurant_id"]
           },
@@ -2028,6 +2126,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_restaurant_kpis"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "restaurant_staff_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "restaurant_staff_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
           },
           {
             foreignKeyName: "restaurant_staff_restaurant_id_fkey"
@@ -2234,6 +2346,20 @@ export type Database = {
             foreignKeyName: "orders_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurant_wait_kpis"
             referencedColumns: ["restaurant_id"]
           },
@@ -2337,6 +2463,20 @@ export type Database = {
             foreignKeyName: "orders_restaurant_id_fkey"
             columns: ["restaurant_id"]
             isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
             referencedRelation: "restaurant_wait_kpis"
             referencedColumns: ["restaurant_id"]
           },
@@ -2355,6 +2495,69 @@ export type Database = {
           avoidable_wait_orders_7d: number | null
         }
         Relationships: []
+      }
+      restaurant_analytics_daily: {
+        Row: {
+          day: string | null
+          orders_count: number | null
+          restaurant_id: string | null
+          revenue_mdl: number | null
+        }
+        Relationships: []
+      }
+      restaurant_analytics_hourly: {
+        Row: {
+          hour_of_day: number | null
+          orders_count: number | null
+          restaurant_id: string | null
+          revenue_mdl: number | null
+        }
+        Relationships: []
+      }
+      restaurant_top_items: {
+        Row: {
+          item_name: string | null
+          qty: number | null
+          restaurant_id: string | null
+          revenue_mdl: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_kpis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "orders_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       restaurant_wait_kpis: {
         Row: {
@@ -2681,6 +2884,14 @@ export type Database = {
         }
         Returns: string
       }
+      popular_hours: {
+        Args: { p_restaurant_id: string }
+        Returns: {
+          hour_of_day: number
+          intensity_pct: number
+          orders_count: number
+        }[]
+      }
       prune_notification_outbox: { Args: never; Returns: number }
       public_courier_tariff_history: {
         Args: never
@@ -2705,6 +2916,14 @@ export type Database = {
         }[]
       }
       purge_expired_pii: { Args: never; Returns: undefined }
+      rating_breakdown: {
+        Args: { p_restaurant_id: string }
+        Returns: {
+          rating_count: number
+          stars: number
+          total_ratings: number
+        }[]
+      }
       reconcile_cash_ledger: { Args: never; Returns: undefined }
       record_cash_offload: {
         Args: { p_amount_mdl: number; p_courier_id: string; p_note?: string }
