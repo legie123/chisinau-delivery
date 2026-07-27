@@ -93,6 +93,15 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
   const cateringDetails = catering as CateringDetails | null;
   const isTerminal = o.status === "delivered" || o.status === "cancelled" || o.status === "rejected";
 
+  // Directive 12 — optional POD photo (cash orders, web pilot). 'delivery-proof'
+  // is PRIVATE, so the path is only ever useful behind a signed URL minted here,
+  // server-side, same pattern as the onboarding KYC documents view.
+  let podPhotoUrl: string | null = null;
+  if (o.pod_photo_path) {
+    const { data: signed } = await supabase.storage.from("delivery-proof").createSignedUrl(o.pod_photo_path, 3600);
+    podPhotoUrl = signed?.signedUrl ?? null;
+  }
+
   // Reassign control (Wave D): only for an in-flight order, listing couriers that
   // are online, active, hold no other active delivery, and aren't the current one.
   let availableCouriers: AvailableCourier[] = [];
@@ -223,6 +232,18 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
           </div>
         )}
       </section>
+
+      {podPhotoUrl && (
+        <section className="mt-5 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Dovadă livrare (foto)</h2>
+          {/* eslint-disable-next-line @next/next/no-img-element -- signed URL, not an optimizable static asset */}
+          <img
+            src={podPhotoUrl}
+            alt="Dovadă foto la livrare"
+            className="max-h-96 w-auto rounded-xl ring-1 ring-white/10"
+          />
+        </section>
+      )}
 
       <section className="mt-5 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Istoric</h2>

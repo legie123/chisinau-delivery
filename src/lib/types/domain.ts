@@ -169,6 +169,11 @@ export interface Order {
   // Order 4 (Glovo model) — merchant prep-time override, editable pre-accept
   // only. accept_order prefers this over the statistical estimate.
   prep_time_override_minutes: number | null;
+  // Directive 12 — optional proof-of-delivery photo (cash orders, web pilot).
+  // Storage path under the private 'delivery-proof' bucket; null until the
+  // courier attaches one via attach_delivery_proof. Soft evidence, never a
+  // delivery gate.
+  pod_photo_path: string | null;
   created_at: string;
   updated_at: string;
 }

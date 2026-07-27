@@ -64,3 +64,16 @@ export async function recordGeofenceEvent(
   });
   if (error) throw new RpcError(error);
 }
+
+/**
+ * Directive 12 (web pilot, mobile excluded) — attach an optional proof-of-delivery
+ * photo for a cash order. The assigned courier only; valid while en_route or
+ * within 1h of delivered_at (idempotent-overwrite allowed in that window).
+ * NEVER a delivery gate — advance_delivery_status has zero dependency on this.
+ * `path` is the storage object path already uploaded to the private
+ * 'delivery-proof' bucket (see uploadDeliveryProofPhoto in src/lib/storage).
+ */
+export async function attachDeliveryProof(db: Db, orderId: OrderId, path: string): Promise<void> {
+  const { error } = await db.rpc("attach_delivery_proof", { p_order_id: orderId, p_path: path });
+  if (error) throw new RpcError(error);
+}

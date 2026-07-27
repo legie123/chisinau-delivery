@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/require";
 import {
   acceptDispatchOffer,
   advanceDeliveryStatus,
+  attachDeliveryProof,
   claimOrderAsCourier,
   courierArrivedAtRestaurant,
   declineDispatchOffer,
@@ -118,6 +119,28 @@ export async function recordGeofenceHit(
   } catch {
     // best-effort hint only — never surfaced, never retried
   }
+}
+
+// Directive 12 (web pilot, mobile excluded) — attach an optional POD photo for
+// a cash order. The file is uploaded client-side (uploadDeliveryProofPhoto,
+// same compression path as menu photos) before this runs; this action only
+// calls the RPC with the resulting storage path. Soft evidence, never a gate.
+export async function attachProofOfDelivery(orderId: string, path: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+
+  try {
+    await attachDeliveryProof(supabase, asOrderId(orderId), path);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut atașa dovada foto." };
+  }
+  revalidatePath("/deliveries");
+  revalidatePath(`/deliveries/${orderId}`);
+  return { error: null };
 }
 
 // WS2 — push-dispatch offer response. The RPCs authorize via couriers.user_id

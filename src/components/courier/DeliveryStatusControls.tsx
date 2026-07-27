@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { advanceStatus, arrivedAtRestaurant, recordGeofenceHit } from "@/app/(courier)/deliveries/actions";
+import {
+  advanceStatus,
+  arrivedAtRestaurant,
+  attachProofOfDelivery,
+  recordGeofenceHit,
+} from "@/app/(courier)/deliveries/actions";
 import { useBroadcastCourierLocation } from "@/hooks/useBroadcastCourierLocation";
 import { useOfflinePendingStatusQueue } from "@/hooks/useOfflinePendingStatusQueue";
 import type { MapPoint } from "@/components/shared/DeliveryMap";
 import { haversineM } from "@/lib/routing/route";
+import { uploadDeliveryProofPhoto } from "@/lib/storage/uploadMenuPhoto";
 import { ORDER_STATUS_LABEL, type Order } from "@/lib/types/domain";
 
 // Order 5 — geofence hint threshold. Within this radius, an arrive-press
@@ -48,6 +54,66 @@ function ElapsedWait({ since }: { since: string }) {
       <span className="h-2 w-2 rounded-full bg-gold/80" aria-hidden />
       Aștept la restaurant: {mm}:{String(ss).padStart(2, "0")}
     </p>
+  );
+}
+
+// Directive 12 (web pilot, mobile excluded) — optional POD photo, cash orders
+// only, shown once the order is delivered. Soft evidence, never a gate: this
+// panel appears AFTER the delivery is already recorded, purely for dispute
+// resolution. Uploads via the shared client-side compression path
+// (uploadDeliveryProofPhoto, generalized from uploadMenuPhoto) into the
+// private 'delivery-proof' bucket, then calls attach_delivery_proof with the
+// resulting path — the RPC re-checks assignment/status/window server-side.
+function PodPhotoUpload({ orderId, initialPath }: { orderId: string; initialPath: string | null }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [attachedPath, setAttachedPath] = useState<string | null>(initialPath);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file for a retake
+    if (!file) return;
+
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const path = await uploadDeliveryProofPhoto(orderId, file);
+      const result = await attachProofOfDelivery(orderId, path);
+      if (result.error) {
+        setUploadError(result.error);
+      } else {
+        setAttachedPath(path);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Încărcarea fotografiei a eșuat.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
+      <p className="text-sm text-white/70">
+        {attachedPath ? "✅ Dovadă foto atașată" : "📸 Dovadă foto la livrare (opțional)"}
+      </p>
+      <label
+        className={`flex items-center justify-center gap-2 rounded-full bg-white/5 py-3 text-sm font-semibold text-white/80 ring-1 ring-white/15 transition hover:bg-white/10 ${uploading ? "opacity-50" : ""}`}
+      >
+        <span aria-hidden>{uploading ? "⏳" : "📎"}</span>
+        {uploading ? "Se încarcă..." : attachedPath ? "Înlocuiește foto" : "Adaugă dovadă foto"}
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFile}
+          disabled={uploading}
+        />
+      </label>
+      {uploadError && (
+        <p className="rounded-xl bg-primary/15 px-3 py-2 text-xs text-primary ring-1 ring-primary/30">{uploadError}</p>
+      )}
+    </div>
   );
 }
 
@@ -225,6 +291,10 @@ export function DeliveryStatusControls({
             ← Înapoi (nu am livrat încă)
           </button>
         </div>
+      )}
+      {/* Directive 12 — optional POD photo, cash orders only, once delivered. */}
+      {order.status === "delivered" && order.payment_method === "cash" && (
+        <PodPhotoUpload orderId={order.id} initialPath={order.pod_photo_path} />
       )}
       {error && (
         <p className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">{error}</p>

@@ -1375,6 +1375,7 @@ export type Database = {
           order_type: string
           payment_method: string
           payment_status: string
+          pod_photo_path: string | null
           prep_time_override_minutes: number | null
           requested_for: string | null
           restaurant_id: string
@@ -1403,6 +1404,7 @@ export type Database = {
           order_type: string
           payment_method: string
           payment_status?: string
+          pod_photo_path?: string | null
           prep_time_override_minutes?: number | null
           requested_for?: string | null
           restaurant_id: string
@@ -1431,6 +1433,7 @@ export type Database = {
           order_type?: string
           payment_method?: string
           payment_status?: string
+          pod_photo_path?: string | null
           prep_time_override_minutes?: number | null
           requested_for?: string | null
           restaurant_id?: string
@@ -2422,6 +2425,10 @@ export type Database = {
         Returns: undefined
       }
       assign_courier: { Args: { p_order_id: string }; Returns: undefined }
+      attach_delivery_proof: {
+        Args: { p_order_id: string; p_path: string }
+        Returns: undefined
+      }
       cancel_order: {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
@@ -2569,6 +2576,7 @@ export type Database = {
         Returns: undefined
       }
       dispatch_order: { Args: { p_order_id: string }; Returns: string }
+      effective_cash_cap: { Args: { p_courier_id: string }; Returns: number }
       erase_customer_pii: {
         Args: { p_customer_id: string }
         Returns: undefined
@@ -2664,6 +2672,7 @@ export type Database = {
       }
       prune_notification_outbox: { Args: never; Returns: number }
       purge_expired_pii: { Args: never; Returns: undefined }
+      reconcile_cash_ledger: { Args: never; Returns: undefined }
       record_cash_offload: {
         Args: { p_amount_mdl: number; p_courier_id: string; p_note?: string }
         Returns: string
