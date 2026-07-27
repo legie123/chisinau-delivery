@@ -94,10 +94,13 @@ begin
   -- Pin one seed order to a known fee/tip, delivered inside a NARROW synthetic
   -- shift window (13d11h ago — no seed order in this repo lands there, see
   -- rich_demo_*.sql offsets) so nothing else in the courier's real history
-  -- leaks into the sum and the expected total is deterministic.
+  -- leaks into the sum and the expected total is deterministic. delivery_fee_mdl
+  -- itself is NOT touched here (order 9's write-once fee-floor trigger — added
+  -- 20260727002100 — now blocks any post-insert change to it): the seeded value
+  -- for this order (45) is used as-is instead of pinning it to 40.
   update public.orders
   set courier_id = v_courier, status = 'delivered', payment_status = 'paid',
-      delivered_at = now() - interval '13 days 11 hours', delivery_fee_mdl = 40, tip_mdl = 10
+      delivered_at = now() - interval '13 days 11 hours', tip_mdl = 10
   where id = 'e0000000-0000-0000-0000-000000000023';
 
   -- Clean slate: the earlier open/close test above also left a (real, tiny)
@@ -109,8 +112,8 @@ begin
   select shifts_14d, median_gross_per_shift_14d into v_open_count, v_avg
     from public.admin_courier_pilot_kpis where courier_id = v_courier;
   if v_open_count <> 1 then raise exception 'FAIL: shifts_14d = % (expected 1 synthetic shift)', v_open_count; end if;
-  if v_avg is distinct from 50.00 then
-    raise exception 'FAIL: median_gross_per_shift_14d = % (expected 50.00 = 40 fee + 10 tip)', v_avg;
+  if v_avg is distinct from 55.00 then
+    raise exception 'FAIL: median_gross_per_shift_14d = % (expected 55.00 = 45 seeded fee + 10 tip)', v_avg;
   end if;
 
   -- ---- Blip shift (0 orders) must count in shifts_14d/empty_shifts_14d but
@@ -129,8 +132,8 @@ begin
       from public.admin_courier_pilot_kpis where courier_id = v_courier;
     if v_shifts <> 2 then raise exception 'FAIL: shifts_14d = % (expected 2, real + blip)', v_shifts; end if;
     if v_empty <> 1 then raise exception 'FAIL: empty_shifts_14d = % (expected 1 blip shift)', v_empty; end if;
-    if v_median is distinct from 50.00 then
-      raise exception 'FAIL: median_gross_per_shift_14d = % (expected 50.00 — blip shift must not dilute it)', v_median;
+    if v_median is distinct from 55.00 then
+      raise exception 'FAIL: median_gross_per_shift_14d = % (expected 55.00 — blip shift must not dilute it)', v_median;
     end if;
     if v_avg_orders is distinct from 1.0 then
       raise exception 'FAIL: avg_orders_per_shift_14d = % (expected 1.0 — blip shift must not dilute it)', v_avg_orders;

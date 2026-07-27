@@ -96,6 +96,11 @@ export default async function CustomerLayout({ children }: { children: React.Rea
                 </Link>
               </li>
               <li>
+                <Link href="/cum-functioneaza" className="transition hover:text-white">
+                  Cum funcționează
+                </Link>
+              </li>
+              <li>
                 <Link href="/devino-partener" className="transition hover:text-gold">
                   Devino partener
                 </Link>

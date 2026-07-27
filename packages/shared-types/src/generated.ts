@@ -2671,6 +2671,28 @@ export type Database = {
         Returns: string
       }
       prune_notification_outbox: { Args: never; Returns: number }
+      public_courier_tariff_history: {
+        Args: never
+        Returns: {
+          base_mdl: number
+          effective_from: string
+          id: string
+          note: string
+          per_km_mdl: number
+          wait_grace_minutes: number
+          wait_per_min_mdl: number
+        }[]
+      }
+      public_pricing_history: {
+        Args: never
+        Returns: {
+          courier_pct: number
+          effective_from: string
+          id: string
+          note: string
+          restaurant_pct: number
+        }[]
+      }
       purge_expired_pii: { Args: never; Returns: undefined }
       reconcile_cash_ledger: { Args: never; Returns: undefined }
       record_cash_offload: {

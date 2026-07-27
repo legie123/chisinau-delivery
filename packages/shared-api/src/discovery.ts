@@ -47,3 +47,23 @@ export async function searchMenuItems(db: Db, query: string): Promise<Fns["searc
   if (error) throw new RpcError(error);
   return data ?? [];
 }
+
+// Order 9 — public transparency page (/cum-functioneaza). Both readers are
+// SECURITY DEFINER + granted to anon (no account needed) and exclude
+// created_by — see migration 20260727002100. Soft-fail to [] like the other
+// anon-reachable browse enrichments above: a hiccup on an unauthenticated
+// marketing page must never crash it.
+
+/** Published, versioned commission-split history (oldest first). Soft-fails to []. */
+export async function getPublicPricingHistory(db: Db): Promise<Fns["public_pricing_history"]["Returns"]> {
+  const { data, error } = await db.rpc("public_pricing_history");
+  if (error) return [];
+  return data ?? [];
+}
+
+/** Published, versioned courier tariff history (oldest first). Soft-fails to []. */
+export async function getPublicCourierTariffHistory(db: Db): Promise<Fns["public_courier_tariff_history"]["Returns"]> {
+  const { data, error } = await db.rpc("public_courier_tariff_history");
+  if (error) return [];
+  return data ?? [];
+}
