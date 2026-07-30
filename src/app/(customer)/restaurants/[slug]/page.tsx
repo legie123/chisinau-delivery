@@ -38,32 +38,32 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   const categories = typedRestaurant.menu_categories;
   const items = typedRestaurant.menu_items;
 
-  // Menu modifiers: option groups + options for this restaurant's items → itemId map.
-  const optionGroups: Record<string, MenuOptionGroup[]> = {};
+  // Everything below only needs stage-1 results (restaurant id + item ids), so it
+  // all runs in ONE parallel network stage — the menu page went from 4 serial
+  // roundtrips to 2. Modifiers → itemId map; WS4 prep estimate (falls back to the
+  // static column); premium histograms (anon-reachable, aggregate-only, both
+  // soft-fail to [] on any hiccup — see shared-api/discovery.ts).
   const itemIds = items.map((i) => i.id);
-  if (itemIds.length > 0) {
-    const { data: groups } = await supabase
-      .from("menu_option_groups")
-      .select("*, menu_options(*)")
-      .in("menu_item_id", itemIds)
-      .order("sort_order")
-      .order("sort_order", { referencedTable: "menu_options" });
-    for (const g of (groups ?? []) as unknown as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
-      const group: MenuOptionGroup = { ...g, options: (g.menu_options ?? []).filter((o) => o.is_available) };
-      (optionGroups[g.menu_item_id] ??= []).push(group);
-    }
-  }
-
-  // WS4 — live prep estimate for this one restaurant (falls back to static column).
-  const prepRows = await getPrepEstimates(supabase, [typedRestaurant.id]);
-  const prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0];
-
-  // Info-section premium histograms — anon-reachable, aggregate-only, both
-  // soft-fail to [] on any hiccup (see shared-api/discovery.ts).
-  const [popularHours, ratingBreakdown] = await Promise.all([
+  const [groups, prepRows, popularHours, ratingBreakdown] = await Promise.all([
+    itemIds.length > 0
+      ? supabase
+          .from("menu_option_groups")
+          .select("*, menu_options(*)")
+          .in("menu_item_id", itemIds)
+          .order("sort_order")
+          .order("sort_order", { referencedTable: "menu_options" })
+          .then(({ data }) => data ?? [])
+      : Promise.resolve([]),
+    getPrepEstimates(supabase, [typedRestaurant.id]),
     getPopularHours(supabase, typedRestaurant.id),
     getRatingBreakdown(supabase, typedRestaurant.id),
   ]);
+  const optionGroups: Record<string, MenuOptionGroup[]> = {};
+  for (const g of (groups ?? []) as unknown as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
+    const group: MenuOptionGroup = { ...g, options: (g.menu_options ?? []).filter((o) => o.is_available) };
+    (optionGroups[g.menu_item_id] ??= []).push(group);
+  }
+  const prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0];
 
   return (
     <main className="flex-1 px-5 pb-24 pt-6">

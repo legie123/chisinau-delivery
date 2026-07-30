@@ -23,41 +23,41 @@ type HoursRow = { restaurant_id: string; opens_at: string; closes_at: string; is
 
 export default async function RestaurantsPage() {
   const supabase = await createClient();
-  const { data: restaurants, error } = await supabase
-    .from("restaurants")
-    .select("*")
-    .eq("is_active", true)
-    .order("name");
+  const { dow, time } = chisinauNow();
+  const prevDow = (dow + 6) % 7;
 
-  // WS4 — one RPC call for live prep estimates across the whole list (anon-safe).
+  // Two network stages instead of five serial ones — on a remote backend every
+  // serial await is a full roundtrip. Stage 1: the three independent reads.
+  // Hours fetches today's AND yesterday's rows — an overnight window (e.g.
+  // 22:00–02:00) is stored under the day it STARTS, so at 01:00 today it lives
+  // on yesterday's row (audit #15 — mirrors the SQL restaurant_open_at fix).
+  const [{ data: restaurants, error }, { data: { user } }, { data: hoursRows }] = await Promise.all([
+    supabase.from("restaurants").select("*").eq("is_active", true).order("name"),
+    supabase.auth.getUser(),
+    supabase
+      .from("restaurant_hours")
+      .select("restaurant_id, day_of_week, opens_at, closes_at, is_closed")
+      .in("day_of_week", [dow, prevDow]),
+  ]);
   const restaurantList = (restaurants ?? []) as Restaurant[];
-  const prepRows = await getPrepEstimates(supabase, restaurantList.map((r) => r.id));
+
+  // Stage 2: the two reads that needed stage-1 results — prep estimates (WS4,
+  // one RPC across the whole list, anon-safe) + favorites (empty for anon;
+  // customerId null ⇒ browser hides the hearts).
+  const [prepRows, favoriteIds] = await Promise.all([
+    getPrepEstimates(supabase, restaurantList.map((r) => r.id)),
+    user
+      ? supabase
+          .from("favorites")
+          .select("restaurant_id")
+          .eq("customer_id", user.id)
+          .then(({ data }) => (data ?? []).map((f) => f.restaurant_id as string))
+      : Promise.resolve([] as string[]),
+  ]);
   const estimates: Record<string, PrepEstimate> = {};
   for (const row of (prepRows ?? []) as PrepEstimate[]) {
     estimates[row.restaurant_id] = row;
   }
-
-  // Customer favorites (empty for anon) — powers the heart state + the customer_id
-  // the direct favorites write needs. customerId null ⇒ browser hides the hearts.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  let favoriteIds: string[] = [];
-  if (user) {
-    const { data: favs } = await supabase.from("favorites").select("restaurant_id").eq("customer_id", user.id);
-    favoriteIds = (favs ?? []).map((f) => f.restaurant_id as string);
-  }
-
-  // "Deschis acum" — compute server-side from today's hours in service time.
-  const { dow, time } = chisinauNow();
-  const prevDow = (dow + 6) % 7;
-  // Fetch today's AND yesterday's rows — an overnight window (e.g. 22:00–02:00) is
-  // stored under the day it STARTS, so at 01:00 today it lives on yesterday's row.
-  // (audit #15 — mirrors the SQL restaurant_open_at fix.)
-  const { data: hoursRows } = await supabase
-    .from("restaurant_hours")
-    .select("restaurant_id, day_of_week, opens_at, closes_at, is_closed")
-    .in("day_of_week", [dow, prevDow]);
   const openNowIds = ((hoursRows ?? []) as (HoursRow & { day_of_week: number })[])
     .filter((h) => {
       if (h.is_closed) return false;
