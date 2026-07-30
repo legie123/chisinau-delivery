@@ -54,3 +54,5 @@ supabase/seeds/local_secrets.sql
 # Local operational-server master creds (never commit)
 scripts/.dev-local.env
 .osrm/
+tools/simulator/.venv/
+tools/simulator/__pycache__/

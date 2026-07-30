@@ -1,0 +1,57 @@
+# Dragon Courier — parametrii simulatorului (Faza 4).
+# Valorile marcate [DB] au fost citite din instanța locală la 2026-07-31;
+# restul sunt ipoteze declarate — devin reale abia cu datele pilotului.
+
+[city]
+# [DB] cele 11 restaurante reale (lat, lng) din seed — Chișinău
+restaurants = [
+  [47.06800, 28.86000], [47.04100, 28.80200], [47.03300, 28.90400],
+  [47.05300, 28.87100], [47.01150, 28.86000], [46.99800, 28.79500],
+  [47.02300, 28.83500], [47.05000, 28.81000], [47.01800, 28.82800],
+  [47.02450, 28.83220], [47.00100, 28.85200],
+]
+# clientul = restaurant + ofset normal (σ în km, tăiat la max_km)
+customer_sigma_km = 1.2
+customer_max_km = 4.0
+
+[fleet]
+# [DB] flota activă din seed
+car = 3
+e_bike = 2
+bike = 2
+scooter = 2
+on_foot = 1
+
+[speeds_kmh]
+# identic cu dispatch_order() (WS2)
+bike = 12
+e_bike = 18
+scooter = 25
+car = 22
+on_foot = 5
+
+[demand]
+orders_per_day = 40
+# ponderi orare 0-23 (prânz 12-14, cină 18-21)
+hourly_weights = [0,0,0,0,0,0,1,2,3,3,4,6,10,10,7,4,4,5,9,11,10,6,3,1]
+
+[prep]
+# [DB] restaurant_prep_stats: avg=33 min, p90=46 min → lognormal potrivit pe mediană/p90
+median_minutes = 33
+p90_minutes = 46
+partner_accept_min = 1.0
+partner_accept_max = 4.0
+
+[dispatch]
+# identic cu SQL: ofertă 30s, sweeper 15s, max 5 valuri per rundă, ghost N=3
+offer_ttl_min = 0.5
+sweeper_tick_min = 0.25
+max_waves = 5
+ghost_streak = 3
+handoff_min = 3.0
+dropoff_min = 2.5
+cancel_after_ready_min = 45.0
+# model de acceptare (ipoteză declarată, de calibrat cu pilotul)
+p_accept = 0.75
+p_decline = 0.15
+p_ignore = 0.10
