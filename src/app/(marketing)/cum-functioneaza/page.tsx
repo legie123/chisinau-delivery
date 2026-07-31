@@ -120,13 +120,14 @@ export default async function HowItWorksPage() {
                   <th className="px-3 py-2 font-medium">Per km</th>
                   <th className="px-3 py-2 font-medium">Așteptare</th>
                   <th className="px-3 py-2 font-medium">Grație</th>
+                  <th className="px-3 py-2 font-medium">Vreme</th>
                   <th className="px-3 py-2 font-medium">Notă</th>
                 </tr>
               </thead>
               <tbody>
                 {tariffHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-3 py-3 text-white/40">
+                    <td colSpan={7} className="px-3 py-3 text-white/40">
                       Istoricul nu poate fi afișat momentan.
                     </td>
                   </tr>
@@ -138,6 +139,9 @@ export default async function HowItWorksPage() {
                       <td className="px-3 py-2 font-medium text-gold">{formatMdl(row.per_km_mdl)}/km</td>
                       <td className="px-3 py-2 font-medium text-gold">{formatMdl(row.wait_per_min_mdl)}/min</td>
                       <td className="px-3 py-2 text-white/80">{row.wait_grace_minutes} min</td>
+                      <td className="px-3 py-2 text-white/80">
+                        {Number(row.weather_surcharge_mdl) > 0 ? `+${formatMdl(row.weather_surcharge_mdl)}` : "—"}
+                      </td>
                       <td className="px-3 py-2 text-white/50">{row.note ?? "—"}</td>
                     </tr>
                   ))

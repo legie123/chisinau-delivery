@@ -581,6 +581,7 @@ export type Database = {
           per_km_mdl: number
           wait_grace_minutes: number
           wait_per_min_mdl: number
+          weather_surcharge_mdl: number
         }
         Insert: {
           base_mdl: number
@@ -592,6 +593,7 @@ export type Database = {
           per_km_mdl: number
           wait_grace_minutes?: number
           wait_per_min_mdl: number
+          weather_surcharge_mdl?: number
         }
         Update: {
           base_mdl?: number
@@ -603,6 +605,7 @@ export type Database = {
           per_km_mdl?: number
           wait_grace_minutes?: number
           wait_per_min_mdl?: number
+          weather_surcharge_mdl?: number
         }
         Relationships: []
       }
@@ -1557,6 +1560,7 @@ export type Database = {
           courier_arrived_restaurant_at: string | null
           courier_fee_mdl: number | null
           courier_fee_quoted_mdl: number | null
+          courier_fee_surcharge_mdl: number | null
           courier_id: string | null
           created_at: string
           customer_id: string
@@ -1586,6 +1590,7 @@ export type Database = {
           courier_arrived_restaurant_at?: string | null
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
+          courier_fee_surcharge_mdl?: number | null
           courier_id?: string | null
           created_at?: string
           customer_id: string
@@ -1615,6 +1620,7 @@ export type Database = {
           courier_arrived_restaurant_at?: string | null
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
+          courier_fee_surcharge_mdl?: number | null
           courier_id?: string | null
           created_at?: string
           customer_id?: string
@@ -2855,6 +2861,7 @@ export type Database = {
           value_text: string
         }[]
       }
+      admin_pilot_go_no_go_surge_pct: { Args: never; Returns: number }
       admin_reassign_courier: {
         Args: { p_new_courier_id: string; p_order_id: string }
         Returns: undefined
@@ -2970,6 +2977,7 @@ export type Database = {
           per_km_mdl: number
           wait_grace_minutes: number
           wait_per_min_mdl: number
+          weather_surcharge_mdl: number
         }
         SetofOptions: {
           from: "*"
@@ -3145,6 +3153,7 @@ export type Database = {
           per_km_mdl: number
           wait_grace_minutes: number
           wait_per_min_mdl: number
+          weather_surcharge_mdl: number
         }[]
       }
       public_pricing_history: {
@@ -3241,6 +3250,7 @@ export type Database = {
           p_per_km_mdl: number
           p_wait_grace_minutes?: number
           p_wait_per_min_mdl: number
+          p_weather_surcharge_mdl?: number
         }
         Returns: string
       }

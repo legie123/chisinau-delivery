@@ -25,6 +25,7 @@ export async function setCourierTariff(
   waitGraceMinutes?: number,
   effectiveFrom?: string,
   note?: string,
+  weatherSurchargeMdl?: number,
 ): Promise<string> {
   const { data, error } = await db.rpc("set_courier_tariff", {
     p_base_mdl: baseMdl,
@@ -33,6 +34,7 @@ export async function setCourierTariff(
     p_wait_grace_minutes: waitGraceMinutes,
     p_effective_from: effectiveFrom,
     p_note: note,
+    p_weather_surcharge_mdl: weatherSurchargeMdl,
   });
   if (error) throw new RpcError(error);
   return data as string;
