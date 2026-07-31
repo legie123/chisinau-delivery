@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { DeliveryStatusControls } from "@/components/courier/DeliveryStatusControls";
 import { DeliveryProgress } from "@/components/courier/DeliveryProgress";
 import { CourierRouteMap } from "@/components/courier/CourierRouteMap";
+import { DeliveryLive } from "@/components/courier/DeliveryLive";
 import type { Address, Order, OrderItem } from "@/lib/types/domain";
 
 export default async function DeliveryDetailPage({ params }: { params: Promise<{ deliveryId: string }> }) {
@@ -59,6 +60,7 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
+      <DeliveryLive orderId={typedOrder.id} />
       <h1 className="mb-5 text-2xl font-bold text-white">Livrare {typedOrder.order_number}</h1>
 
       <DeliveryProgress status={typedOrder.status} />

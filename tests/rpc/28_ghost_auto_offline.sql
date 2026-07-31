@@ -27,6 +27,12 @@ begin
   -- isolate: only v_courier is a dispatch candidate
   update public.orders set status = 'cancelled', courier_id = null
   where courier_id = v_courier and status in ('courier_assigned','picked_up','en_route');
+  -- Neutralize pre-existing unassigned ready orders (demo fixtures C/V). Since
+  -- 20260731000400 the sweeper's rescue loop legitimately re-offers a stalled
+  -- ready order to a newly-online courier — correct in prod, but here it would
+  -- hand v_courier a surprise live offer and skew this ghost-streak test.
+  update public.orders set status = 'cancelled'
+  where status = 'ready_for_pickup' and courier_id is null;
   update public.couriers set status = 'offline' where id <> v_courier;
   update public.courier_shifts set ended_at = now() where courier_id = v_courier and ended_at is null;
   delete from public.notification_outbox where user_id = v_courier_user;

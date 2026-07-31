@@ -1,19 +1,22 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { reassignCourier } from "./actions";
+import { assignCourier, reassignCourier } from "./actions";
 
 export type AvailableCourier = { id: string; full_name: string };
 
-// Wave D2 — pick another available courier for a stuck in-flight order. Only
-// rendered when the order is courier_assigned/picked_up/en_route and there is at
-// least one free online courier to hand it to. The RPC re-checks capacity + role.
+// Wave D2 — pick a courier for a stuck order. In `reassign` mode (default) it
+// hands an in-flight order from a ghosting courier to another; with `assign`
+// set it places a courier on a ready_for_pickup order that was never picked up
+// (SurfaceAudit P2). The RPC re-checks capacity + role either way.
 export function ReassignCourierControl({
   orderId,
   couriers,
+  assign = false,
 }: {
   orderId: string;
   couriers: AvailableCourier[];
+  assign?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState("");
@@ -24,7 +27,9 @@ export function ReassignCourierControl({
     if (!selected) return;
     setError(null);
     startTransition(async () => {
-      const result = await reassignCourier(orderId, selected);
+      const result = assign
+        ? await assignCourier(orderId, selected)
+        : await reassignCourier(orderId, selected);
       if (result.error) setError(result.error);
       else {
         setOpen(false);
@@ -34,7 +39,7 @@ export function ReassignCourierControl({
   }
 
   if (couriers.length === 0) {
-    return <span className="text-xs text-white/30">Niciun curier liber pentru reatribuire.</span>;
+    return <span className="text-xs text-white/30">Niciun curier liber.</span>;
   }
 
   if (!open) {
@@ -44,7 +49,7 @@ export function ReassignCourierControl({
         onClick={() => setOpen(true)}
         className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70 ring-1 ring-white/10 transition hover:bg-white/10"
       >
-        Reatribuie curier
+        {assign ? "Atribuie curier" : "Reatribuie curier"}
       </button>
     );
   }

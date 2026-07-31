@@ -65,6 +65,17 @@ export async function adminReassignCourier(db: Db, orderId: OrderId, newCourierI
 }
 
 /**
+ * Platform admin ASSIGNS a courier to a stuck `ready_for_pickup` order that has
+ * NO courier yet (the dispatch pool was fully canvassed / all offers expired).
+ * `adminReassignCourier` only handles orders that already have a courier;
+ * this is its `courier_id IS NULL` sibling. Admin-only (checks has_role).
+ */
+export async function adminAssignCourier(db: Db, orderId: OrderId, courierId: CourierId): Promise<void> {
+  const { error } = await db.rpc("admin_assign_courier", { p_order_id: orderId, p_new_courier_id: courierId });
+  if (error) throw new RpcError(error);
+}
+
+/**
  * Suspend a courier — HUMAN admin only, mandatory reason (EU 2024/2831 Art 10(5)+11).
  * Records who decided + a contest window and deactivates the courier. There is NO
  * automated suspension path; fraud_flags stay signal-only.

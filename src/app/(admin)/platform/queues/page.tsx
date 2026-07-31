@@ -6,6 +6,7 @@ import {
   type AdminStuckOrderRow,
 } from "@/lib/types/domain";
 import { StuckOrderActions } from "./StuckOrderActions";
+import { ReassignCourierControl, type AvailableCourier } from "./ReassignCourierControl";
 import { PaymentActions } from "./PaymentActions";
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
@@ -24,13 +25,16 @@ function ageLabel(seconds: number) {
 
 export default async function PlatformQueuesPage() {
   const supabase = await createClient();
-  const [{ data: stuck }, { data: payments }] = await Promise.all([
+  const [{ data: stuck }, { data: payments }, { data: freeCouriers }] = await Promise.all([
     supabase.from("admin_stuck_orders").select("*").order("in_state_seconds", { ascending: false }),
     supabase.from("admin_payment_queue").select("*").order("updated_at", { ascending: false }),
+    // Online, active couriers for the manual assign/reassign pickers.
+    supabase.from("couriers").select("id, full_name").eq("status", "online").eq("is_active", true).order("full_name"),
   ]);
 
   const stuckRows = (stuck ?? []) as AdminStuckOrderRow[];
   const payRows = (payments ?? []) as AdminPaymentQueueRow[];
+  const availableCouriers = (freeCouriers ?? []) as AvailableCourier[];
 
   return (
     <main className="flex-1 px-6 py-8">
@@ -69,7 +73,14 @@ export default async function PlatformQueuesPage() {
                     <td className="py-3 text-primary">{ageLabel(o.in_state_seconds)}</td>
                     <td className="py-3 text-white/60">{o.restaurant_name}</td>
                     <td className="py-3 text-right">
-                      <StuckOrderActions orderId={o.id} status={o.status} />
+                      <div className="flex flex-col items-end gap-2">
+                        {/* A ready order that was never picked up has no courier
+                            to reassign — offer a manual assign instead (P2). */}
+                        {o.status === "ready_for_pickup" && (
+                          <ReassignCourierControl orderId={o.id} couriers={availableCouriers} assign />
+                        )}
+                        <StuckOrderActions orderId={o.id} status={o.status} />
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -2816,6 +2816,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_assign_courier: {
+        Args: { p_new_courier_id: string; p_order_id: string }
+        Returns: undefined
+      }
       admin_courier_cash_status: {
         Args: { p_courier_id: string }
         Returns: {

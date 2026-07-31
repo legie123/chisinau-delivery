@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  adminAssignCourier,
   adminReassignCourier,
   adminUpdatePaymentStatus,
   advanceDeliveryStatus,
@@ -75,6 +76,26 @@ export async function reassignCourier(orderId: string, courierId: string): Promi
     await adminReassignCourier(supabase, asOrderId(orderId), asCourierId(courierId));
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : "Nu am putut reatribui curierul." };
+  }
+  revalidatePath("/platform/queues");
+  revalidatePath(`/platform/orders/${orderId}`);
+  return { error: null };
+}
+
+// SurfaceAudit P2 — admin ASSIGNS a courier to a ready_for_pickup order that was
+// never picked up (fully-canvassed dispatch pool). The courier_id IS NULL sibling
+// of reassignCourier. Guarded RPC via shared-api (admin_assign_courier).
+export async function assignCourier(orderId: string, courierId: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    supabase = await client();
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+  try {
+    await adminAssignCourier(supabase, asOrderId(orderId), asCourierId(courierId));
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Nu am putut atribui curierul." };
   }
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);
