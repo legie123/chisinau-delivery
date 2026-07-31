@@ -24,6 +24,11 @@ begin
   select id into v_item from public.menu_items where restaurant_id = v_rest and is_available and not is_catering_only limit 1;
   select id into v_addr from public.addresses where customer_id = v_cust limit 1;
 
+  -- Neutralize the pre-existing unassigned ready demo fixtures (C/V) — otherwise
+  -- the rescue loop hands courier Y one of THEM (capacity 1) instead of our test
+  -- order, and the assertion below sees no offer on v_oid.
+  update public.orders set status = 'cancelled'
+    where status = 'ready_for_pickup' and courier_id is null;
   -- Only X online; Y offline for now. Clear their live offers/active orders.
   update public.orders set status = 'cancelled', courier_id = null
     where courier_id in (v_cx, v_cy) and status in ('courier_assigned','picked_up','en_route');
