@@ -15,12 +15,19 @@ const STATUS_LABEL: Record<string, string> = {
   pass: "PASS", fail: "FAIL", no_data: "fără date", info: "instrument",
 };
 
+type ReferralRow = {
+  referrer_name: string; referral_code: string; referred_name: string;
+  delivered_30d: number; window_closed: boolean; qualified: boolean;
+};
+
 export default async function PilotCommandPage() {
   const supabase = await createClient();
-  const [kpis, triggers] = await Promise.all([
+  const [kpis, triggers, { data: referrals }] = await Promise.all([
     getPilotGoNoGo(supabase),
     getScalingTriggers(supabase),
+    supabase.from("admin_referral_progress").select("*"),
   ]);
+  const referralRows = (referrals ?? []) as ReferralRow[];
 
   return (
     <main className="flex-1 px-5 pb-16 pt-6">
@@ -80,6 +87,47 @@ export default async function PilotCommandPage() {
           </div>
         ))}
       </div>
+      {referralRows.length > 0 && (
+        <>
+          <h2 className="mt-10 font-serif text-xl font-bold text-gold">Recomandări de curieri</h2>
+          <p className="mt-1 text-sm text-white/50">
+            Ținta: 50 de livrări în primele 30 de zile. Bonusul se plătește manual, prin payout.
+          </p>
+          <div className="mt-4 overflow-x-auto rounded-2xl bg-white/[0.03] ring-1 ring-white/10">
+            <table className="w-full min-w-[480px] text-sm">
+              <thead>
+                <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/40">
+                  <th className="px-4 py-3">A recomandat</th>
+                  <th className="px-4 py-3">Curier nou</th>
+                  <th className="px-4 py-3">Livrări (30z)</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {referralRows.map((r) => (
+                  <tr key={`${r.referral_code}-${r.referred_name}`} className="border-b border-white/5 last:border-0">
+                    <td className="px-4 py-3 text-white/85">{r.referrer_name} <span className="font-mono text-xs text-white/40">{r.referral_code}</span></td>
+                    <td className="px-4 py-3 text-white/85">{r.referred_name}</td>
+                    <td className="px-4 py-3 font-semibold text-white">{r.delivered_30d} / 50</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                        r.qualified
+                          ? "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30"
+                          : r.window_closed
+                            ? "bg-white/5 text-white/40 ring-white/10"
+                            : "bg-sky-500/15 text-sky-400 ring-sky-500/30"
+                      }`}>
+                        {r.qualified ? "CALIFICAT — plătește bonusul" : r.window_closed ? "fereastră închisă" : "în curs"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
       <p className="mt-6 text-xs text-white/35">
         Regula de aur a pilotului (audit §8): nu recruta al 16-lea curier înainte ca
         primii 15 să atingă ținta de câștig pe tură. Un declanșator ARMAT = începe

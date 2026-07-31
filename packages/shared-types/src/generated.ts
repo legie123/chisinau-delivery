@@ -252,6 +252,20 @@ export type Database = {
             foreignKeyName: "courier_cash_movements_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -339,6 +353,20 @@ export type Database = {
             foreignKeyName: "courier_locations_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: true
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "courier_locations_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: true
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "courier_locations_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: true
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -388,6 +416,20 @@ export type Database = {
             foreignKeyName: "courier_satisfaction_surveys_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "courier_satisfaction_surveys_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "courier_satisfaction_surveys_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -429,6 +471,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_shifts_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "courier_shifts_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
           },
           {
             foreignKeyName: "courier_shifts_courier_id_fkey"
@@ -495,6 +551,20 @@ export type Database = {
             foreignKeyName: "courier_suspensions_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "courier_suspensions_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "courier_suspensions_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -546,6 +616,8 @@ export type Database = {
           phone: string
           rating_avg: number | null
           rating_count: number
+          referral_code: string
+          referred_by: string | null
           status: string
           updated_at: string
           user_id: string
@@ -560,6 +632,8 @@ export type Database = {
           phone: string
           rating_avg?: number | null
           rating_count?: number
+          referral_code?: string
+          referred_by?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -574,12 +648,50 @@ export type Database = {
           phone?: string
           rating_avg?: number | null
           rating_count?: number
+          referral_code?: string
+          referred_by?: string | null
           status?: string
           updated_at?: string
           user_id?: string
           vehicle_type?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "couriers_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "couriers_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "couriers_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "couriers_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "couriers_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       delivery_status_events: {
         Row: {
@@ -701,6 +813,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_offers_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "dispatch_offers_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
           },
           {
             foreignKeyName: "dispatch_offers_courier_id_fkey"
@@ -880,6 +1006,20 @@ export type Database = {
             foreignKeyName: "fraud_flags_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "fraud_flags_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "fraud_flags_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -930,6 +1070,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "geofence_events_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
           },
           {
             foreignKeyName: "geofence_events_courier_id_fkey"
@@ -1504,6 +1658,20 @@ export type Database = {
             foreignKeyName: "orders_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -1894,6 +2062,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "ratings_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
           },
           {
             foreignKeyName: "ratings_courier_id_fkey"
@@ -2332,6 +2514,20 @@ export type Database = {
             foreignKeyName: "orders_courier_id_fkey"
             columns: ["courier_id"]
             isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
             referencedRelation: "couriers"
             referencedColumns: ["id"]
           },
@@ -2385,6 +2581,20 @@ export type Database = {
           status: string | null
           total_mdl: number | null
           updated_at: string | null
+        }
+        Relationships: []
+      }
+      admin_referral_progress: {
+        Row: {
+          delivered_30d: number | null
+          qualified: boolean | null
+          referral_code: string | null
+          referred_id: string | null
+          referred_joined_at: string | null
+          referred_name: string | null
+          referrer_id: string | null
+          referrer_name: string | null
+          window_closed: boolean | null
         }
         Relationships: []
       }
@@ -2444,6 +2654,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "admin_fleet_status"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
           },
           {
             foreignKeyName: "orders_courier_id_fkey"
@@ -3003,6 +3227,10 @@ export type Database = {
       }
       set_courier_online_status: {
         Args: { p_status: string }
+        Returns: undefined
+      }
+      set_courier_referrer: {
+        Args: { p_courier_id: string; p_referrer_code: string }
         Returns: undefined
       }
       set_courier_tariff: {

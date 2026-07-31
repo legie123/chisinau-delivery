@@ -47,7 +47,7 @@ export default async function CourierEarningsPage() {
 
   const { data: courier } = await supabase
     .from("couriers")
-    .select("id")
+    .select("id, referral_code")
     .eq("user_id", user?.id ?? "")
     .maybeSingle();
 
@@ -217,6 +217,20 @@ export default async function CourierEarningsPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Faza 5 #4 — referral: platforma contorizează, bonusul e decizie umană */}
+      {courier.referral_code && (
+        <section className="mt-10 rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
+          <h2 className="font-serif text-lg font-bold text-gold">Recomandă un curier</h2>
+          <p className="mt-1 text-sm text-white/55">
+            Colegul tău menționează codul tău la înscriere. Bonusul se plătește când
+            atinge 50 de livrări în primele 30 de zile.
+          </p>
+          <p className="mt-3 inline-block rounded-xl bg-white/5 px-4 py-2 font-mono text-xl font-bold tracking-[0.3em] text-white ring-1 ring-gold/30">
+            {courier.referral_code}
+          </p>
+        </section>
       )}
     </main>
   );
