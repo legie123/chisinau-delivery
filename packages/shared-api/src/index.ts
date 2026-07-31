@@ -13,3 +13,4 @@ export * from "./discovery";
 export * from "./notifications";
 export * from "./cash";
 export * from "./tariff";
+export * from "./pilot";

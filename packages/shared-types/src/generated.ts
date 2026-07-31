@@ -2622,9 +2622,27 @@ export type Database = {
         Args: { p_payout_id: string }
         Returns: undefined
       }
+      admin_pilot_go_no_go: {
+        Args: never
+        Returns: {
+          kpi: string
+          status: string
+          target_text: string
+          value_text: string
+        }[]
+      }
       admin_reassign_courier: {
         Args: { p_new_courier_id: string; p_order_id: string }
         Returns: undefined
+      }
+      admin_scaling_triggers: {
+        Args: never
+        Returns: {
+          armed: boolean
+          current_value: string
+          threshold_text: string
+          trigger_name: string
+        }[]
       }
       admin_update_payment_status: {
         Args: { p_new_status: string; p_note?: string; p_order_id: string }

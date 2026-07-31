@@ -87,6 +87,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
           </RoleGate>
           <RoleGate role={role} allow={["platform_admin"]}>
+            <Link href="/platform/pilot" className="shrink-0 whitespace-nowrap transition hover:text-white">
+              Pilot
+            </Link>
+          </RoleGate>
+          <RoleGate role={role} allow={["platform_admin"]}>
             <Link href="/platform/queues" className="shrink-0 whitespace-nowrap transition hover:text-white">
               Cozi
             </Link>
