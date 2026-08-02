@@ -34,9 +34,12 @@ do $$
 declare v_rest uuid; v_a uuid; v_b uuid; v_settled int;
 begin
   select id into v_rest from public.restaurants where is_active order by name desc limit 1; -- a different rest to isolate
-  -- order A delivered earlier in July, settle + mark paid
+  -- order A delivered early in the current payout month, settle + mark paid.
+  -- Anchor to the month start (not current_date - N, which lands in the PREVIOUS
+  -- month during the first days of a month and then falls outside the payout
+  -- period date_trunc('month', current_date) → straggler wrongly reads 0).
   insert into public.orders (order_type, customer_id, restaurant_id, status, payment_method, payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl, delivered_at)
-  values ('standard','a0000000-0000-0000-0000-000000000001', v_rest,'delivered','cash','paid', 500,20,520, (current_date - 10)::timestamptz)
+  values ('standard','a0000000-0000-0000-0000-000000000001', v_rest,'delivered','cash','paid', 500,20,520, (date_trunc('month', current_date) + interval '1 day'))
   returning id into v_a;
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, true);
   perform public.admin_generate_payouts(date_trunc('month', current_date)::date, (date_trunc('month', current_date) + interval '1 month - 1 day')::date);
@@ -44,7 +47,7 @@ begin
 
   -- late straggler B, same month, then RE-RUN the identical period
   insert into public.orders (order_type, customer_id, restaurant_id, status, payment_method, payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl, delivered_at)
-  values ('standard','a0000000-0000-0000-0000-000000000001', v_rest,'delivered','cash','paid', 800,20,820, (current_date - 5)::timestamptz)
+  values ('standard','a0000000-0000-0000-0000-000000000001', v_rest,'delivered','cash','paid', 800,20,820, (date_trunc('month', current_date) + interval '2 days'))
   returning id into v_b;
   perform public.admin_generate_payouts(date_trunc('month', current_date)::date, (date_trunc('month', current_date) + interval '1 month - 1 day')::date);
 
