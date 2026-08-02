@@ -35,10 +35,13 @@ export async function createCategory(_prev: ActionState, formData: FormData): Pr
 
 export async function deleteCategory(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase } = await requireOwnRestaurant();
+    const { supabase, restaurantId } = await requireOwnRestaurant();
     const categoryId = String(formData.get("category_id") ?? "");
 
-    const { error } = await supabase.from("menu_categories").delete().eq("id", categoryId);
+    // RLS already scopes this, but filter on restaurant_id explicitly so a future
+    // policy regression can't turn this into a cross-tenant delete (matches the
+    // moveCategory/moveMenuItem pattern).
+    const { error } = await supabase.from("menu_categories").delete().eq("id", categoryId).eq("restaurant_id", restaurantId);
     if (error) return { error: error.message };
 
     revalidatePath("/restaurant/menu");
@@ -98,6 +101,17 @@ export async function createMenuItem(_prev: ActionState, formData: FormData): Pr
 
     if (!name || priceMdl <= 0) return { error: "Nume și preț valid sunt obligatorii." };
     if (!photoUrl) return { error: "Fotografie obligatorie: preparatul întreg, centrat, clar, fără colaj/text/persoane." };
+    // Server-side re-check of the photo-consistency + description gates that
+    // AddMenuItemForm enforces client-side — a direct action replay must not
+    // bypass them. Description is mandatory for regular menu items (catering-only
+    // items are quote-based, no storefront card); the photo must be a real upload
+    // under THIS restaurant's storage path, not an arbitrary/foreign URL.
+    if (!isCateringOnly && !description) {
+      return { error: "Descriere obligatorie pentru preparatele din meniu." };
+    }
+    if (!photoUrl.includes(`/restaurant-photos/${restaurantId}/`)) {
+      return { error: "Fotografia trebuie încărcată prin formular (cale de stocare invalidă)." };
+    }
 
     // #41 — sort_order was never written; scope the running max to the same
     // restaurant + category so a new item lands after the existing ones there.
@@ -144,6 +158,14 @@ export async function updateMenuItem(_prev: ActionState, formData: FormData): Pr
 
     if (!itemId) return { error: "Articolul nu a fost găsit." };
     if (!name || priceMdl <= 0) return { error: "Nume și preț valid sunt obligatorii." };
+    if (!isCateringOnly && !description) {
+      return { error: "Descriere obligatorie pentru preparatele din meniu." };
+    }
+    // If a photo is set it must be a real upload under this restaurant's path
+    // (same server-side re-check as createMenuItem). Null = keep-as-is is allowed.
+    if (photoUrl && !photoUrl.includes(`/restaurant-photos/${restaurantId}/`)) {
+      return { error: "Fotografia trebuie încărcată prin formular (cale de stocare invalidă)." };
+    }
 
     const { error } = await supabase
       .from("menu_items")
@@ -204,8 +226,8 @@ export async function moveMenuItem(itemId: string, direction: "up" | "down"): Pr
 
 export async function toggleItemAvailability(itemId: string, isAvailable: boolean): Promise<ActionState> {
   try {
-    const { supabase } = await requireOwnRestaurant();
-    const { error } = await supabase.from("menu_items").update({ is_available: isAvailable }).eq("id", itemId);
+    const { supabase, restaurantId } = await requireOwnRestaurant();
+    const { error } = await supabase.from("menu_items").update({ is_available: isAvailable }).eq("id", itemId).eq("restaurant_id", restaurantId);
     if (error) return { error: error.message };
     revalidatePath("/restaurant/menu");
     return { error: null };
@@ -216,15 +238,17 @@ export async function toggleItemAvailability(itemId: string, isAvailable: boolea
 
 export async function deleteMenuItem(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase } = await requireOwnRestaurant();
+    const { supabase, restaurantId } = await requireOwnRestaurant();
     const itemId = String(formData.get("item_id") ?? "");
 
-    const { error } = await supabase.from("menu_items").delete().eq("id", itemId);
+    // Explicit restaurant_id filter (defense-in-depth over RLS) on both the
+    // delete and the archive fallback.
+    const { error } = await supabase.from("menu_items").delete().eq("id", itemId).eq("restaurant_id", restaurantId);
     if (error) {
       // #17 — order_items.menu_item_id is a NO ACTION FK: once an item was ever
       // ordered, deleting it fails permanently. Archive it instead of hard-failing.
       if (error.code === "23503") {
-        const { error: archiveError } = await supabase.from("menu_items").update({ is_available: false }).eq("id", itemId);
+        const { error: archiveError } = await supabase.from("menu_items").update({ is_available: false }).eq("id", itemId).eq("restaurant_id", restaurantId);
         if (archiveError) return { error: archiveError.message };
         revalidatePath("/restaurant/menu");
         return { error: "Produsul are comenzi istorice — a fost dezactivat în loc de șters." };

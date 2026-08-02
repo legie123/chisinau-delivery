@@ -8,7 +8,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   const supabase = await createClient();
 
   const [{ data: order }, { data: items }, { data: events }, { data: ratings }] = await Promise.all([
-    supabase.from("orders").select("*, restaurants(accept_sla_minutes, lat, lng)").eq("id", orderId).single(),
+    supabase.from("orders").select("*, restaurants(name, accept_sla_minutes, lat, lng)").eq("id", orderId).single(),
     supabase.from("order_items").select("*").eq("order_id", orderId),
     supabase.from("delivery_status_events").select("*").eq("order_id", orderId).order("created_at"),
     supabase.from("ratings").select("*").eq("order_id", orderId),
@@ -33,8 +33,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   }
 
   const typedOrder = order as Order;
-  const embedded = order as unknown as { restaurants: { accept_sla_minutes: number; lat: number | null; lng: number | null } | null };
+  const embedded = order as unknown as { restaurants: { name: string | null; accept_sla_minutes: number; lat: number | null; lng: number | null } | null };
   const acceptSlaMinutes = embedded.restaurants?.accept_sla_minutes ?? 7;
+  const restaurantName = embedded.restaurants?.name ?? null;
 
   // Map endpoints for the live tracker: pickup (restaurant) + dropoff (address).
   const rest = embedded.restaurants;
@@ -51,7 +52,12 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Comanda {typedOrder.order_number}</h1>
+      <div className="mb-6">
+        {restaurantName && (
+          <p className="text-sm font-medium uppercase tracking-wider text-white/50">{restaurantName}</p>
+        )}
+        <h1 className="text-2xl font-semibold">Comanda {typedOrder.order_number}</h1>
+      </div>
       <OrderTracking
         initialOrder={typedOrder}
         initialEvents={(events ?? []) as DeliveryStatusEvent[]}

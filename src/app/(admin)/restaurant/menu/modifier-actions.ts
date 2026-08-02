@@ -15,6 +15,20 @@ async function ownsItem(supabase: Awaited<ReturnType<typeof requireOwnRestaurant
   return !!data;
 }
 
+// A group belongs to the restaurant iff its menu_item does. Resolve the item id
+// first, then reuse ownsItem — same defense-in-depth over RLS as the menu deletes.
+async function ownsGroup(supabase: Awaited<ReturnType<typeof requireOwnRestaurant>>["supabase"], restaurantId: string, groupId: string) {
+  const { data } = await supabase.from("menu_option_groups").select("menu_item_id").eq("id", groupId).maybeSingle();
+  if (!data?.menu_item_id) return false;
+  return ownsItem(supabase, restaurantId, data.menu_item_id as string);
+}
+
+async function ownsOption(supabase: Awaited<ReturnType<typeof requireOwnRestaurant>>["supabase"], restaurantId: string, optionId: string) {
+  const { data } = await supabase.from("menu_options").select("group_id").eq("id", optionId).maybeSingle();
+  if (!data?.group_id) return false;
+  return ownsGroup(supabase, restaurantId, data.group_id as string);
+}
+
 export async function createOptionGroup(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const { supabase, restaurantId } = await requireOwnRestaurant();
@@ -44,8 +58,9 @@ export async function createOptionGroup(_prev: ActionState, formData: FormData):
 
 export async function deleteOptionGroup(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase } = await requireOwnRestaurant();
+    const { supabase, restaurantId } = await requireOwnRestaurant();
     const groupId = String(formData.get("group_id") ?? "");
+    if (!(await ownsGroup(supabase, restaurantId, groupId))) return { error: "Grup invalid." };
     const { error } = await supabase.from("menu_option_groups").delete().eq("id", groupId);
     if (error) return { error: error.message };
     revalidatePath("/restaurant/menu");
@@ -57,12 +72,12 @@ export async function deleteOptionGroup(_prev: ActionState, formData: FormData):
 
 export async function addOption(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase } = await requireOwnRestaurant();
+    const { supabase, restaurantId } = await requireOwnRestaurant();
     const groupId = String(formData.get("group_id") ?? "");
     const name = String(formData.get("name") ?? "").trim();
     const priceDelta = Math.max(0, Number(formData.get("price_delta_mdl") ?? 0));
     if (!name) return { error: "Numele opțiunii este obligatoriu." };
-    // RLS verifies the group belongs to an item of the caller's restaurant.
+    if (!(await ownsGroup(supabase, restaurantId, groupId))) return { error: "Grup invalid." };
     const { error } = await supabase.from("menu_options").insert({
       group_id: groupId,
       name,
@@ -80,8 +95,9 @@ export async function addOption(_prev: ActionState, formData: FormData): Promise
 
 export async function deleteOption(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    const { supabase } = await requireOwnRestaurant();
+    const { supabase, restaurantId } = await requireOwnRestaurant();
     const optionId = String(formData.get("option_id") ?? "");
+    if (!(await ownsOption(supabase, restaurantId, optionId))) return { error: "Opțiune invalidă." };
     const { error } = await supabase.from("menu_options").delete().eq("id", optionId);
     if (error) return { error: error.message };
     revalidatePath("/restaurant/menu");
