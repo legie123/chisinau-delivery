@@ -85,8 +85,14 @@ export default async function CourierEarningsPage() {
       .limit(10),
   ]);
 
+  // Tariff transparency (audit §2.1): the CURRENT versioned commission — used both
+  // for the banner below AND the Net/Comision math, so the page never shows one
+  // rate in the banner and a different (hardcoded) rate in the numbers.
+  const { data: pricing } = await supabase.rpc("current_pricing_config");
+  const courierPct = (pricing as { courier_commission_pct: number } | null)?.courier_commission_pct ?? null;
+
   const week = (weekOrders ?? []) as EarningsOrder[];
-  const weekSummary = summarizeEarnings(week);
+  const weekSummary = summarizeEarnings(week, courierPct ?? undefined);
   const payouts = (payoutRows ?? []) as Payout[];
 
   // ended_at is guaranteed non-null by the query filter above; narrow the type
@@ -104,11 +110,6 @@ export default async function CourierEarningsPage() {
         .gte("delivered_at", earliestShiftStart)
     : { data: [] as ShiftEarningsOrder[] };
   const shiftSummaries = summarizeShifts(shifts, (shiftOrders ?? []) as ShiftEarningsOrder[]);
-
-  // Tariff transparency (audit §2.1): show the CURRENT versioned tariff. Rates change
-  // only via a new immutable version, announced in advance — never silently.
-  const { data: pricing } = await supabase.rpc("current_pricing_config");
-  const courierPct = (pricing as { courier_commission_pct: number } | null)?.courier_commission_pct ?? null;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
