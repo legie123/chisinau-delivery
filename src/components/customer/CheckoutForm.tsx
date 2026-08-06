@@ -195,6 +195,10 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
     setError(null);
     setPending(true);
     const supabase = createClient();
+    // Set once place_order succeeds — lets the catch distinguish a post-placement
+    // failure (tip / payment-start on the online path) from a placement failure, so
+    // the user never sees "order couldn't be placed" for an order that WAS placed.
+    let placedOrderId: string | null = null;
 
     try {
       let deliveryAddressId = selectedAddressId === "new" ? null : selectedAddressId;
@@ -243,6 +247,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         requestedFor: requestedForIso ?? undefined,
         idempotencyKey,
       });
+      placedOrderId = orderId;
 
       if (paymentMethod === "online_gateway") {
         // Record the tip FIRST so the payment intent is opened for the tip-inclusive
@@ -262,13 +267,25 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         return;
       }
 
-      if (tip > 0) await setOrderTip(supabase, orderId, tip);
+      // COD: the order is already placed. A tip is a secondary enhancement, so a
+      // tip-only failure must NOT surface as "order failed" (it did not) — proceed
+      // to the order page, where the real tip (0 if it failed) is shown and can be
+      // re-added. Only the primary place_order failure reaches the catch below.
+      if (tip > 0) {
+        try {
+          await setOrderTip(supabase, orderId, tip);
+        } catch {
+          /* order placed; tip can be added from the order page */
+        }
+      }
       rememberPreferences();
       clear();
       router.push(`/orders/${orderId}`);
     } catch (err) {
       const raw = err instanceof Error ? err.message : "";
-      const friendly = raw.includes("below minimum")
+      const friendly = placedOrderId
+        ? "Comanda a fost plasată, dar finalizarea plății nu a reușit. Reîncearcă — nu se creează o comandă dublă."
+        : raw.includes("below minimum")
         ? "Comanda nu atinge minimul restaurantului."
         : raw.includes("not currently accepting")
           ? "Restaurantul nu acceptă comenzi momentan."
