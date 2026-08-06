@@ -2474,6 +2474,56 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_low_ratings: {
+        Row: {
+          comment: string | null
+          courier_name: string | null
+          created_at: string | null
+          id: string | null
+          order_id: string | null
+          order_number: string | null
+          restaurant_name: string | null
+          stars: number | null
+          target_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_order_board: {
         Row: {
           accept_sla_minutes: number | null
