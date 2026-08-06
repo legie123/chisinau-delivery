@@ -1,6 +1,6 @@
 # Arhitectură — Dragons Delivery (Chișinău)
 
-Actualizat: 2026-07-16. Sursa de adevăr pentru invariante: `CLAUDE.md` (rădăcină).
+Actualizat: 2026-08-06. Sursa de adevăr pentru invariante ȘI indexul complet de migrații: `CLAUDE.md` (rădăcină) — acest fișier e o hartă de nivel înalt, nu duplică lista de migrații (drift garantat altfel).
 
 ## Vedere de ansamblu
 
@@ -59,13 +59,13 @@ Toate scriu audit în `delivery_status_events` (fără policy de INSERT — doar
 
 ## Realtime
 
-Tabele publicate (migrația 000700 — fără asta subscripțiile NU primesc nimic): `orders`, `catering_details`, `delivery_status_events`.
+Tabele publicate (migrația 000700 + adăugiri ulterioare — fără asta subscripțiile NU primesc nimic): `orders`, `catering_details`, `delivery_status_events`, `courier_locations`, `couriers`, `dispatch_offers` (6 live; verifică cu `pg_publication_tables`).
 - `subscribeTable()` (`src/lib/realtime/`): canale unice per mount, filtrate pe rând (`id=eq.X`), callback de status pentru degradare.
 - GPS curier: Broadcast pe canal `order:{id}:location` (~10s) + UPSERT `courier_locations` (~45s) pentru last-known. Client: `useCourierLocation` (seed-ul nu suprascrie broadcast-ul).
 
 ## Date (migrații `supabase/migrations/`, ordinea contează)
 
-000000 profiles+has_role · 000100 couriers(+locations) · 000200 restaurants/menu/hours/staff · 000300 addresses · 000400 orders/order_items/catering_details (+ policies curier) · 000500 events+RPC-uri · 000600 storage `restaurant-photos` · 000700 realtime publication · 000800 hardening funcții (revoke anon; has_* rămân anon pt RLS pe browsing) · 000900 curier citește adresa comenzii asignate · 001000 fix recursiune RLS · 001100 indexuri perf · 001200 curier citește catering_details asignate.
+Indexul complet, per-fișier și mereu la zi, trăiește în `CLAUDE.md` (rădăcină, secțiunea „Migrations index") — `scripts/check-doc-drift.sh` verifică programatic că fiecare migrație e listată acolo, deci NU duplica lista aici (drift garantat). Fundația (ascendent): 000000 profiles+has_role · 000100 couriers(+locations) · 000200 restaurants/menu/hours/staff · 000300 addresses · 000400 orders/order_items/catering_details · 000500 events+RPC-uri lifecycle · 000600 storage `restaurant-photos` · 000700 realtime publication · restul (dispatch, ETA, ratings, plăți, onboarding, cash-float, tarif curier, GDPR, audit-remediere) = vezi indexul din CLAUDE.md.
 
 ## Aplicații mobile (`mobile/`, toolchain propriu, exclus din build-ul web)
 
@@ -76,10 +76,12 @@ Tabele publicate (migrația 000700 — fără asta subscripțiile NU primesc nim
 ## Operare locală
 
 - Server web: launchd `com.chisinau-delivery.server` port 3000; după build: `launchctl kickstart -k gui/501/com.chisinau-delivery.server`; log `/tmp/chisinau-delivery-server.log`.
-- Verifier per iterație: `npm run build` + `npm run lint` + smoke pe rute + screenshot; workflow adversarial la schimbări mari.
+- Verifier per iterație: `npm run build` + `npm run lint` + `npm run verify` (drift tipuri + `tsc` + 53 teste unit) + `bash scripts/test-rpc.sh` (48 sims RPC) + `supabase db reset` (reproductibil din zero) + smoke pe rute; workflow/agent adversarial la schimbări mari (mai ales cod de bani).
 - Memoria buclei: `.bucla/` (protocol global `~/.claude/commands/bucla.md`).
 - Conturi test (`parola123`): client@ / partener@ / curier@ test.md. Deploy: NUMAI cu OK explicit.
 
 ## Datorii cunoscute (vezi `.bucla/issues.md`)
 
-`/enter/[role]` demo-doorway (șters la lansare) · fără teste automate · `SUPABASE_SERVICE_ROLE_KEY` absent (invite-uri admin) · 404 pe slug inexistent servește 200 pe shell-ul streamed (cosmetic).
+`/enter/[role]` demo-doorway (gated pe `NODE_ENV=production` → `/login`; șters de tot la lansare) + `/master/enter/[role]` (doorway cu parolă, env-gated `ENABLE_MASTER_DOORWAY`, timing-safe) · `SUPABASE_SERVICE_ROLE_KEY` absent (invite-uri admin degradează politicos → auto-înregistrare+aprobare) · 404 pe slug inexistent servește 200 pe shell-ul streamed (cosmetic).
+
+**Corecție (fost drift, 2026-08-06)**: NU „fără teste automate" — verifier real, rulat per iterație: `scripts/test-rpc.sh` (48 sims RPC în BEGIN/ROLLBACK, auth simulat prin jwt claims) + `npm test` (53 teste unit) + `check-type-drift.sh` + `check-doc-drift.sh` + `supabase db reset` reproductibil din zero + smoke pe rute.
