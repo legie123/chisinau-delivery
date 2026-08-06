@@ -24,7 +24,16 @@ declare
   v_stars_covered int;
   v_total_ratings bigint;
   v_sum_counts bigint;
+  v_expected_total bigint;
+  v_expected_5star bigint;
 begin
+  -- Real ratings counts for Nobu, captured NOW as the superuser session (before
+  -- the later `set local role anon`, which RLS-hides ratings) — used by the
+  -- rating_breakdown assertions further down so they track the seed, not a literal.
+  select count(*) into v_expected_total from public.ratings
+    where restaurant_id = 'd0000000-0000-0000-0000-000000000003' and target_type = 'restaurant';
+  select count(*) into v_expected_5star from public.ratings
+    where restaurant_id = 'd0000000-0000-0000-0000-000000000003' and target_type = 'restaurant' and stars = 5;
   -- ==== 0. force order 5 (Sakura, currently picked_up) into a fresh delivered
   --         state inside THIS hour, THIS day, so the zero-filled grids have a
   --         real bucket to prove non-empty partner-owned data. Runner rolls
@@ -97,15 +106,20 @@ begin
   select count(*) into v_stars_covered from public.rating_breakdown(v_foreign_restaurant);
   if v_stars_covered <> 5 then raise exception 'FAIL: rating_breakdown returned % rows as anon (expected 5, zero-filled stars 1-5)', v_stars_covered; end if;
 
+  -- Assert against the ACTUAL ratings rows (captured at the top of this block,
+  -- while still the postgres/superuser session — RLS hides ratings from the anon
+  -- role we're in here) so the showcase seed can enrich ratings without breaking
+  -- this: breakdown total == real row count, per-star bucket == real per-star
+  -- count, bucket sum == total.
   select total_ratings into v_total_ratings from public.rating_breakdown(v_foreign_restaurant) limit 1;
-  if v_total_ratings <> 1 then raise exception 'FAIL: rating_breakdown total_ratings = % for Nobu (expected 1, seeded)', v_total_ratings; end if;
+  if v_total_ratings <> v_expected_total then raise exception 'FAIL: rating_breakdown total_ratings = % for Nobu (expected %, actual rows)', v_total_ratings, v_expected_total; end if;
 
   select rating_count into v_row_count from public.rating_breakdown(v_foreign_restaurant) where stars = 5;
-  if v_row_count <> 1 then raise exception 'FAIL: rating_breakdown 5-star bucket = % for Nobu (expected 1, seeded)', v_row_count; end if;
+  if v_row_count <> v_expected_5star then raise exception 'FAIL: rating_breakdown 5-star bucket = % for Nobu (expected %, actual rows)', v_row_count, v_expected_5star; end if;
 
   -- sum of the per-star buckets must equal the repeated total on every row
   select sum(rating_count) into v_sum_counts from public.rating_breakdown(v_foreign_restaurant);
-  if v_sum_counts <> 1 then raise exception 'FAIL: rating_breakdown bucket sum = % (expected 1, must equal total_ratings)', v_sum_counts; end if;
+  if v_sum_counts <> v_total_ratings then raise exception 'FAIL: rating_breakdown bucket sum = % (expected %, must equal total_ratings)', v_sum_counts, v_total_ratings; end if;
 
   -- a restaurant with zero ratings still returns 5 zero-filled rows, never an error
   select count(*), coalesce(sum(rating_count), 0) into v_stars_covered, v_sum_counts
