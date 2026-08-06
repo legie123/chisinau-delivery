@@ -44,6 +44,43 @@ const CUISINE_LABEL: Record<string, string> = {
   other: "Restaurant",
 };
 
+// Curated discovery strip — a compact, horizontally-scrolling rail of restaurant
+// tiles above the main list, so the default view offers merchandising ("Cele mai
+// apreciate", "Nou pe platformă") instead of one flat sortable list. Only shown
+// on the unfiltered default view.
+function DiscoveryStrip({ title, items }: { title: string; items: Restaurant[] }) {
+  if (items.length === 0) return null;
+  return (
+    <section aria-label={title} className="flex flex-col gap-2.5">
+      <h2 className="font-serif text-base font-semibold text-white/90">{title}</h2>
+      <div className="no-scrollbar -mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+        {items.map((r) => (
+          <Link
+            key={r.id}
+            href={`/restaurants/${r.slug}`}
+            className="group relative flex w-44 shrink-0 flex-col justify-end overflow-hidden rounded-xl p-3.5 ring-1 ring-gold/15 transition hover:ring-gold/40"
+            style={{ background: CARD_TINT[r.cuisine_type] ?? CARD_TINT.other, minHeight: "6.5rem" }}
+          >
+            <span className="pointer-events-none absolute -right-2 -top-3 select-none text-[56px] opacity-[0.07]" aria-hidden>
+              🐉
+            </span>
+            <h3 className="relative font-serif text-sm font-bold leading-tight text-white transition line-clamp-2 group-hover:text-gold">
+              {r.name}
+            </h3>
+            <p className="relative mt-1 flex items-center gap-1.5 text-xs">
+              <span className="font-semibold text-gold">
+                {r.rating_count >= 3 ? `★ ${Number(r.rating_avg).toFixed(1)}` : "★ Nou"}
+              </span>
+              <span className="text-white/35">·</span>
+              <span className="truncate text-white/55">{CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}</span>
+            </p>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function RestaurantBrowser({
   restaurants,
   estimates = {},
@@ -117,6 +154,26 @@ export function RestaurantBrowser({
     }
     return list; // "Recomandate" keeps the proximity/SSR order as-is.
   }, [located, query, category, openNowOnly, openNowSet, sort]);
+
+  // Discovery rails (default view only): top-rated (needs >=3 reviews so a lone
+  // 5-star doesn't lead) and newest by created_at. Derived from the full list,
+  // independent of the active filter/sort.
+  const topRated = useMemo(
+    () =>
+      restaurants
+        .filter((r) => r.rating_count >= 3)
+        .sort((a, b) => Number(b.rating_avg ?? 0) - Number(a.rating_avg ?? 0))
+        .slice(0, 8),
+    [restaurants],
+  );
+  const newest = useMemo(
+    () =>
+      [...restaurants]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 8),
+    [restaurants],
+  );
+  const showDiscovery = query.trim() === "" && category === "all" && !openNowOnly;
 
   return (
     <div className="flex flex-col gap-5">
@@ -217,6 +274,13 @@ export function RestaurantBrowser({
           </div>
         </div>
       </div>
+
+      {showDiscovery && (
+        <div className="flex flex-col gap-4">
+          <DiscoveryStrip title="Cele mai apreciate" items={topRated} />
+          <DiscoveryStrip title="Nou pe platformă" items={newest} />
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <h2 className="font-serif text-lg font-semibold text-white">
