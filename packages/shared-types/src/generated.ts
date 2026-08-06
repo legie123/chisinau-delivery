@@ -3196,6 +3196,24 @@ export type Database = {
           orders_count: number
         }[]
       }
+      pricing_config_at: {
+        Args: { p_ts: string }
+        Returns: {
+          courier_commission_pct: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          id: string
+          note: string | null
+          restaurant_commission_pct: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pricing_config"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       prune_notification_outbox: { Args: never; Returns: number }
       public_courier_tariff_history: {
         Args: never
