@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateRestaurantForm } from "@/components/admin/CreateRestaurantForm";
 import { InvitePartnerForm } from "@/components/admin/InvitePartnerForm";
 import { RestaurantActiveToggle } from "@/components/admin/RestaurantActiveToggle";
+import { RestaurantLocationControl } from "@/components/admin/RestaurantLocationControl";
 import type { AdminRestaurantKpiRow } from "@/lib/types/domain";
 
 export default async function PlatformRestaurantsPage() {
@@ -30,6 +31,7 @@ export default async function PlatformRestaurantsPage() {
               <th className="py-2">Nume</th>
               <th className="py-2">Tip</th>
               <th className="py-2">Sector</th>
+              <th className="py-2">Locație</th>
               <th className="py-2">Activ</th>
               <th className="py-2">Acceptă</th>
               <th className="py-2">Rată accept. 7z</th>
@@ -46,6 +48,9 @@ export default async function PlatformRestaurantsPage() {
                 <td className="py-2">{restaurant.name}</td>
                 <td className="py-2">{restaurant.cuisine_type}</td>
                 <td className="py-2">{restaurant.sector ?? "—"}</td>
+                <td className="py-2">
+                  <RestaurantLocationControl restaurantId={restaurant.id} lat={restaurant.lat} lng={restaurant.lng} />
+                </td>
                 <td className="py-2">
                   <RestaurantActiveToggle restaurantId={restaurant.id} initialActive={restaurant.is_active} />
                 </td>

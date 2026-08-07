@@ -150,14 +150,13 @@ update public.profiles set role = 'platform_admin' where id = '<uid-ul-tău>';
 - Vede o **bandă „Cont în așteptare de activare"** cât timp e inactiv.
 
 **4.4 — Tu (admin) activezi + pui coordonatele reale:**
-1. `/platform` → **Restaurante** → comutatorul de activare pe restaurant.
-2. **Coordonate reale** (critice pentru dispatch/ETA): setează `lat`/`lng` reale. Momentan
-   se face în SQL (geocodează adresa pe Google Maps → ia lat/lng):
-   ```sql
-   update public.restaurants set lat = 47.0245, lng = 28.8322 where slug = 'trattoria-nona';
-   ```
-   *(datorie known: un buton de geocodare în UI admin — vezi §7).*
-3. Din acest moment restaurantul e LIVE și primește comenzi.
+1. `/platform` → **Restaurante**. Fiecare rând are coloana **Locație**.
+2. **Coordonate reale** (critice pentru dispatch/ETA): dacă scrie „⚠ lipsă", apeși
+   **„Geolocalizează"** — geocodează automat adresa (OpenStreetMap/Nominatim). Dacă adresa
+   nu se rezolvă, apeși **„manual"** și lipești `lat`/`lng` din Google Maps → „Salvează".
+   (Restaurantele create prin formularul admin se geolocalizează singure; cele venite prin
+   onboarding self-service au nevoie de acest pas.)
+3. Comutatorul **Activ** pe rând → restaurantul e LIVE și primește comenzi.
 
 ---
 
@@ -222,7 +221,8 @@ supabase db reset && bash scripts/test-rpc.sh   # 52/52 verde = tot lanțul oper
 
 - **Plăți reale:** doar COD (cash) e complet. Plata online e mock (fără PSP MAIB/PayNet
   integrat). Pentru pilot, COD e ok.
-- **Coordonate restaurant:** se setează manual în SQL (geocodare). Un buton în UI = datorie.
+- **Coordonate restaurant:** se setează din UI admin (buton „Geolocalizează" pe
+  `/platform/restaurants`, cu fallback manual lat/lng) — fără SQL.
 - **App mobil curier (Expo):** prototip — poziția proprie a curierului e reală, dar pinurile
   restaurant/adresă pe hartă sunt încă sintetice. Pentru pilot, folosește suprafața WEB de
   curier (`/deliveries`), care e completă.
