@@ -33,16 +33,35 @@ export function OrderQueueLive({ restaurantId, pendingCount }: { restaurantId: s
   // without needing a setState call inside an effect body for that case.
   const [newOrderSignal, setNewOrderSignal] = useState(false);
   const alerting = newOrderSignal && (pendingCount === undefined || pendingCount > 0);
+  // Realtime degradation: if the websocket drops (CHANNEL_ERROR/TIMED_OUT), the
+  // queue would silently freeze on stale data — a restaurant would MISS orders.
+  // We surface a banner + fall back to polling so new orders keep arriving.
+  const [degraded, setDegraded] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
-    return subscribeTable<Order>(supabase, "restaurant-queue", "orders", `restaurant_id=eq.${restaurantId}`, (payload) => {
-      if (payload.eventType === "INSERT" && payload.new.status === "pending_restaurant") {
-        setNewOrderSignal(true);
-      }
-      router.refresh();
-    });
+    return subscribeTable<Order>(
+      supabase,
+      "restaurant-queue",
+      "orders",
+      `restaurant_id=eq.${restaurantId}`,
+      (payload) => {
+        if (payload.eventType === "INSERT" && payload.new.status === "pending_restaurant") {
+          setNewOrderSignal(true);
+        }
+        router.refresh();
+      },
+      () => setDegraded(true), // onDegraded
+      () => setDegraded(false), // onHealthy (recovered)
+    );
   }, [restaurantId, router]);
+
+  // Polling fallback while degraded — keeps the queue fresh without realtime.
+  useEffect(() => {
+    if (!degraded) return;
+    const id = setInterval(() => router.refresh(), 10000);
+    return () => clearInterval(id);
+  }, [degraded, router]);
 
   // Any interaction with the dashboard counts as "the partner has seen this".
   useEffect(() => {
@@ -140,5 +159,13 @@ export function OrderQueueLive({ restaurantId, pendingCount }: { restaurantId: s
     }
   }, [alerting]);
 
-  return null;
+  if (!degraded) return null;
+  return (
+    <div
+      role="status"
+      className="fixed left-1/2 top-3 z-50 -translate-x-1/2 rounded-full bg-amber-500/15 px-4 py-1.5 text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur"
+    >
+      Reconectare la actualizări live… coada se reîmprospătează automat
+    </div>
+  );
 }
