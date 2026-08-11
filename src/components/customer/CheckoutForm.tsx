@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { confirmOnlinePayment, placeOrder, setOrderTip, startOnlinePayment } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/client";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
+import { useCartReconcile } from "@/hooks/useCartReconcile";
 import { useHydrated } from "@/hooks/useHydrated";
 import type { Address, PaymentMethod } from "@/lib/types/domain";
 
@@ -45,6 +46,10 @@ const VISIBLE_PAYMENT_OPTIONS = PAYMENT_OPTIONS.filter(
 export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const router = useRouter();
   const { restaurantId, restaurantName, lines, clear } = useCartStore();
+  // Audit 2026-08-11: safety net — the cart page already reconciles, but a deep
+  // link straight to /checkout must also refresh prices and name dead lines.
+  const reconcile = useCartReconcile();
+  const deadLines = lines.filter((l) => l.unavailable);
   const [summary, setSummary] = useState<{ forId: string; data: RestaurantSummary | null } | null>(null);
   const restaurant = summary?.forId === restaurantId ? summary.data : null;
   const restaurantState: "loading" | "error" | "ready" =
@@ -568,6 +573,17 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         </p>
       )}
 
+      {reconcile.repriced.length > 0 && (
+        <p className="rounded-xl bg-sky-400/10 px-4 py-3 text-sm text-sky-300 ring-1 ring-sky-400/30">
+          Restaurantul a actualizat prețurile: {reconcile.repriced.map((r) => `${r.name} (${r.from}→${r.to} MDL)`).join(", ")}. Totalul afișat e cel real.
+        </p>
+      )}
+      {deadLines.length > 0 && (
+        <p role="alert" className="rounded-xl bg-primary/15 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">
+          Nu mai {deadLines.length === 1 ? "este disponibil" : "sunt disponibile"}: {deadLines.map((l) => l.name).join(", ")}. <a href="/cart" className="underline underline-offset-2">Elimină din coș</a> ca să continui.
+        </p>
+      )}
+
       {payStep ? (
         <section className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-gold/25">
           <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gold">Plată online · demo</h2>
@@ -594,7 +610,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       ) : (
         <button
           type="submit"
-          disabled={pending || belowMinimum || restaurantState !== "ready"}
+          disabled={pending || belowMinimum || restaurantState !== "ready" || deadLines.length > 0}
           className="rounded-full bg-primary-dark py-4 text-[15px] font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending

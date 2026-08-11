@@ -9,6 +9,9 @@ export interface CartLine {
   quantity: number;
   optionIds: string[];
   optionsLabel: string; // human summary e.g. "Teriyaki, Wasabi extra"
+  /** Set by live reconciliation when the item/option vanished from the menu —
+   *  place_order would reject the whole cart with a generic error otherwise. */
+  unavailable?: boolean;
 }
 
 // Options chosen in the modifier modal; omitted for a plain add.
@@ -40,6 +43,8 @@ interface CartState {
   cancelSwitch: () => void;
   removeItem: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
+  /** Live-menu reconciliation (prices moved / line went dead). */
+  updateLine: (lineId: string, patch: Partial<Pick<CartLine, "priceMdl" | "unavailable">>) => void;
   clear: () => void;
 }
 
@@ -105,6 +110,11 @@ export const useCartStore = create<CartState>()(
       },
 
       cancelSwitch: () => set({ pendingSwitch: null }),
+
+      updateLine: (lineId, patch) =>
+        set((state) => ({
+          lines: state.lines.map((l) => (l.lineId === lineId ? { ...l, ...patch } : l)),
+        })),
 
       removeItem: (lineId) => set((state) => ({ lines: state.lines.filter((l) => l.lineId !== lineId) })),
 

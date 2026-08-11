@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cartLineId, cartSubtotal, useCartStore, type CartLine } from "@/lib/orders/cart";
 import { useHydrated } from "@/hooks/useHydrated";
+import { useCartReconcile } from "@/hooks/useCartReconcile";
 import { createClient } from "@/lib/supabase/client";
 import { ItemModifierModal } from "@/components/customer/ItemModifierModal";
 import type { MenuItem, MenuOptionGroup } from "@/lib/types/domain";
@@ -11,6 +12,10 @@ import type { MenuItem, MenuOptionGroup } from "@/lib/types/domain";
 export function CartView() {
   const { restaurantId, restaurantName, lines, setQuantity, removeItem, addItem } = useCartStore();
   const hydrated = useHydrated();
+  // Audit 2026-08-11: live reconciliation — refresh stale unit prices in place
+  // and NAME the lines that died instead of letting place_order reject blind.
+  const reconcile = useCartReconcile();
+  const deadCount = lines.filter((l) => l.unavailable).length;
   // Edit-in-place (Baymard: remove-and-re-add for one topping drives cart
   // abandonment) — "Modifică" fetches the item + its option groups fresh (the
   // cart line itself only stores the flat option ids/labels) and reopens the
@@ -83,15 +88,29 @@ export function CartView() {
       <p role="status" aria-live="polite" className="sr-only">
         {announce}
       </p>
+      {reconcile.repriced.length > 0 && (
+        <p className="rounded-xl bg-sky-400/10 px-4 py-3 text-sm text-sky-300 ring-1 ring-sky-400/30">
+          Restaurantul a actualizat prețurile: {reconcile.repriced.map((r) => `${r.name} (${r.from}→${r.to} MDL)`).join(", ")}. Totalul de mai jos e cel real.
+        </p>
+      )}
+      {deadCount > 0 && (
+        <p className="rounded-xl bg-primary/10 px-4 py-3 text-sm text-primary ring-1 ring-primary/30">
+          {deadCount === 1 ? "Un articol nu mai este disponibil" : `${deadCount} articole nu mai sunt disponibile`} — e marcat mai jos; șterge-l ca să poți continua.
+        </p>
+      )}
       <div className="rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-white/50">{restaurantName}</h2>
         <ul className="flex flex-col gap-4">
           {lines.map((line) => (
-            <li key={line.lineId} className="flex items-center justify-between gap-3">
+            <li key={line.lineId} className={`flex items-center justify-between gap-3 ${line.unavailable ? "rounded-xl bg-primary/5 p-2 ring-1 ring-primary/30" : ""}`}>
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-white">{line.name}</p>
+                <p className={`font-medium ${line.unavailable ? "text-white/50 line-through" : "text-white"}`}>{line.name}</p>
                 {line.optionsLabel && <p className="truncate text-xs text-white/40">{line.optionsLabel}</p>}
-                <p className="text-sm text-white/50">{line.priceMdl} MDL</p>
+                {line.unavailable ? (
+                  <p className="text-xs font-semibold text-primary">Nu mai este disponibil</p>
+                ) : (
+                  <p className="text-sm text-white/50">{line.priceMdl} MDL</p>
+                )}
               </div>
               {/* Bolt-style quantity stepper */}
               <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
@@ -178,18 +197,20 @@ export function CartView() {
 
       <Link
         href="/checkout"
-        aria-disabled={summary ? subtotal < Number(summary.min_order_amount_mdl) : undefined}
+        aria-disabled={deadCount > 0 || (summary ? subtotal < Number(summary.min_order_amount_mdl) : undefined)}
         className={`rounded-full py-4 text-center text-[15px] font-semibold text-white transition ${
-          summary && subtotal < Number(summary.min_order_amount_mdl)
+          deadCount > 0 || (summary && subtotal < Number(summary.min_order_amount_mdl))
             ? "pointer-events-none bg-white/10 text-white/40"
             : "bg-primary-dark hover:bg-primary-darker"
         }`}
       >
-        {summary
-          ? subtotal < Number(summary.min_order_amount_mdl)
-            ? "Comandă sub minim"
-            : `Continuă spre plată · ${subtotal + Number(summary.delivery_fee_mdl)} MDL`
-          : `Continuă spre plată · ${subtotal} MDL`}
+        {deadCount > 0
+          ? "Șterge articolele indisponibile"
+          : summary
+            ? subtotal < Number(summary.min_order_amount_mdl)
+              ? "Comandă sub minim"
+              : `Continuă spre plată · ${subtotal + Number(summary.delivery_fee_mdl)} MDL`
+            : `Continuă spre plată · ${subtotal} MDL`}
       </Link>
 
       {editing && (
