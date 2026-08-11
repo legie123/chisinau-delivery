@@ -18,11 +18,13 @@ export function MenuBrowser({
   categories,
   items,
   optionGroups = {},
+  closedNow = false,
 }: {
   restaurant: Restaurant;
   categories: MenuCategory[];
   items: MenuItem[];
   optionGroups?: Record<string, MenuOptionGroup[]>;
+  closedNow?: boolean;
 }) {
   const addItem = useCartStore((s) => s.addItem);
   const setQuantity = useCartStore((s) => s.setQuantity);
@@ -232,7 +234,7 @@ export function MenuBrowser({
                           <button
                             type="button"
                             onClick={() => handleAdd(item)}
-                            disabled={!restaurant.accepting_orders}
+                            disabled={!restaurant.accepting_orders || closedNow}
                             className="flex items-center gap-1.5 rounded-full bg-primary-dark px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {inCart > 0 ? (
@@ -262,7 +264,7 @@ export function MenuBrowser({
                           <button
                             type="button"
                             onClick={() => handleAdd(item)}
-                            disabled={!restaurant.accepting_orders}
+                            disabled={!restaurant.accepting_orders || closedNow}
                             aria-label={`Adaugă ${item.name} în coș`}
                             className="absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary-dark text-lg font-bold leading-none text-white shadow-lg ring-2 ring-[#0a0a14] transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                           >
@@ -280,7 +282,7 @@ export function MenuBrowser({
                         <button
                           type="button"
                           onClick={() => handleAdd(item)}
-                          disabled={!restaurant.accepting_orders}
+                          disabled={!restaurant.accepting_orders || closedNow}
                           className="flex shrink-0 items-center gap-1.5 self-end rounded-full bg-primary-dark px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {inCart > 0 ? `Adaugă încă (${inCart})` : "Adaugă +"}

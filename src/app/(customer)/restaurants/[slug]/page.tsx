@@ -14,6 +14,7 @@ import type {
   Restaurant,
 } from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
+import { chisinauNow, isOpenNow, nextOpeningLabel, type HoursRow } from "@/lib/orders/hours";
 
 export default async function RestaurantMenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -44,7 +45,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   // static column); premium histograms (anon-reachable, aggregate-only, both
   // soft-fail to [] on any hiccup — see shared-api/discovery.ts).
   const itemIds = items.map((i) => i.id);
-  const [groups, prepRows, popularHours, ratingBreakdown] = await Promise.all([
+  const [groups, prepRows, popularHours, ratingBreakdown, hoursRows] = await Promise.all([
     itemIds.length > 0
       ? supabase
           .from("menu_option_groups")
@@ -57,7 +58,17 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
     getPrepEstimates(supabase, [typedRestaurant.id]),
     getPopularHours(supabase, typedRestaurant.id),
     getRatingBreakdown(supabase, typedRestaurant.id),
+    supabase
+      .from("restaurant_hours")
+      .select("restaurant_id, day_of_week, opens_at, closes_at, is_closed")
+      .eq("restaurant_id", typedRestaurant.id)
+      .then(({ data }) => (data ?? []) as HoursRow[]),
   ]);
+  // Audit 2026-08-11 HIGH: the menu page must know the closed state itself —
+  // deep links skip the browse list, and place_order rejects at final submit.
+  const { dow, time } = chisinauNow();
+  const closedNow = !isOpenNow(hoursRows, dow, time);
+  const nextOpening = closedNow ? nextOpeningLabel(hoursRows, dow, time) : null;
   const optionGroups: Record<string, MenuOptionGroup[]> = {};
   for (const g of (groups ?? []) as unknown as (MenuOptionGroup & { menu_options: MenuOptionGroup["options"] })[]) {
     const group: MenuOptionGroup = { ...g, options: (g.menu_options ?? []).filter((o) => o.is_available) };
@@ -106,9 +117,20 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
           Acest restaurant nu acceptă comenzi momentan — poți răsfoi meniul.
         </p>
       )}
+      {typedRestaurant.accepting_orders && closedNow && (
+        <p className="mt-4 rounded-xl bg-amber-500/15 px-4 py-3 text-sm text-amber-400 ring-1 ring-amber-500/30">
+          🕒 Închis acum{nextOpening ? ` — deschide ${nextOpening}` : ""}. Poți răsfoi meniul; comenzile se reiau în program.
+        </p>
+      )}
 
       <div className="mt-5">
-        <MenuBrowser restaurant={typedRestaurant} categories={categories} items={items} optionGroups={optionGroups} />
+        <MenuBrowser
+          restaurant={typedRestaurant}
+          categories={categories}
+          items={items}
+          optionGroups={optionGroups}
+          closedNow={closedNow}
+        />
       </div>
 
       {/* Discreet info section — deliberately below the menu, never above it. */}

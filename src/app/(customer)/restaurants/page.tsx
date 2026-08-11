@@ -3,23 +3,7 @@ import { getPrepEstimates } from "@chisinau/shared-api";
 import { RestaurantBrowser } from "@/components/customer/RestaurantBrowser";
 import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 
-// "Now" in Europe/Chisinau service time → today's day_of_week (0=Sun..6=Sat)
-// and a "HH:MM:SS" clock string that compares lexically against Postgres `time`.
-function chisinauNow(): { dow: number; time: string } {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Europe/Chisinau",
-    weekday: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(new Date());
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const dowMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-  return { dow: dowMap[get("weekday")] ?? 0, time: `${get("hour")}:${get("minute")}:${get("second")}` };
-}
-
-type HoursRow = { restaurant_id: string; opens_at: string; closes_at: string; is_closed: boolean };
+import { chisinauNow, isOpenNow, type HoursRow } from "@/lib/orders/hours";
 
 export default async function RestaurantsPage() {
   const supabase = await createClient();
@@ -58,18 +42,15 @@ export default async function RestaurantsPage() {
   for (const row of (prepRows ?? []) as PrepEstimate[]) {
     estimates[row.restaurant_id] = row;
   }
-  const openNowIds = ((hoursRows ?? []) as (HoursRow & { day_of_week: number })[])
-    .filter((h) => {
-      if (h.is_closed) return false;
-      const overnight = h.closes_at <= h.opens_at;
-      if (h.day_of_week === dow) {
-        // today's window: same-day range, or the evening part of an overnight span
-        return overnight ? time >= h.opens_at : time >= h.opens_at && time <= h.closes_at;
-      }
-      // yesterday's overnight window still running after midnight
-      return overnight && time <= h.closes_at;
-    })
-    .map((h) => h.restaurant_id);
+  const rowsByRestaurant = new Map<string, HoursRow[]>();
+  for (const h of (hoursRows ?? []) as HoursRow[]) {
+    const list = rowsByRestaurant.get(h.restaurant_id) ?? [];
+    list.push(h);
+    rowsByRestaurant.set(h.restaurant_id, list);
+  }
+  const openNowIds = [...rowsByRestaurant.entries()]
+    .filter(([, rows]) => isOpenNow(rows, dow, time))
+    .map(([id]) => id);
 
   if (error) {
     return (
