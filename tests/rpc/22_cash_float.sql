@@ -20,8 +20,13 @@ declare
 begin
   select id into v_courier from public.couriers where user_id = v_courier_user;
 
-  -- Known baseline: no movements yet for this courier, offline, no open shift.
-  delete from public.courier_cash_movements where courier_id = v_courier;
+  -- Known baseline: ZERO net balance, offline, no open shift. The ledger is
+  -- append-only (trigger blocks delete the moment real rows exist — the old
+  -- `delete` here only ever worked against an empty ledger), so neutralize any
+  -- pre-existing live balance additively with an offload row instead.
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select v_courier, 'offload', -public.courier_cash_balance(v_courier), 'sim baseline reset (rolled back)'
+  where public.courier_cash_balance(v_courier) > 0;
   update public.couriers set status = 'offline' where id = v_courier;
   update public.courier_shifts set ended_at = now() where courier_id = v_courier and ended_at is null;
 

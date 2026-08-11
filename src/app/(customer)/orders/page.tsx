@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { ORDER_STATUS_LABEL, type Order, type SelectedOption } from "@/lib/types/domain";
 import { ReorderButton, type ReorderItem } from "@/components/customer/ReorderButton";
 import { PushOptIn } from "@/components/shared/PushOptIn";
+import { formatScheduledFor } from "@/lib/orders/scheduled";
 
-type OrderRow = Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl"> & {
+type OrderRow = Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl" | "requested_for"> & {
   restaurant_id: string;
   restaurants: { slug: string; name: string } | null;
   order_items: {
@@ -44,7 +45,7 @@ export default async function OrdersPage() {
   const { data: orders } = await supabase
     .from("orders")
     .select(
-      "id, order_number, order_type, created_at, status, total_mdl, restaurant_id, restaurants(slug, name), order_items(menu_item_id, item_name_snapshot, unit_price_mdl, quantity, selected_options)",
+      "id, order_number, order_type, created_at, status, total_mdl, requested_for, restaurant_id, restaurants(slug, name), order_items(menu_item_id, item_name_snapshot, unit_price_mdl, quantity, selected_options)",
     )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
@@ -174,6 +175,9 @@ export default async function OrdersPage() {
                     )}
                     <p className="mt-0.5 text-xs text-white/40">
                       {order.order_number} · {formatDate.format(new Date(order.created_at))}
+                      {order.requested_for && (
+                        <span className="ml-1 text-sky-300/90">· 🕒 programată {formatScheduledFor(order.requested_for)}</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">

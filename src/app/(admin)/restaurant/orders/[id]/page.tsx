@@ -9,6 +9,7 @@ import {
   type Order,
   type OrderItem,
 } from "@/lib/types/domain";
+import { formatScheduledFor } from "@/lib/orders/scheduled";
 
 const ACTOR_LABEL: Record<string, string> = {
   customer: "Client",
@@ -65,6 +66,11 @@ export default async function RestaurantOrderDetailPage({ params }: { params: Pr
         <span className="rounded-full bg-white/5 px-3 py-1 text-sm font-normal text-white/70 ring-1 ring-white/10">
           {ORDER_STATUS_LABEL[o.status]}
         </span>
+        {o.requested_for && (
+          <span className="rounded-full bg-sky-400/10 px-3 py-1 text-sm font-medium text-sky-300 ring-1 ring-sky-400/30">
+            🕒 Programată: {formatScheduledFor(o.requested_for)}
+          </span>
+        )}
         {o.order_type === "catering" && (
           <span className="rounded-full bg-gold/15 px-3 py-1 text-sm font-medium text-gold ring-1 ring-gold/25">
             Catering

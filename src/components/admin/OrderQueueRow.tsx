@@ -6,6 +6,7 @@ import { acceptOrder, markReadyForPickup, rejectOrder, setPrepTimeEstimate } fro
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
 import { ORDER_STATUS_LABEL, type Order, type OrderItem } from "@/lib/types/domain";
+import { formatScheduledFor, isScheduledStillAhead } from "@/lib/orders/scheduled";
 
 const STATUS_EMOJI: Record<string, string> = {
   pending_restaurant: "🔔",
@@ -87,7 +88,12 @@ export function OrderQueueRow({
           <p className="mt-0.5 text-sm text-white/50">
             {ORDER_STATUS_LABEL[order.status]} · <span className="pg-gold-text font-semibold">{order.total_mdl} MDL</span>
           </p>
-          {order.status === "pending_restaurant" && (
+          {order.requested_for && (
+            <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-2 py-0.5 text-xs font-semibold text-sky-300 ring-1 ring-sky-400/30">
+              🕒 Programată: {formatScheduledFor(order.requested_for)}
+            </p>
+          )}
+          {order.status === "pending_restaurant" && !isScheduledStillAhead(order.requested_for) && (
             <div className="mt-1.5">
               <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="partner" />
             </div>

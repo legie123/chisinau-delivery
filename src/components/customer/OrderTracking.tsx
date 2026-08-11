@@ -16,6 +16,7 @@ import {
   type OrderItem,
   type Rating,
 } from "@/lib/types/domain";
+import { formatScheduledFor } from "@/lib/orders/scheduled";
 
 // Bolt-style 4-step progress. Maps our 7 active statuses onto customer-facing steps.
 const STEPS = [
@@ -106,6 +107,13 @@ export function OrderTracking({
                 ? "Așteptăm confirmarea restaurantului..."
                 : ORDER_STATUS_LABEL[order.status]}
             </p>
+            {order.requested_for && order.status !== "delivered" && (
+              <p className="mb-2 text-center">
+                <span className="inline-flex items-center gap-1 rounded-full bg-sky-400/10 px-3 py-1 text-sm font-semibold text-sky-300 ring-1 ring-sky-400/30">
+                  🕒 Comandă programată pentru {formatScheduledFor(order.requested_for)}
+                </span>
+              </p>
+            )}
             {order.status === "pending_restaurant" && (
               <div className="mb-4 text-center">
                 <SlaCountdown createdAt={order.created_at} slaMinutes={acceptSlaMinutes} variant="customer" />

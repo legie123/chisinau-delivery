@@ -24,6 +24,12 @@ begin
   -- free the candidate of any seeded active deliveries (capacity gate) — sim-only, rolled back
   update public.orders set status = 'cancelled', courier_id = null
   where courier_id = v_courier and status in ('courier_assigned','picked_up','en_route');
+  -- neutralize any pre-existing live cash balance (append-only ledger: offload
+  -- row, not delete) so the reactivation-threshold gate can't hold the courier
+  -- offline after this test's own delivery
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select v_courier, 'offload', -public.courier_cash_balance(v_courier), 'sim baseline reset (rolled back)'
+  where public.courier_cash_balance(v_courier) > 0;
   update public.couriers set status = 'offline' where id <> v_courier;
   update public.couriers set status = 'online', is_active = true where id = v_courier;
   insert into public.courier_locations (courier_id, lat, lng, updated_at)
