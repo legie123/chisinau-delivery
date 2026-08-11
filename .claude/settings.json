@@ -1,0 +1,45 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "ruflo",
+            "tool": "hooks_session-start",
+            "input": { "restoreLatest": true },
+            "timeout": 15,
+            "statusMessage": "RuFlo: restaurez memoria sesiunii"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "ruflo",
+            "tool": "hooks_session-end",
+            "input": { "saveState": true, "exportMetrics": true, "stopDaemon": false },
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "mcp_tool",
+            "server": "ruflo",
+            "tool": "hooks_post-edit",
+            "input": { "filePath": "${tool_input.file_path}", "success": true, "agent": "claude-main" },
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
