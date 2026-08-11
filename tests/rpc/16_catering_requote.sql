@@ -53,3 +53,46 @@ begin
 
   raise notice 'PASS catering re-quote: 1 → corrected to 1000 before confirm; blocked after confirm';
 end $$;
+
+-- ===== N: quoting (and re-quoting) notifies the customer (audit 2026-08-11) =====
+do $$
+declare
+  v_rest uuid := '11111111-1111-1111-1111-111111111111';
+  v_cust uuid := 'a0000000-0000-0000-0000-000000000001';
+  v_partner uuid := 'a0000000-0000-0000-0000-000000000003';
+  v_item uuid; v_addr uuid; v_oid uuid; v_before int; v_after int;
+begin
+  delete from public.restaurant_hours where restaurant_id = v_rest;
+  insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
+  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select mi.id into v_item from public.menu_items mi
+  where mi.restaurant_id = v_rest and mi.is_available
+    and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
+  order by mi.price_mdl desc limit 1;
+  select id into v_addr from public.addresses where customer_id = v_cust limit 1;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
+  v_oid := public.place_order(v_rest, 'catering', 'cash',
+    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 20)),
+    v_addr, null, 'eveniment test',
+    jsonb_build_object(
+      'event_date', (now() + interval '14 days')::date::text,
+      'event_time', '18:00',
+      'guest_count', 30,
+      'event_address_text', 'Sala Test, Chișinău',
+      'contact_person', 'Ion Testu',
+      'contact_phone', '069000000'
+    ), null);
+
+  select count(*) into v_before from public.notification_outbox where user_id = v_cust and tag = 'catering-quote-' || v_oid;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_partner,'role','authenticated')::text, true);
+  perform public.submit_catering_quote(v_oid, 9000);
+  perform public.submit_catering_quote(v_oid, 8500);  -- correction while still 'quoted'
+  perform set_config('request.jwt.claims', null, true);
+
+  select count(*) into v_after from public.notification_outbox where user_id = v_cust and tag = 'catering-quote-' || v_oid;
+  if v_after - v_before <> 2 then
+    raise exception 'FAIL N: expected 2 quote notifications (first + correction), got %', v_after - v_before;
+  end if;
+  raise notice 'PASS N: quote + re-quote each queued a customer notification';
+end $$;
