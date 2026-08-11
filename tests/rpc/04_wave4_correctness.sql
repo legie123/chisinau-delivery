@@ -9,7 +9,10 @@ begin
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
   select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
-  select id into v_item from public.menu_items where restaurant_id = v_rest and is_available and not is_catering_only limit 1;
+  select mi.id into v_item from public.menu_items mi
+  where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
+    and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
+  order by mi.price_mdl desc limit 1;  -- deterministic: priciest modifier-free item (heap order is not stable)
   select id into v_addr from public.addresses where customer_id = 'a0000000-0000-0000-0000-000000000001' limit 1;
   -- an address that belongs to someone else
   insert into public.addresses (customer_id, street_address) values ('a0000000-0000-0000-0000-000000000002', 'Str. Altcuiva 1') returning id into v_other_addr;
@@ -41,7 +44,10 @@ do $$
 declare v_rest uuid; v_item uuid; v_raised boolean; v_oid uuid; v_addr uuid; v_tomorrow_noon timestamptz;
 begin
   select r.id into v_rest from public.restaurants r where r.is_active and r.accepting_orders limit 1;
-  select id into v_item from public.menu_items where restaurant_id = v_rest and is_available and not is_catering_only limit 1;
+  select mi.id into v_item from public.menu_items mi
+  where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
+    and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
+  order by mi.price_mdl desc limit 1;  -- deterministic: priciest modifier-free item (heap order is not stable)
   select id into v_addr from public.addresses where customer_id = 'a0000000-0000-0000-0000-000000000001' limit 1;
 
   -- force ALL days closed
@@ -73,7 +79,10 @@ begin
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
   select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
-  select id into v_item from public.menu_items where restaurant_id = v_rest and is_available and not is_catering_only limit 1;
+  select mi.id into v_item from public.menu_items mi
+  where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
+    and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
+  order by mi.price_mdl desc limit 1;  -- deterministic: priciest modifier-free item (heap order is not stable)
   select id into v_addr from public.addresses where customer_id = 'a0000000-0000-0000-0000-000000000001' limit 1;
 
   -- courier B = the test courier user; courier A = any other seeded courier
@@ -115,7 +124,10 @@ begin
   -- back online + a live offer, then go offline → offer declined
   update public.couriers set status = 'online' where id = v_cB;
   select r.id into v_rest from public.restaurants r where r.is_active limit 1;
-  select id into v_item from public.menu_items where restaurant_id = v_rest and is_available and not is_catering_only limit 1;
+  select mi.id into v_item from public.menu_items mi
+  where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
+    and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
+  order by mi.price_mdl desc limit 1;  -- deterministic: priciest modifier-free item (heap order is not stable)
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
   select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;

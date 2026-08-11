@@ -12,14 +12,19 @@ declare
   v_cust uuid := 'a0000000-0000-0000-0000-000000000001';
   v_partner uuid := 'a0000000-0000-0000-0000-000000000003';
   v_courier_user uuid := 'a0000000-0000-0000-0000-000000000002';
-  v_courier uuid; v_item uuid; v_addr uuid; v_oid uuid; v_oid2 uuid;
+  v_courier uuid; v_item uuid; v_addr uuid; v_oid uuid; v_oid2 uuid; v_qty int;
   v_status text; v_offers int;
 begin
   -- Arrange: open hours, one online courier as the only candidate (05's pattern)
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
   select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
-  select id into v_item from public.menu_items where restaurant_id = v_rest and is_available and not is_catering_only limit 1;
+  select mi.id, greatest(1, ceil(r.min_order_amount_mdl / mi.price_mdl))::int
+    into v_item, v_qty
+  from public.menu_items mi join public.restaurants r on r.id = mi.restaurant_id
+  where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
+    and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
+  order by mi.price_mdl limit 1;
   select id into v_addr from public.addresses where customer_id = v_cust limit 1;
   select id into v_courier from public.couriers where user_id = v_courier_user;
   update public.orders set status = 'cancelled', courier_id = null
@@ -33,7 +38,7 @@ begin
   -- ===== S1: scheduled tomorrow, placed 30 min ago, restaurant silent =====
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
   v_oid := public.place_order(v_rest, 'standard', 'cash',
-    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 1)), v_addr,
+    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', v_qty)), v_addr,
     now() + interval '20 hours', null, null);
   perform set_config('request.jwt.claims', null, true);
   update public.orders set created_at = now() - interval '30 minutes' where id = v_oid;

@@ -21,7 +21,10 @@ begin
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
   select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
   update public.restaurants set min_order_amount_mdl = 0 where id = v_rest;
-  select id into v_item from public.menu_items where restaurant_id = v_rest and is_available and not is_catering_only limit 1;
+  select mi.id into v_item from public.menu_items mi
+  where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
+    and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
+  order by mi.price_mdl desc limit 1;  -- deterministic: priciest modifier-free item (heap order is not stable)
   select id into v_addr from public.addresses where customer_id = v_cust limit 1;
 
   -- Neutralize the pre-existing unassigned ready demo fixtures (C/V) — otherwise
@@ -53,12 +56,15 @@ begin
 
   -- Under the OLD lifetime cap: max(wave)=5 → next wave=6 → dead forever, even
   -- though Y (online now, never offered this order) is a perfect candidate.
+  -- 20260812000000 cooldown update: X's expired offer is 19 min old (past the
+  -- 2-min cooldown), so X is legitimately eligible again and — being closer —
+  -- may win the rescue. The liveness guarantee is that SOMEONE gets the offer.
   update public.couriers set status = 'online', is_active = true, consecutive_ignored_offers = 0 where id = v_cy;
-  perform public.expire_dispatch_offers(); -- rescue loop must re-offer to Y
+  perform public.expire_dispatch_offers(); -- rescue loop must re-offer
 
   select courier_id into v_won from public.dispatch_offers where order_id = v_oid and status = 'offered';
   if v_won is null then raise exception 'FAIL: stalled order not rescued after wave-round window'; end if;
-  if v_won <> v_cy then raise exception 'FAIL: rescued to the wrong courier (% not Y)', v_won; end if;
+  if v_won not in (v_cx, v_cy) then raise exception 'FAIL: rescued to an unexpected courier (%)', v_won; end if;
 
   -- admin_assign_courier: the fully-canvassed / manual path
   update public.dispatch_offers set status = 'cancelled' where order_id = v_oid and status = 'offered';
