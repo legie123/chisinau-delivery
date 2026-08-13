@@ -53,6 +53,10 @@ export function useOrderRealtime(orderId: string, initialOrder: Order, initialEv
     // (20s, active pre-terminal orders only, paused while tab is hidden):
     // realtime stays the fast path, the poll guarantees eventual truth.
     const TERMINAL = ["delivered", "cancelled", "rejected"];
+    // armata 2026-08-13: clearInterval can't cancel an in-flight tick — a fetch
+    // started just before unmount/orderId-change would setState with the OLD
+    // order's data. The flag makes every await re-check liveness.
+    let cancelled = false;
     const poll = setInterval(async () => {
       if (document.visibilityState === "hidden") return;
       const [{ data: freshOrder }, { data: freshEvents }] = await Promise.all([
@@ -63,6 +67,7 @@ export function useOrderRealtime(orderId: string, initialOrder: Order, initialEv
           .eq("order_id", orderId)
           .order("created_at", { ascending: true }),
       ]);
+      if (cancelled) return;
       if (freshOrder) {
         setOrder((prev) => (prev.status !== (freshOrder as Order).status ? (freshOrder as Order) : prev));
         if (TERMINAL.includes((freshOrder as Order).status)) clearInterval(poll);
@@ -73,6 +78,7 @@ export function useOrderRealtime(orderId: string, initialOrder: Order, initialEv
     }, 20_000);
 
     return () => {
+      cancelled = true;
       unsubOrder();
       unsubEvents();
       clearInterval(poll);

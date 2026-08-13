@@ -74,6 +74,13 @@ begin
   order by mi.price_mdl desc limit 1;  -- deterministic: priciest modifier-free item (heap order is not stable)
   select id into v_addr from public.addresses where customer_id = v_cust limit 1;
   select id into v_courier from public.couriers where user_id = v_courier_user;
+  -- neutralize residual live cash float (armata 2026-08-13: the cash-aware
+  -- dispatch gate legitimately skips float-loaded couriers; sims need a clean
+  -- baseline — refund_reversal lowers the ledger without touching recompute)
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select v_courier, 'refund_reversal', -public.courier_cash_balance(v_courier), 'sim baseline zero (rolled back)'
+  where public.courier_cash_balance(v_courier) > 0;
+
   update public.orders set status = 'cancelled', courier_id = null
   where courier_id = v_courier and status in ('courier_assigned','picked_up','en_route');
   update public.couriers set status = 'offline' where id <> v_courier;
@@ -89,7 +96,7 @@ begin
   perform public.set_dispatch_scoring_config(0, 0, 0, now(), 'test: prove dispatch_order reads live config');
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
-  v_oid := public.place_order(v_rest, 'standard', 'cash',
+  v_oid := public.place_order(v_rest, 'standard', 'card_on_delivery',
     jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 10)), v_addr, null, null, null);
   perform set_config('request.jwt.claims', json_build_object('sub', v_partner,'role','authenticated')::text, true);
   perform public.accept_order(v_oid);

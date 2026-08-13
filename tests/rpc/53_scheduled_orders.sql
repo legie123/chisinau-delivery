@@ -27,6 +27,13 @@ begin
   order by mi.price_mdl limit 1;
   select id into v_addr from public.addresses where customer_id = v_cust limit 1;
   select id into v_courier from public.couriers where user_id = v_courier_user;
+  -- neutralize residual live cash float (armata 2026-08-13: the cash-aware
+  -- dispatch gate legitimately skips float-loaded couriers; sims need a clean
+  -- baseline — refund_reversal lowers the ledger without touching recompute)
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select v_courier, 'refund_reversal', -public.courier_cash_balance(v_courier), 'sim baseline zero (rolled back)'
+  where public.courier_cash_balance(v_courier) > 0;
+
   update public.orders set status = 'cancelled', courier_id = null
   where courier_id = v_courier and status in ('courier_assigned','picked_up','en_route');
   update public.couriers set status = 'offline' where id <> v_courier;

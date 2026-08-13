@@ -37,25 +37,28 @@ begin
   -- park the courier just under the cap: headroom = one cheap item + 100
   v_cap := public.effective_cash_cap(v_courier);
   v_qty := greatest(1, ceil((select min_order_amount_mdl from public.restaurants where id=v_rest) / v_price))::int;
-  v_headroom := v_qty * v_price + 100;  -- small order fits, big order will not
+  -- park the courier so the SAME checkout-legal order busts the cap in C1
+  -- (headroom 100 under the order size) and fits after an offload in C2
   insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
-  values (v_courier, 'collected', v_cap - v_headroom, 'sim near-cap float (rolled back)');
+  values (v_courier, 'collected', v_cap - (v_qty * v_price) + 100, 'sim near-cap float (rolled back)');
 
   -- ===== C1: BIG cash order (3x the headroom) -> no offer =====
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
   v_oid := public.place_order(v_rest, 'standard', 'cash',
-    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', v_qty * 3)), v_addr, null, null, null);
+    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', v_qty)), v_addr, null, null, null);
   perform set_config('request.jwt.claims', json_build_object('sub', v_partner,'role','authenticated')::text, true);
   perform public.accept_order(v_oid);
   perform public.mark_ready_for_pickup(v_oid);
   perform set_config('request.jwt.claims', null, true);
   select count(*) into v_n from public.dispatch_offers where order_id = v_oid;
   if v_n > 0 then
-    raise exception 'FAIL C1: big cash order offered to a courier it would push % MDL past the cap', v_qty*3*v_price;
+    raise exception 'FAIL C1: cash order offered although it lands the courier past the cap';
   end if;
   raise notice 'PASS C1: over-cap cash order withheld from the near-cap courier';
 
-  -- ===== C2: SMALL cash order (fits inside headroom) -> offered =====
+  -- ===== C2: after a big offload the SAME size order fits -> offered =====
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  values (v_courier, 'offload', -(v_qty * v_price + 300), 'sim offload (rolled back)');
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
   v_oid := public.place_order(v_rest, 'standard', 'cash',
     jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', v_qty)), v_addr, null, null, null);

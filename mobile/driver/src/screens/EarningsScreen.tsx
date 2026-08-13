@@ -57,7 +57,7 @@ export default function EarningsScreen() {
         ) : (
           <>
             <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>Săptămâna aceasta</Text>
+              <Text style={styles.totalLabel}>Săptămâna aceasta (brut, înainte de comision)</Text>
               <Text style={styles.totalAmount}>{summary?.weekEarningsMdl ?? 0} MDL</Text>
               <View style={styles.totalMeta}>
                 <View style={styles.metaItem}>

@@ -15,18 +15,18 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000001','role','authenticated')::text, true);
 
   -- same idempotency key twice = same order, only ONE row inserted
-  v_o1 := public.place_order(v_rest,'standard','cash', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, v_key);
-  v_o2 := public.place_order(v_rest,'standard','cash', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, v_key);
+  v_o1 := public.place_order(v_rest,'standard','card_on_delivery', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, v_key);
+  v_o2 := public.place_order(v_rest,'standard','card_on_delivery', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, v_key);
   if v_o1 <> v_o2 then raise exception 'FAIL: same key produced 2 orders (% vs %)', v_o1, v_o2; end if;
   select count(*) into v_count from public.orders where customer_id='a0000000-0000-0000-0000-000000000001' and idempotency_key = v_key;
   if v_count <> 1 then raise exception 'FAIL: % order rows for one key (expected 1)', v_count; end if;
 
   -- a DIFFERENT key = a genuinely new order
-  v_o3 := public.place_order(v_rest,'standard','cash', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, 'test-key-xyz');
+  v_o3 := public.place_order(v_rest,'standard','card_on_delivery', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, 'test-key-xyz');
   if v_o3 = v_o1 then raise exception 'FAIL: different key reused the order'; end if;
 
   -- null key still works (legacy/keyless path) and does NOT dedup
-  perform public.place_order(v_rest,'standard','cash', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, null);
-  perform public.place_order(v_rest,'standard','cash', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, null);
+  perform public.place_order(v_rest,'standard','card_on_delivery', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, null);
+  perform public.place_order(v_rest,'standard','card_on_delivery', jsonb_build_array(jsonb_build_object('menu_item_id',v_item,'quantity',10)), v_addr, null, null, null, null);
   raise notice 'PASS idempotency: same key -> same order (1 row), different key -> new order, null key -> no dedup';
 end $$;

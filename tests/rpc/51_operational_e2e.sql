@@ -18,6 +18,13 @@ declare
   v_status text; v_pay text; v_eta boolean; v_events int; v_bal0 numeric; v_bal1 numeric; v_lines int;
 begin
   select id into v_courier from public.couriers where user_id = v_courier_user;
+  -- neutralize residual live cash float (armata 2026-08-13: the cash-aware
+  -- dispatch gate legitimately skips float-loaded couriers; sims need a clean
+  -- baseline — refund_reversal lowers the ledger without touching recompute)
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select v_courier, 'refund_reversal', -public.courier_cash_balance(v_courier), 'sim baseline zero (rolled back)'
+  where public.courier_cash_balance(v_courier) > 0;
+
 
   -- Arrange (rolled back): open hours, an item, chosen courier ONLY candidate.
   delete from public.restaurant_hours where restaurant_id = v_rest;
@@ -37,7 +44,7 @@ begin
   -- 1. customer places
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust, 'role','authenticated')::text, true);
   v_oid := public.place_order(v_rest, 'standard', 'cash',
-    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 2, 'option_ids', '[]'::jsonb)),
+    jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 1, 'option_ids', '[]'::jsonb)),
     v_addr, null, 'OPS-E2E', null, gen_random_uuid()::text);
   select status into v_status from public.orders where id = v_oid;
   if v_status <> 'pending_restaurant' then raise exception 'FAIL place: %', v_status; end if;

@@ -25,6 +25,12 @@ begin
   -- cA = the (soon-to-ghost) assigned courier; cB = the free rescue courier.
   select id into v_cA from public.couriers where user_id = v_ca_user;
   select id into v_cB from public.couriers where id <> v_cA and is_active limit 1;
+  -- neutralize residual float (armata 2026-08-13; cash-aware gate needs clean baseline)
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select c, 'refund_reversal', -public.courier_cash_balance(c), 'sim baseline zero (rolled back)'
+  from unnest(array[v_cA, v_cB]) as c
+  where public.courier_cash_balance(c) > 0;
+
   -- clear both of any seeded active deliveries, park everyone else offline.
   update public.orders set status = 'cancelled', courier_id = null
   where courier_id in (v_cA, v_cB) and status in ('courier_assigned','picked_up','en_route');
@@ -37,7 +43,7 @@ begin
 
   -- Drive an order to courier_assigned held by cA.
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
-  v_oid := public.place_order(v_rest, 'standard', 'cash',
+  v_oid := public.place_order(v_rest, 'standard', 'card_on_delivery',
     jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 3)), v_addr, null, null, null, null);
   perform set_config('request.jwt.claims', json_build_object('sub', v_partner,'role','authenticated')::text, true);
   perform public.accept_order(v_oid);

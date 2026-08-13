@@ -19,8 +19,11 @@ declare
 begin
   -- Known baseline: no cash movements, no on-active-delivery status, none
   -- currently over/under any prior test's ceiling.
-  delete from public.courier_cash_movements
-  where courier_id in (v_mature_courier, v_new_courier, v_clean_courier, v_drift_courier);
+  -- append-only ledger: neutralize additively, never delete (trigger bites on real rows)
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select c.id, 'refund_reversal', -public.courier_cash_balance(c.id), 'sim baseline zero (rolled back)'
+  from public.couriers c
+  where public.courier_cash_balance(c.id) > 0;
   update public.couriers set status = 'offline'
   where id in (v_mature_courier, v_new_courier, v_clean_courier, v_drift_courier);
 

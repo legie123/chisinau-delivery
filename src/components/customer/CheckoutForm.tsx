@@ -294,7 +294,9 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         ? "Comanda nu atinge minimul restaurantului."
         : raw.includes("not currently accepting")
           ? "Restaurantul nu acceptă comenzi momentan."
-          : raw.includes("închis la ora") // #31: the place_order hours gate
+          : raw.includes("1400 MDL") // COD cap (armata 2026-08-13)
+            ? "Comenzile peste 1400 MDL se achită cu cardul la livrare — alege «Card (POS)» mai jos."
+            : raw.includes("închis la ora") // #31: the place_order hours gate
             ? "Restaurantul este închis la ora selectată. Alege alt restaurant sau altă oră."
             : raw.includes("menu item unavailable")
               ? "Un articol din coș nu mai este disponibil — reîncarcă meniul."
