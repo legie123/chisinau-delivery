@@ -197,6 +197,13 @@ export type Database = {
             foreignKeyName: "catering_details_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: true
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catering_details_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: true
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -295,6 +302,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
             referencedColumns: ["id"]
           },
           {
@@ -757,6 +771,13 @@ export type Database = {
             foreignKeyName: "delivery_status_events_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_status_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -864,6 +885,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_offers_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
             referencedColumns: ["id"]
           },
           {
@@ -1121,6 +1149,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "geofence_events_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
             referencedColumns: ["id"]
           },
           {
@@ -1549,6 +1584,13 @@ export type Database = {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -1789,6 +1831,13 @@ export type Database = {
             foreignKeyName: "payment_intents_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_intents_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -1846,6 +1895,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_orders_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
             referencedColumns: ["id"]
           },
           {
@@ -2116,6 +2172,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
             referencedColumns: ["id"]
           },
           {
@@ -2519,6 +2582,13 @@ export type Database = {
             foreignKeyName: "ratings_order_id_fkey"
             columns: ["order_id"]
             isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
             referencedRelation: "orders"
             referencedColumns: ["id"]
           },
@@ -2768,6 +2838,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      admin_unpaid_delivered_orders: {
+        Row: {
+          courier_covered: boolean | null
+          courier_due_mdl: number | null
+          courier_name: string | null
+          days_since: number | null
+          delivered_at: string | null
+          id: string | null
+          order_number: string | null
+          restaurant_covered: boolean | null
+          restaurant_name: string | null
+        }
+        Relationships: []
       }
       admin_wait_metrics: {
         Row: {

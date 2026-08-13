@@ -16,6 +16,7 @@ export default async function PlatformOpsPage() {
     { data: fleet },
     { count: stuckCount },
     { count: payCount },
+    { count: unpaidCount },
     { data: waitMetrics },
     { data: dispatchMetrics },
   ] = await Promise.all([
@@ -23,6 +24,7 @@ export default async function PlatformOpsPage() {
     supabase.from("admin_fleet_status").select("*").order("full_name"),
     supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
     supabase.from("admin_payment_queue").select("id", { count: "exact", head: true }),
+    supabase.from("admin_unpaid_delivered_orders").select("id", { count: "exact", head: true }),
     supabase.from("admin_wait_metrics").select("*").maybeSingle(),
     supabase.from("admin_dispatch_metrics").select("*").maybeSingle(),
   ]);
@@ -43,6 +45,18 @@ export default async function PlatformOpsPage() {
           Cozi & dispute →
         </Link>
       </div>
+
+      {(unpaidCount ?? 0) > 0 && (
+        <Link
+          href="/platform/payouts"
+          className="mb-4 flex items-center justify-between rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-300 ring-1 ring-amber-500/30 transition hover:bg-amber-500/15"
+        >
+          <span>
+            💸 {unpaidCount} {unpaidCount === 1 ? "livrare finalizată neacoperită" : "livrări finalizate neacoperite"} de niciun payout — banii datorați așteaptă o rulare
+          </span>
+          <span aria-hidden>→</span>
+        </Link>
+      )}
 
       <OpsLive
         initialBoard={orders}
