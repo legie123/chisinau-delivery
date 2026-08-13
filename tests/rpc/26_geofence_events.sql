@@ -29,6 +29,12 @@ begin
   -- ==== 0. genuinely-active baseline (not a reused delivered order) ====
   update public.orders set status = 'courier_assigned', courier_id = v_ion_courier where id = v_order4;
   update public.orders set status = 'en_route', courier_id = v_andrei_courier where id = v_order6;
+  -- Coordonatele pot fi mutate din admin în DB-ul viu (RestaurantLocationControl
+  -- demo a plimbat Amber Bistro ~13 km) — sim-ul își pinuiește etalonul singur.
+  update public.restaurants set lat = 47.068000, lng = 28.860000
+  where id = (select restaurant_id from public.orders where id = v_order4);
+  update public.addresses set lat = 47.023500, lng = 28.831500
+  where id = (select delivery_address_id from public.orders where id = v_order6);
 
   -- ==== 1. a courier NOT assigned to the order cannot record a geofence event ====
   perform set_config('request.jwt.claims', json_build_object('sub', v_wrong_user,'role','authenticated')::text, true);

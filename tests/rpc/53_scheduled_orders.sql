@@ -36,6 +36,10 @@ begin
 
   update public.orders set status = 'cancelled', courier_id = null
   where courier_id = v_courier and status in ('courier_assigned','picked_up','en_route');
+  -- Parchează orice comandă ready REZIDUALĂ din DB-ul viu: rescue-ul din
+  -- expire_dispatch_offers (S2b) ar dispeceriza-o către singurul curier online
+  -- și i-ar ocupa slotul de ofertă, închizând dispatch-ul pentru S3 (rollback).
+  update public.orders set status = 'cancelled' where status = 'ready_for_pickup';
   update public.couriers set status = 'offline' where id <> v_courier;
   update public.couriers set status = 'online', is_active = true where id = v_courier;
   insert into public.courier_locations (courier_id, lat, lng, updated_at)

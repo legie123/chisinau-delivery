@@ -17,6 +17,12 @@ begin
   select id into v_courier from public.couriers where user_id = v_courier_user;
 
   -- Force a known baseline: no open shift, courier offline.
+  -- Curierul seed acumulează cash din demo-urile live; enforce_cash_cap_offline
+  -- blochează online-ul la balanță >= plafon efectiv, deci sim-ul își aduce
+  -- singur ledgerul la zero (refund_reversal nu atinge recompute; rulat înapoi).
+  insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
+  select v_courier, 'refund_reversal', -public.courier_cash_balance(v_courier), 'sim baseline zero (rolled back)'
+  where public.courier_cash_balance(v_courier) > 0;
   update public.couriers set status = 'offline' where id = v_courier;
   delete from public.courier_shifts where courier_id = v_courier;
   delete from public.courier_satisfaction_surveys where courier_id = v_courier;

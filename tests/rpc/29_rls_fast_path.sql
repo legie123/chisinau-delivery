@@ -27,6 +27,12 @@ declare
 begin
   select id into v_courier from public.couriers where user_id = v_courier_user;
 
+  -- Demo-urile live mută comanda seed în alte stări (ready_for_pickup e vizibil
+  -- curierilor prin design, pre-dispatch) — sim-ul își forțează singur premisa
+  -- „accepted, fără curier" pe care se sprijină aserțiunile de leak (rollback).
+  update public.orders set status = 'accepted', courier_id = null
+  where id = v_foreign_order;
+
   ---------------------------------------------------------------------------
   -- (a) anon: zero rows AND zero execution of the policy qual.
   -- roles={authenticated} on orders/profiles/couriers means Postgres rewrites
