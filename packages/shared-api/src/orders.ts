@@ -21,6 +21,13 @@ export async function rejectOrder(db: Db, orderId: OrderId, reason: string): Pro
   if (error) throw new RpcError(error);
 }
 
+/** Partner bails out post-accept (out of stock etc.) — accepted/ready only,
+ *  blocked once a courier picked up; notifies the customer via the outbox. */
+export async function restaurantCancelOrder(db: Db, orderId: OrderId, reason: string): Promise<void> {
+  const { error } = await db.rpc("restaurant_cancel_order", { p_order_id: orderId, p_reason: reason });
+  if (error) throw new RpcError(error);
+}
+
 /** Partner marks an accepted order ready (→ ready_for_pickup, fires dispatch). */
 export async function markReadyForPickup(db: Db, orderId: OrderId): Promise<void> {
   const { error } = await db.rpc("mark_ready_for_pickup", { p_order_id: orderId });

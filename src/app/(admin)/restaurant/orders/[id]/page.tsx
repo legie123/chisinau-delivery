@@ -10,6 +10,7 @@ import {
   type OrderItem,
 } from "@/lib/types/domain";
 import { formatScheduledFor } from "@/lib/orders/scheduled";
+import { RestaurantCancelControl } from "@/components/admin/RestaurantCancelControl";
 
 const ACTOR_LABEL: Record<string, string> = {
   customer: "Client",
@@ -77,6 +78,12 @@ export default async function RestaurantOrderDetailPage({ params }: { params: Pr
           </span>
         )}
       </div>
+
+      {["accepted", "ready_for_pickup"].includes(o.status) && (
+        <div className="mb-5">
+          <RestaurantCancelControl orderId={o.id} />
+        </div>
+      )}
 
       {cateringDetails && (
         <section className="mb-5 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">

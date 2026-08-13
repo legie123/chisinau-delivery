@@ -3354,6 +3354,10 @@ export type Database = {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
       }
+      restaurant_cancel_order: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       restaurant_has_active_order_with_courier: {
         Args: { target_courier: string }
         Returns: boolean

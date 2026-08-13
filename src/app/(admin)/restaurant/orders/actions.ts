@@ -5,6 +5,7 @@ import {
   acceptOrder as acceptOrderRpc,
   markReadyForPickup as markReadyRpc,
   rejectOrder as rejectOrderRpc,
+  restaurantCancelOrder as restaurantCancelRpc,
   RpcError,
   setPrepTimeEstimate as setPrepTimeEstimateRpc,
 } from "@chisinau/shared-api";
@@ -47,6 +48,23 @@ export async function rejectOrder(orderId: string, reason: string): Promise<Acti
     return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
   }
   revalidatePath("/restaurant/orders");
+  return { error: null };
+}
+
+export async function restaurantCancelOrder(orderId: string, reason: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    ({ supabase } = await requireUser());
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+  try {
+    await restaurantCancelRpc(supabase, asOrderId(orderId), reason);
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
+  }
+  revalidatePath("/restaurant/orders");
+  revalidatePath(`/restaurant/orders/${orderId}`);
   return { error: null };
 }
 
