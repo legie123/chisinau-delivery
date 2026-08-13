@@ -44,6 +44,18 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Audit DesignCode 2026-08-12: 0 of 45 primary CTAs had any keyboard focus
+   indicator (inputs did, buttons didn't). One universal rule instead of 45
+   per-button classes — a gold ring on every button/link/summary reached by
+   keyboard, invisible for mouse users (:focus-visible only). */
+button:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--gold, #f5a623);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Hides the scrollbar on the admin header's horizontally-scrollable nav
    (the row still scrolls via touch/trackpad/wheel — this only hides the
    track so a compact single-row header doesn't grow a visible bar). */

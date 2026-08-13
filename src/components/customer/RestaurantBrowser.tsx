@@ -61,6 +61,19 @@ function DiscoveryStrip({ title, items }: { title: string; items: Restaurant[] }
             className="group relative flex w-44 shrink-0 flex-col justify-end overflow-hidden rounded-xl p-3.5 ring-1 ring-gold/15 transition hover:ring-gold/40"
             style={{ background: CARD_TINT[r.cuisine_type] ?? CARD_TINT.other, minHeight: "6.5rem" }}
           >
+            {/* Audit design 2026-08-12 HIGH: the rails rendered tint-only cards
+                next to a photo-rich list — the real cover now sits under the
+                tint (darkened for text legibility), falling back to the tint
+                alone when a restaurant has no photo. */}
+            {r.cover_photo_url && (
+              <img
+                src={r.cover_photo_url}
+                alt=""
+                loading="lazy"
+                className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45 transition group-hover:opacity-60"
+              />
+            )}
+            <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" aria-hidden />
             <span className="pointer-events-none absolute -right-2 -top-3 select-none text-[56px] opacity-[0.07]" aria-hidden>
               🐉
             </span>
