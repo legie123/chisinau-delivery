@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { AmbientVideo } from "@/components/marketing/AmbientVideo";
+import { masterDoorwayEnabled } from "@/lib/master/gate";
 
-// Central hub — four demo sectors (passwordless doorway via /enter/[role] for
-// quick testing) PLUS a real account entry (/login: sign in + customer sign-up).
-const SECTORS = [
+// Central hub — trei porți pe rol (fiecare sector își începe experiența pe
+// pagina LUI de start) + intrarea de cont. Intrarea demonstrativă fără parolă
+// trăiește EXCLUSIV în spatele /master (poarta cu parolă a proprietarului) —
+// hub-ul public nu mai oferă nicio ușă passwordless (2026-08-14).
+const DOORS = [
   {
-    href: "/enter/client",
+    href: "/start/client",
     title: "Clienți",
     subtitle: "Comandă sushi & fine dining",
     emoji: "🍣",
@@ -13,7 +16,7 @@ const SECTORS = [
     tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#3d1220]/95",
   },
   {
-    href: "/enter/curier",
+    href: "/start/curier",
     title: "Curieri",
     subtitle: "Livrări & câștiguri",
     emoji: "🛵",
@@ -21,28 +24,16 @@ const SECTORS = [
     tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#16213e]/95",
   },
   {
-    href: "/enter/restaurant",
+    href: "/start/restaurant",
     title: "Restaurante",
     subtitle: "Meniu, comenzi & catering",
     emoji: "👨‍🍳",
     image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=900&h=1200&fit=crop",
     tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#4a350f]/95",
   },
-  {
-    href: "/enter/platform",
-    title: "Platformă",
-    subtitle: "Centru operațional & admin",
-    emoji: "🛡️",
-    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=900&h=1200&fit=crop",
-    tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#0d0d1f]/95",
-  },
 ];
 
 export default function HubPage() {
-  // Master Council Phase 0: the passwordless demo tiles render only outside
-  // production. In production the hub is the real-account entry (the /enter route
-  // itself also redirects to /login in prod). Local/dev/staging keep the tiles.
-  const showDemo = process.env.NODE_ENV !== "production";
   // `isolate` e obligatoriu: fără stacking context propriu, copilul cu -z-10
   // (AmbientVideo) cade sub fundalul opac al lui <main> și video-ul devine
   // invizibil deși rulează (bug-ul „este identic" raportat de user).
@@ -61,14 +52,13 @@ export default function HubPage() {
         </p>
       </div>
 
-      {/* Demo sectors — non-production only */}
-      {showDemo && (
-      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-2 lg:grid-cols-4">
-        {SECTORS.map((s) => (
-          <form key={s.href} method="POST" action={s.href} className="contents">
-          <button
-            type="submit"
-            className="group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-3xl text-left ring-1 ring-gold/15 transition duration-300 hover:ring-gold/60 sm:min-h-[480px]"
+      {/* Porțile pe rol */}
+      <div className="mx-auto grid w-full max-w-5xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-3">
+        {DOORS.map((s) => (
+          <Link
+            key={s.href}
+            href={s.href}
+            className="group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-3xl text-left ring-1 ring-gold/15 transition duration-300 hover:ring-gold/60 sm:min-h-[460px]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -84,21 +74,18 @@ export default function HubPage() {
               </h2>
               <p className="mt-1 text-sm text-white/65">{s.subtitle}</p>
               <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-900 transition group-hover:bg-gold-light">
-                Intră
+                Începe aici
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
                 </svg>
               </span>
             </div>
-          </button>
-          </form>
+          </Link>
         ))}
       </div>
-      )}
 
-      {/* Real account entry — sign in or create a customer account. In production
-          this is the ONLY entry; on dev/staging it sits under the demo tiles. */}
-      <div className={`mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-5 pb-10 ${showDemo ? "" : "flex-1 justify-center"}`}>
+      {/* Cont real */}
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-3 px-5 pb-8">
         <div className="flex items-center gap-3 text-white/30">
           <span className="h-px w-16 bg-white/10" />
           <span className="text-[11px] font-semibold uppercase tracking-[0.3em]">Cont</span>
@@ -113,10 +100,11 @@ export default function HubPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
           </svg>
         </Link>
-        {showDemo && (
-          <p className="text-center text-xs text-white/30">
-            Tile-urile de mai sus sunt mod demonstrație — intrare directă, fără parolă (doar pe dev).
-          </p>
+        {/* Poarta proprietarului — discretă, doar când doorway-ul e activ */}
+        {masterDoorwayEnabled() && (
+          <Link href="/master" className="mt-2 text-[11px] uppercase tracking-[0.3em] text-white/20 transition hover:text-gold/60">
+            master
+          </Link>
         )}
       </div>
     </main>
