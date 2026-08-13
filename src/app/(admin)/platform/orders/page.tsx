@@ -35,18 +35,21 @@ function buildHref(q: string, status: string, page: number) {
 export default async function PlatformOrdersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; page?: string; customer?: string }>;
 }) {
-  const { q: rawQ, status: rawStatus, page: rawPage } = await searchParams;
+  const { q: rawQ, status: rawStatus, page: rawPage, customer: rawCustomer } = await searchParams;
   const q = (rawQ ?? "").trim();
   const status = rawStatus && isOrderStatus(rawStatus) ? rawStatus : "";
   const page = Math.max(1, Math.floor(Number(rawPage)) || 1);
+  // Drilldown din CRM (tab Clienți): toate comenzile unui singur client.
+  const customer = (rawCustomer ?? "").trim();
 
   const supabase = await createClient();
 
   let query = supabase.from("orders").select("*, restaurants(name)", { count: "exact" });
   if (q) query = query.ilike("order_number", `%${q}%`);
   if (status) query = query.eq("status", status);
+  if (customer) query = query.eq("customer_id", customer);
 
   const from = (page - 1) * PAGE_SIZE;
   const [ordersRes, { count: stuckCount }] = await Promise.all([
@@ -118,6 +121,14 @@ export default async function PlatformOrdersPage({
 
       <p className="mb-3 text-xs text-white/40">
         {total} {total === 1 ? "comandă" : "comenzi"} găsite
+        {customer && (
+          <>
+            {" · filtrate pe un singur client — "}
+            <Link href="/platform/crm" className="text-gold underline underline-offset-2">
+              înapoi la CRM
+            </Link>
+          </>
+        )}
       </p>
 
       {orderList.length === 0 ? (

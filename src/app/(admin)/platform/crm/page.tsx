@@ -100,7 +100,15 @@ export default async function PlatformCrmPage({
             <tbody>
               {rows.map((c) => (
                 <tr key={c.id} className="border-b border-white/5">
-                  <td className="py-2.5 pr-4 font-medium text-white">{c.full_name ?? "—"}</td>
+                  <td className="py-2.5 pr-4 font-medium text-white">
+                    <Link
+                      href={`/platform/orders?customer=${c.id}`}
+                      className="transition hover:text-gold hover:underline"
+                      title="Vezi toate comenzile clientului"
+                    >
+                      {c.full_name ?? "—"}
+                    </Link>
+                  </td>
                   <td className="py-2.5 pr-4 text-white/70">{c.phone ?? "—"}</td>
                   <td className="py-2.5 pr-4 text-white/80">
                     <span className="font-semibold text-white">{c.delivered_orders}</span>
