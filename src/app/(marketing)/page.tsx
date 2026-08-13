@@ -43,8 +43,11 @@ export default function HubPage() {
   // production. In production the hub is the real-account entry (the /enter route
   // itself also redirects to /login in prod). Local/dev/staging keep the tiles.
   const showDemo = process.env.NODE_ENV !== "production";
+  // `isolate` e obligatoriu: fără stacking context propriu, copilul cu -z-10
+  // (AmbientVideo) cade sub fundalul opac al lui <main> și video-ul devine
+  // invizibil deși rulează (bug-ul „este identic" raportat de user).
   return (
-    <main className="relative flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
+    <main className="relative isolate flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
       {/* Ambient cinematic backdrop (audit design: primul contact = premium) */}
       <AmbientVideo src="/videos/hero-sushi.mp4" poster="/videos/hero-sushi-poster.jpg" />
       {/* Brand */}

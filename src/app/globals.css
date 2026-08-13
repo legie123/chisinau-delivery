@@ -67,3 +67,15 @@ summary:focus-visible {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+
+/* Cinematic slow push-in for the ambient hero video (marketing hub). Runs only
+   when the <video> itself renders, which is already gated on motion-OK. */
+@keyframes ambient-drift {
+  from { transform: scale(1); }
+  to   { transform: scale(1.09) translateY(-1.5%); }
+}
+.ambient-drift {
+  animation: ambient-drift 36s ease-in-out infinite alternate;
+  will-change: transform;
+}

@@ -41,13 +41,14 @@ export function AmbientVideo({ src, poster }: { src: string; poster: string }) {
           loop
           playsInline
           preload="auto"
-          className="absolute inset-0 h-full w-full object-cover"
+          className="ambient-drift absolute inset-0 h-full w-full object-cover"
         />
       )}
-      {/* navy veil — keeps tiles/typography legible over any frame */}
-      <div className="absolute inset-0 bg-[#0a0a14]/70" />
-      {/* bottom anchor so content near the fold sits on near-solid ground */}
-      <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-[#0a0a14] to-transparent" />
+      {/* light navy veil — the motion must READ (audit: 70% killed it); the
+          sector tiles are opaque cards, only the brand title floats on video */}
+      <div className="absolute inset-0 bg-[#0a0a14]/35" />
+      {/* soft bottom anchor for the fold */}
+      <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-[#0a0a14]/85 to-transparent" />
     </div>
   );
 }
