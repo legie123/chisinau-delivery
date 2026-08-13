@@ -1,5 +1,13 @@
 import { supabase } from "./supabase";
 
+// Audit 2026-08-13 HIGH: the courier's real pay is courier_fee_mdl (stamped
+// final at delivery) or courier_fee_quoted_mdl (the floor quoted at ready) —
+// NOT delivery_fee_mdl, which is the CUSTOMER's fee (observed live spread:
+// 45.00 shown vs 30.74 actually paid). Mirrors admin_generate_payouts.
+function courierPay(r: { courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; delivery_fee_mdl: number }): number {
+  return Number(r.courier_fee_mdl ?? r.courier_fee_quoted_mdl ?? r.delivery_fee_mdl);
+}
+
 // UI shape MapScreen/ActiveDeliveryScreen already render.
 export interface DriverOrder {
   id: string;
@@ -85,7 +93,7 @@ async function mapOrders(rows: Record<string, unknown>[]): Promise<DriverOrder[]
       pickupAddress: restaurant?.address ?? "",
       deliveryAddress: cateringVenue ?? formatAddress(address),
       distance: "",
-      earnings: `${r.delivery_fee_mdl} MDL`,
+      earnings: `${courierPay(r as { courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; delivery_fee_mdl: number })} MDL`,
       items: `Comandă ${r.order_number} · total ${r.total_mdl} MDL`,
       customerName: (r.order_type as string) === "catering" ? "Eveniment catering" : "Client",
       lat: CENTER.lat + 0.004 * Math.sin(i * 2.1),
@@ -159,7 +167,7 @@ export async function fetchDeliveryHistory(): Promise<{
   if (!courierId) return { rows: [], todayCount: 0, todayEarnings: 0 };
   const { data, error } = await supabase
     .from("orders")
-    .select("id, order_number, updated_at, delivery_fee_mdl, restaurants(name)")
+    .select("id, order_number, updated_at, delivery_fee_mdl, courier_fee_mdl, courier_fee_quoted_mdl, restaurants(name)")
     .eq("status", "delivered")
     .eq("courier_id", courierId)
     .order("updated_at", { ascending: false })
@@ -174,7 +182,7 @@ export async function fetchDeliveryHistory(): Promise<{
       orderNumber: o.order_number as string,
       restaurant: ((o.restaurants as unknown as { name: string } | null)?.name) ?? "Restaurant",
       time: d.toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" }),
-      feeMdl: Number(o.delivery_fee_mdl),
+      feeMdl: courierPay(o as { courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; delivery_fee_mdl: number }),
       isToday: d.toLocaleDateString("ro-RO") === todayStr,
     };
   });
@@ -348,7 +356,7 @@ export async function fetchEarningsSummary(): Promise<EarningsSummary> {
   const [{ data: weekOrders, error: ordersError }, { data: payoutRows, error: payoutsError }] = await Promise.all([
     supabase
       .from("orders")
-      .select("delivery_fee_mdl, tip_mdl")
+      .select("delivery_fee_mdl, courier_fee_mdl, courier_fee_quoted_mdl, tip_mdl")
       .eq("courier_id", courierId)
       .eq("status", "delivered")
       .eq("payment_status", "paid")
@@ -363,8 +371,8 @@ export async function fetchEarningsSummary(): Promise<EarningsSummary> {
   if (ordersError) throw new Error(ordersError.message);
   if (payoutsError) throw new Error(payoutsError.message);
 
-  const week = (weekOrders ?? []) as { delivery_fee_mdl: number; tip_mdl: number }[];
-  const weekEarningsMdl = Math.round(week.reduce((sum, o) => sum + Number(o.delivery_fee_mdl) + Number(o.tip_mdl), 0) * 100) / 100;
+  const week = (weekOrders ?? []) as { delivery_fee_mdl: number; courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; tip_mdl: number }[];
+  const weekEarningsMdl = Math.round(week.reduce((sum, o) => sum + courierPay(o) + Number(o.tip_mdl), 0) * 100) / 100;
 
   const payouts: PayoutRow[] = (payoutRows ?? []).map((p) => ({
     id: p.id as string,
