@@ -47,9 +47,35 @@ export function useOrderRealtime(orderId: string, initialOrder: Order, initialEv
       },
     );
 
+    // Dezbatere 2026-08-12, BUG confirmat: the hottest realtime surface (the
+    // customer's tracking page) had NO fallback — a degraded websocket meant
+    // a silently frozen page while the food moved. Low-frequency safety poll
+    // (20s, active pre-terminal orders only, paused while tab is hidden):
+    // realtime stays the fast path, the poll guarantees eventual truth.
+    const TERMINAL = ["delivered", "cancelled", "rejected"];
+    const poll = setInterval(async () => {
+      if (document.visibilityState === "hidden") return;
+      const [{ data: freshOrder }, { data: freshEvents }] = await Promise.all([
+        supabase.from("orders").select("*").eq("id", orderId).maybeSingle(),
+        supabase
+          .from("delivery_status_events")
+          .select("*")
+          .eq("order_id", orderId)
+          .order("created_at", { ascending: true }),
+      ]);
+      if (freshOrder) {
+        setOrder((prev) => (prev.status !== (freshOrder as Order).status ? (freshOrder as Order) : prev));
+        if (TERMINAL.includes((freshOrder as Order).status)) clearInterval(poll);
+      }
+      if (freshEvents) {
+        setEvents((prev) => (freshEvents.length > prev.length ? (freshEvents as DeliveryStatusEvent[]) : prev));
+      }
+    }, 20_000);
+
     return () => {
       unsubOrder();
       unsubEvents();
+      clearInterval(poll);
     };
   }, [orderId]);
 
