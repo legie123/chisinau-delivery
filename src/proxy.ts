@@ -27,9 +27,12 @@ export async function proxy(request: NextRequest) {
   if (!requiredRoles) return response;
 
   if (!user) {
-    // No login form for now — an unauthenticated hit on a gated surface goes
-    // back to the hub, where the three sectors enter passwordlessly.
-    return redirectWithSessionCookies(request, response, new URL("/", request.url));
+    // Hub-ul nu mai are intrare passwordless (2026-08-14) — un hit
+    // neautentificat pe o suprafață gated merge la login și SE ÎNTOARCE
+    // la destinația cerută după autentificare.
+    const login = new URL("/login", request.url);
+    login.searchParams.set("next", pathname);
+    return redirectWithSessionCookies(request, response, login);
   }
 
   const role = await fetchRole(supabase, user.id);

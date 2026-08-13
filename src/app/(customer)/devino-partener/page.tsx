@@ -67,8 +67,10 @@ export default async function DevinoPartenerPage() {
       {!user ? (
         <div className="mx-auto max-w-md rounded-2xl bg-white/[0.04] p-6 text-center ring-1 ring-white/[0.06]">
           <p className="text-white/70">Intră în cont ca să depui o cerere de parteneriat.</p>
+          {/* Armata 2026-08-14 (HIGH): href="/" rupea funnel-ul — aplicantul
+              ajungea pe hub și nu se mai întorcea aici după login/signup. */}
           <Link
-            href="/"
+            href="/login?next=/devino-partener"
             className="mt-4 inline-block rounded-full bg-primary-dark px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-darker"
           >
             Intră în cont

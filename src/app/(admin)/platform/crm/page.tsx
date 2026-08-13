@@ -33,8 +33,12 @@ export default async function PlatformCrmPage({
 
   const supabase = await createClient();
 
+  // Armata 2026-08-14 (MED): q intra brut în DSL-ul PostgREST .or() — o
+  // virgulă/paranteză spărgea parserul sau altera filtrul silențios. Păstrăm
+  // doar caractere de nume/telefon; restul devin spațiu.
+  const safeQ = q.replace(/[^\p{L}\p{N}\s@+.-]/gu, " ").trim();
   let query = supabase.from("admin_customers").select("*");
-  if (q) query = query.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`);
+  if (safeQ) query = query.or(`full_name.ilike.%${safeQ}%,phone.ilike.%${safeQ}%`);
   const [{ data: customers, error }, { count: pendingOnboarding }] = await Promise.all([
     query.order("last_order_at", { ascending: false, nullsFirst: false }).limit(200),
     supabase

@@ -2,8 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { gatherOpsContext } from "@/lib/ai/context";
 import { streamChat, activeProvider, type ChatMessage } from "@/lib/ai/provider";
 
-// Chat-ul operațional al platformei. Gated dur pe platform_admin (pe lângă
-// proxy.ts): contextul conține agregate cross-platformă. Contextul viu se
+// Chat-ul operațional al platformei. Gate-ul de AICI e SINGURA barieră —
+// proxy.ts nu acoperă /api/* (armata 2026-08-14): contextul conține agregate
+// cross-platformă, deci gate-ul e fail-closed pe profil. Contextul viu se
 // reconstruiește LA FIECARE întrebare — asistentul răspunde mereu pe starea
 // de acum, nu pe un snapshot vechi din istoric.
 
