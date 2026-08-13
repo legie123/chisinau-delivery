@@ -22,19 +22,23 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   // KYC/ops visibility (audit #14): pending onboarding + unreviewed fraud flags
   // used to be invisible unless an admin happened to click into each page.
-  // Surface both as nav badges so they can't silently pile up.
+  // Surface both as nav badges so they can't silently pile up. Stuck-order
+  // count feeds the Comenzi badge (consolidare 2026-08-14).
   let pendingOnboarding = 0;
   let openFraudFlags = 0;
+  let stuckOrders = 0;
   if (role === "platform_admin") {
-    const [{ count: onboardingCount }, { count: fraudCount }] = await Promise.all([
+    const [{ count: onboardingCount }, { count: fraudCount }, { count: stuckCount }] = await Promise.all([
       supabase
         .from("onboarding_applications")
         .select("id", { count: "exact", head: true })
         .eq("status", "pending"),
       supabase.from("fraud_flags").select("id", { count: "exact", head: true }).is("reviewed_at", null),
+      supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
     ]);
     pendingOnboarding = onboardingCount ?? 0;
     openFraudFlags = fraudCount ?? 0;
+    stuckOrders = stuckCount ?? 0;
   }
 
   return (
@@ -43,110 +47,84 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <Link href="/" className="shrink-0 font-semibold">
           <span className="text-gold">Dragons</span> Delivery — Admin
         </Link>
-        {/* Admin has ~10 top-level links — too many to wrap without a very
-            tall header, so this row scrolls horizontally instead of
-            overflowing/clipping at narrow widths (brand + sign-out stay
-            pinned and always reachable). */}
+        {/* Consolidare 2026-08-14: nav-ul e împărțit PE ROL. Adminul de
+            platformă vede 6 secțiuni comasate (sub-paginile trăiesc ca tab-uri
+            în interiorul lor — SectionTabs), nu 16 link-uri amestecate cu cele
+            de restaurant. Partenerul de restaurant își păstrează nav-ul lui. */}
         <nav className="no-scrollbar flex min-w-0 flex-1 gap-4 overflow-x-auto text-sm text-white/70">
-          {/* Comenzi first — it's the SLA-driven page (7-minute auto-cancel on
-              new orders), so it gets top billing over the lower-urgency
-              menu/hours/catering management pages. */}
-          <RoleGate role={role} allow={["restaurant_partner", "platform_admin"]}>
-            <Link href="/restaurant/orders" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Comenzi
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["restaurant_partner", "platform_admin"]}>
-            <Link href="/restaurant/menu" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Meniul meu
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["restaurant_partner", "platform_admin"]}>
-            <Link href="/restaurant/hours" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Program
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["restaurant_partner", "platform_admin"]}>
-            <Link href="/restaurant/catering" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Catering
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["restaurant_partner", "platform_admin"]}>
-            <Link href="/restaurant/earnings" className="shrink-0 whitespace-nowrap transition hover:text-gold">
-              Câștiguri
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["restaurant_partner", "platform_admin"]}>
-            <Link href="/restaurant/analytics" className="shrink-0 whitespace-nowrap transition hover:text-gold">
-              Analiză
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Ops
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform/pilot" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Pilot
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform/queues" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Cozi
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform/restaurants" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Restaurante
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform/couriers" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Curieri
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform/orders" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Toate comenzile
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link
-              href="/platform/fraud"
-              className="shrink-0 whitespace-nowrap transition hover:text-white"
-            >
-              Semnalări
-              {openFraudFlags > 0 && (
-                <span className="ml-1.5 rounded-full bg-primary/20 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
-                  {openFraudFlags}
-                </span>
-              )}
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform/ratings" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Reclamații
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link
-              href="/platform/onboarding"
-              className="shrink-0 whitespace-nowrap transition hover:text-white"
-            >
-              Onboarding
-              {pendingOnboarding > 0 && (
-                <span className="ml-1.5 rounded-full bg-gold/20 px-1.5 py-0.5 text-[11px] font-semibold text-gold">
-                  {pendingOnboarding}
-                </span>
-              )}
-            </Link>
-          </RoleGate>
-          <RoleGate role={role} allow={["platform_admin"]}>
-            <Link href="/platform/payouts" className="shrink-0 whitespace-nowrap transition hover:text-white">
-              Plăți
-            </Link>
-          </RoleGate>
+          {role === "platform_admin" ? (
+            <>
+              <Link href="/platform" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                Ops
+              </Link>
+              <Link href="/platform/orders" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                Comenzi
+                {stuckOrders > 0 && (
+                  <span className="ml-1.5 rounded-full bg-primary/20 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                    {stuckOrders}
+                  </span>
+                )}
+              </Link>
+              <Link href="/platform/crm" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                CRM
+                {pendingOnboarding > 0 && (
+                  <span className="ml-1.5 rounded-full bg-gold/20 px-1.5 py-0.5 text-[11px] font-semibold text-gold">
+                    {pendingOnboarding}
+                  </span>
+                )}
+              </Link>
+              <Link href="/platform/payouts" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                Plăți
+              </Link>
+              <Link href="/platform/fraud" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                Siguranță
+                {openFraudFlags > 0 && (
+                  <span className="ml-1.5 rounded-full bg-primary/20 px-1.5 py-0.5 text-[11px] font-semibold text-primary">
+                    {openFraudFlags}
+                  </span>
+                )}
+              </Link>
+              <Link href="/platform/ai" className="shrink-0 whitespace-nowrap font-semibold text-gold transition hover:text-gold-light">
+                ✦ AI
+              </Link>
+            </>
+          ) : (
+            <>
+              {/* Comenzi first — it's the SLA-driven page (7-minute auto-cancel
+                  on new orders), so it gets top billing over the lower-urgency
+                  menu/hours/catering management pages. */}
+              <RoleGate role={role} allow={["restaurant_partner"]}>
+                <Link href="/restaurant/orders" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                  Comenzi
+                </Link>
+              </RoleGate>
+              <RoleGate role={role} allow={["restaurant_partner"]}>
+                <Link href="/restaurant/menu" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                  Meniul meu
+                </Link>
+              </RoleGate>
+              <RoleGate role={role} allow={["restaurant_partner"]}>
+                <Link href="/restaurant/hours" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                  Program
+                </Link>
+              </RoleGate>
+              <RoleGate role={role} allow={["restaurant_partner"]}>
+                <Link href="/restaurant/catering" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                  Catering
+                </Link>
+              </RoleGate>
+              <RoleGate role={role} allow={["restaurant_partner"]}>
+                <Link href="/restaurant/earnings" className="shrink-0 whitespace-nowrap transition hover:text-gold">
+                  Câștiguri
+                </Link>
+              </RoleGate>
+              <RoleGate role={role} allow={["restaurant_partner"]}>
+                <Link href="/restaurant/analytics" className="shrink-0 whitespace-nowrap transition hover:text-gold">
+                  Analiză
+                </Link>
+              </RoleGate>
+            </>
+          )}
         </nav>
         <div className="shrink-0">
           <SignOutButton />

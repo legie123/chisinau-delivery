@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { SectionTabs, ordersTabs } from "@/components/admin/SectionTabs";
 import { ORDER_STATUS_LABEL, type Order, type OrderStatus, type PaymentStatus } from "@/lib/types/domain";
 
 const PAYMENT_LABEL: Record<PaymentStatus, string> = {
@@ -48,7 +49,10 @@ export default async function PlatformOrdersPage({
   if (status) query = query.eq("status", status);
 
   const from = (page - 1) * PAGE_SIZE;
-  const ordersRes = await query.order("created_at", { ascending: false }).range(from, from + PAGE_SIZE - 1);
+  const [ordersRes, { count: stuckCount }] = await Promise.all([
+    query.order("created_at", { ascending: false }).range(from, from + PAGE_SIZE - 1),
+    supabase.from("admin_stuck_orders").select("id", { count: "exact", head: true }),
+  ]);
 
   if (ordersRes.error) {
     return (
@@ -70,7 +74,8 @@ export default async function PlatformOrdersPage({
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Toate comenzile</h1>
+      <h1 className="mb-4 text-2xl font-semibold">Comenzi</h1>
+      <SectionTabs tabs={ordersTabs(stuckCount ?? 0)} current="/platform/orders" />
 
       <form method="GET" className="mb-6 flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs text-white/50">

@@ -2508,6 +2508,20 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_customers: {
+        Row: {
+          cancelled_orders: number | null
+          created_at: string | null
+          delivered_orders: number | null
+          full_name: string | null
+          id: string | null
+          last_order_at: string | null
+          phone: string | null
+          spent_mdl: number | null
+          total_orders: number | null
+        }
+        Relationships: []
+      }
       admin_dispatch_metrics: {
         Row: {
           decline_cascade_depth_avg: number | null

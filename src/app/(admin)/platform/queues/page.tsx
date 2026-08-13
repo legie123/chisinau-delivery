@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { SectionTabs, ordersTabs } from "@/components/admin/SectionTabs";
 import {
   PAYMENT_METHOD_LABEL,
   type AdminPaymentQueueRow,
@@ -38,7 +39,8 @@ export default async function PlatformQueuesPage() {
 
   return (
     <main className="flex-1 px-6 py-8">
-      <h1 className="mb-6 text-2xl font-semibold">Cozi & dispute</h1>
+      <h1 className="mb-4 text-2xl font-semibold">Comenzi</h1>
+      <SectionTabs tabs={ordersTabs(stuckRows.length)} current="/platform/queues" />
 
       <section className="mb-10">
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/60">

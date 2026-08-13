@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { SectionTabs, crmTabs } from "@/components/admin/SectionTabs";
 import { ReviewActions } from "./ReviewActions";
 import type { KycDocument, OnboardingApplication, OnboardingStatus } from "@/lib/types/domain";
 
@@ -98,7 +99,9 @@ export default async function PlatformOnboardingPage({
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-1 text-2xl font-semibold">Onboarding</h1>
+      <h1 className="mb-1 text-2xl font-semibold">CRM</h1>
+      <SectionTabs tabs={crmTabs()} current="/platform/onboarding" />
+      <h2 className="mb-1 text-lg font-semibold">Onboarding</h2>
       <p className="mb-4 text-sm text-white/50">
         Cereri de parteneriat. Verifică documentele și aprobă sau respinge.
       </p>

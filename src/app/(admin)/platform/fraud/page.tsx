@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { SectionTabs, safetyTabs } from "@/components/admin/SectionTabs";
 import { FraudFlagReviewButton } from "@/components/admin/FraudFlagReviewButton";
 
 type FraudDetail = {
@@ -37,7 +38,11 @@ export default async function PlatformFraudPage() {
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-1 text-2xl font-semibold">Semnalări</h1>
+      <h1 className="mb-1 text-2xl font-semibold">Siguranță</h1>
+      <SectionTabs
+        tabs={safetyTabs(flags.filter((f) => !f.reviewed_at).length)}
+        current="/platform/fraud"
+      />
       <p className="mb-6 text-sm text-white/50">
         Semnale de plauzibilitate — se înregistrează, nu blochează. Triază-le manual.
       </p>

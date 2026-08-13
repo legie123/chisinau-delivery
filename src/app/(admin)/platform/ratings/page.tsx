@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { SectionTabs, safetyTabs } from "@/components/admin/SectionTabs";
 
 type LowRating = {
   id: string;
@@ -27,7 +28,8 @@ export default async function PlatformRatingsPage() {
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-1 text-2xl font-semibold">Reclamații</h1>
+      <h1 className="mb-1 text-2xl font-semibold">Siguranță</h1>
+      <SectionTabs tabs={safetyTabs()} current="/platform/ratings" />
       <p className="mb-6 text-sm text-white/50">
         Aprecieri de 3 stele sau mai puțin — semnale de la clienți despre livrare
         sau preparat. Triază-le și intervino unde e nevoie.

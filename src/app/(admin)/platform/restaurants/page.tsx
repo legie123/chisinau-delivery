@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { SectionTabs, crmTabs } from "@/components/admin/SectionTabs";
 import { CreateRestaurantForm } from "@/components/admin/CreateRestaurantForm";
 import { InvitePartnerForm } from "@/components/admin/InvitePartnerForm";
 import { RestaurantActiveToggle } from "@/components/admin/RestaurantActiveToggle";
@@ -18,7 +19,9 @@ export default async function PlatformRestaurantsPage() {
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Restaurante</h1>
+      <h1 className="mb-1 text-2xl font-semibold">CRM</h1>
+      <p className="mb-4 text-sm text-white/50">Restaurante</p>
+      <SectionTabs tabs={crmTabs()} current="/platform/restaurants" />
 
       <CreateRestaurantForm />
 

@@ -38,12 +38,22 @@ export default async function PlatformOpsPage() {
     <main className="flex-1 px-6 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Centru operațional</h1>
-        <Link
-          href="/platform/queues"
-          className="rounded-full bg-white/5 px-4 py-2 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10"
-        >
-          Cozi & dispute →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/platform/queues"
+            className="rounded-full bg-white/5 px-4 py-2 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10"
+          >
+            Atenție acum →
+          </Link>
+          {/* Pilot go/no-go trăiește aici, nu ca secțiune de top (consolidare
+              2026-08-14) — e un scorecard read-only consultat rar. */}
+          <Link
+            href="/platform/pilot"
+            className="rounded-full bg-white/5 px-4 py-2 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10"
+          >
+            Pilot go/no-go →
+          </Link>
+        </div>
       </div>
 
       {(unpaidCount ?? 0) > 0 && (

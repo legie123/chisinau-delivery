@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { SectionTabs, crmTabs } from "@/components/admin/SectionTabs";
 import { adminCourierCashStatus, type CourierCashStatus } from "@chisinau/shared-api";
 import { asCourierId } from "@chisinau/shared-types";
 import { InviteCourierForm } from "@/components/admin/InviteCourierForm";
@@ -91,7 +92,9 @@ export default async function PlatformCouriersPage() {
 
   return (
     <main className="flex-1 px-6 py-10">
-      <h1 className="mb-6 text-2xl font-semibold">Curieri</h1>
+      <h1 className="mb-1 text-2xl font-semibold">CRM</h1>
+      <p className="mb-4 text-sm text-white/50">Curieri</p>
+      <SectionTabs tabs={crmTabs()} current="/platform/couriers" />
 
       <InviteCourierForm />
 
