@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AmbientVideo } from "@/components/marketing/AmbientVideo";
 
 // Central hub — four demo sectors (passwordless doorway via /enter/[role] for
 // quick testing) PLUS a real account entry (/login: sign in + customer sign-up).
@@ -43,7 +44,9 @@ export default function HubPage() {
   // itself also redirects to /login in prod). Local/dev/staging keep the tiles.
   const showDemo = process.env.NODE_ENV !== "production";
   return (
-    <main className="flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
+    <main className="relative flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
+      {/* Ambient cinematic backdrop (audit design: primul contact = premium) */}
+      <AmbientVideo src="/videos/hero-sushi.mp4" poster="/videos/hero-sushi-poster.jpg" />
       {/* Brand */}
       <div className="flex flex-col items-center gap-1 px-6 pb-6 pt-12 text-center">
         <span className="text-5xl" aria-hidden>🐉</span>
