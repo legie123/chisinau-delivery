@@ -4,6 +4,7 @@ import { adminCourierCashStatus, type CourierCashStatus } from "@chisinau/shared
 import { asCourierId } from "@chisinau/shared-types";
 import { InviteCourierForm } from "@/components/admin/InviteCourierForm";
 import { CourierSuspensionControl } from "@/components/admin/CourierSuspensionControl";
+import { CashOffloadControl } from "@/components/admin/CashOffloadControl";
 import type { AdminCourierPilotKpiRow } from "@/lib/types/domain";
 
 const VEHICLE_LABEL: Record<string, string> = {
@@ -135,7 +136,13 @@ export default async function PlatformCouriersPage() {
                     <ShiftEarningsCell row={kpiByCourier.get(courier.id)} />
                   </td>
                   <td className="py-2">
-                    <CashChip status={cashByCourier.get(courier.id) ?? null} />
+                    <div className="flex flex-col items-start gap-1.5">
+                      <CashChip status={cashByCourier.get(courier.id) ?? null} />
+                      <CashOffloadControl
+                        courierId={courier.id}
+                        balanceMdl={Number(cashByCourier.get(courier.id)?.balance_mdl ?? 0)}
+                      />
+                    </div>
                   </td>
                   <td className="py-2">
                     <CourierSuspensionControl courierId={courier.id} initialActive={courier.is_active} />

@@ -53,15 +53,20 @@ begin
   if v_balance is distinct from 345.00 then raise exception 'FAIL: balance = % (expected 345.00)', v_balance; end if;
 
   -- get_courier_cash_status() reflects the seeded v1 policy + live balance.
+  -- 2026-08-15: `cap_mdl` raportează acum plafonul EFECTIV al curierului
+  -- (effective_cash_cap — cel după care îl judecă dispatch-ul), nu cel brut din
+  -- politică; pentru un curier în perioada de probă cele două diferă, iar
+  -- afișarea celui din politică îi promitea curierului spațiu inexistent.
   declare
     v_cash_status record;
+    v_expected_cap numeric := public.effective_cash_cap(v_courier);
   begin
     select * into v_cash_status from public.get_courier_cash_status();
     if v_cash_status.balance_mdl is distinct from 345.00 then
       raise exception 'FAIL: get_courier_cash_status balance = %', v_cash_status.balance_mdl;
     end if;
-    if v_cash_status.cap_mdl is distinct from 1500.00 then
-      raise exception 'FAIL: get_courier_cash_status cap = % (expected seeded 1500.00)', v_cash_status.cap_mdl;
+    if v_cash_status.cap_mdl is distinct from v_expected_cap then
+      raise exception 'FAIL: get_courier_cash_status cap = % (expected effective %)', v_cash_status.cap_mdl, v_expected_cap;
     end if;
     if v_cash_status.offload_channel_text !~ 'Dragon Courier' then
       raise exception 'FAIL: offload_channel_text missing (%)', v_cash_status.offload_channel_text;

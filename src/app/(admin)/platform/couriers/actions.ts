@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { reinstateCourier, RpcError, suspendCourier } from "@chisinau/shared-api";
+import { recordCashOffload, reinstateCourier, RpcError, suspendCourier } from "@chisinau/shared-api";
 import { asCourierId } from "@chisinau/shared-types";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -55,6 +55,26 @@ export async function suspendCourierAction(courierId: string, reason: string): P
     const { supabase } = await requirePlatformAdmin();
     await suspendCourier(supabase, asCourierId(courierId), reason);
     revalidatePath("/platform/couriers");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof RpcError ? err.userMessage : err instanceof Error ? err.message : "A apărut o eroare." };
+  }
+}
+
+// Simulare pilot 2026-08-15: predarea numerarului e cea mai frecventă operațiune
+// a zilei (3,8 predări/curier la 75 comenzi). RPC-ul exista din iulie, dar NU
+// avea niciun apelant în UI — un curier ajuns la plafon rămânea blocat definitiv,
+// fără cale de deblocare din aplicație. Ăsta e butonul care lipsea.
+export async function recordCashOffloadAction(
+  courierId: string,
+  amountMdl: number,
+  note?: string,
+): Promise<ActionState> {
+  try {
+    const { supabase } = await requirePlatformAdmin();
+    await recordCashOffload(supabase, asCourierId(courierId), amountMdl, note);
+    revalidatePath("/platform/couriers");
+    revalidatePath("/platform");
     return { error: null };
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : err instanceof Error ? err.message : "A apărut o eroare." };

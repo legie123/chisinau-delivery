@@ -50,6 +50,8 @@ class Order:
     waves: int = 0
     cancelled: bool = False
     offered_to: set = dataclasses.field(default_factory=set)
+    is_cash: bool = False
+    value: float = 0.0
 
 
 @dataclasses.dataclass
@@ -63,12 +65,16 @@ class Courier:
     consec_ignored: int = 0
     deliveries: int = 0
     busy_min: float = 0.0
+    cash: float = 0.0          # ledger de numerar (courier_cash_movements)
+    offloads: int = 0          # predări la sediu
+    offload_min: float = 0.0   # timp mort cu predările
 
 
 class Sim:
     def __init__(self, params: dict, seed: int, mode: str = "greedy",
                  radius_cap_km: float | None = None, delta_min: float = 0.0,
-                 orders_per_day: int | None = None, fleet: dict | None = None):
+                 orders_per_day: int | None = None, fleet: dict | None = None,
+                 restaurants: list | None = None, cash: dict | None = None):
         self.p = params
         self.rng = np.random.default_rng(seed)
         self.env = simpy.Environment()
@@ -76,7 +82,23 @@ class Sim:
         self.cap = radius_cap_km
         self.delta = delta_min
         self.n_orders = orders_per_day or params["demand"]["orders_per_day"]
-        self.rest = [tuple(c) for c in params["city"]["restaurants"]]
+        self.rest = [tuple(c) for c in (restaurants or params["city"]["restaurants"])]
+        # ---- modelul de NUMERAR (migrațiile 20260813000100/000400) ----
+        # Oprit implicit: fără el, fluxul de numere aleatoare rămâne identic cu
+        # rulările Faza 4, deci rezultatele vechi sunt încă reproductibile.
+        self.cash_on = cash is not None
+        if self.cash_on:
+            self.cash_cap = cash["cap_mdl"]
+            self.p_cash = cash["p_cash"]
+            self.cod_cap = cash.get("cod_cap_mdl", 1400.0)
+            self.offload_at = cash["offload_at_pct"] * self.cash_cap
+            self.offload_fixed_min = cash["offload_minutes"]
+            self.hq = tuple(cash["hq"])
+            vmed, vp90 = cash["order_median_mdl"], cash["order_p90_mdl"]
+            self.val_mu = math.log(vmed)
+            self.val_sigma = (math.log(vp90) - math.log(vmed)) / 1.2816
+        self.stat_cash_skips = 0      # curieri liberi săriți de gate-ul de numerar
+        self.stat_cash_starved = 0    # comenzi rămase FĂRĂ candidat doar din cauza numerarului
         d = params["dispatch"]
         self.ttl, self.tick = d["offer_ttl_min"], d["sweeper_tick_min"]
         self.max_waves, self.ghost = d["max_waves"], d["ghost_streak"]
@@ -124,6 +146,11 @@ class Sim:
             prev = t
             rest_idx = int(self.rng.integers(len(self.rest)))
             o = Order(len(self.orders), rest_idx, self._offset(self.rest[rest_idx]), self.env.now)
+            if self.cash_on:
+                o.value = float(self.rng.lognormal(self.val_mu, self.val_sigma))
+                # place_order respinge standard+cash peste plafonul COD → clientul
+                # comută pe card (traducerea din CheckoutForm), nu pierdem comanda.
+                o.is_cash = self.rng.random() < self.p_cash and o.value <= self.cod_cap
             self.orders.append(o)
             self.env.process(self._order_lifecycle(o))
 
@@ -151,13 +178,25 @@ class Sim:
     def _candidates(self, o: Order):
         rest_xy = self.rest[o.rest]
         out = []
+        cash_blocked = 0
         for c in self.couriers:
             if c.busy or c.offline or c.id in o.offered_to:
+                continue
+            # Gate-ul de numerar, fidel SQL: courier_has_capacity taie curierul
+            # pentru ORICE comandă la balanță >= plafon; gate-ul din dispatch_order
+            # taie doar comenzile cash care ar trece peste plafon (>= , nu >).
+            if self.cash_on and (
+                c.cash >= self.cash_cap or (o.is_cash and c.cash + o.value >= self.cash_cap)
+            ):
+                cash_blocked += 1
                 continue
             dist = hav_km(c.xy, rest_xy)
             if self.cap is not None and dist > self.cap:
                 continue
             out.append((dist / c.speed * 60.0, c))
+        self.stat_cash_skips += cash_blocked
+        if not out and cash_blocked:
+            self.stat_cash_starved += 1
         return sorted(out, key=lambda x: x[0])
 
     def _dispatch_greedy(self, o: Order, waves_used: int = 0):
@@ -238,8 +277,20 @@ class Sim:
         yield self.env.timeout(self._eta_min(c, o.cust) + self.dropoff)
         o.delivered = self.env.now
         c.xy = o.cust
-        c.busy = False
         c.deliveries += 1
+        if self.cash_on and o.is_cash:
+            c.cash += o.value
+            # Predarea la sediu (cash_policy: „la sediul Dragon Courier, 09-21").
+            # Curierul pleacă atunci când s-a apropiat de plafon — drumul e timp
+            # mort: rămâne `busy`, deci nu primește oferte pe traseu.
+            if c.cash >= self.offload_at:
+                trip = self._eta_min(c, self.hq) + self.offload_fixed_min
+                yield self.env.timeout(trip)
+                c.xy = self.hq
+                c.cash = 0.0
+                c.offloads += 1
+                c.offload_min += trip
+        c.busy = False
         c.busy_min += self.env.now - t0
 
     # ---------- rulare + metrici ----------
@@ -255,17 +306,30 @@ class Sim:
         assign_m, assign_p90 = med_p90([o.assigned - o.ready - self.delta for o in done])
         total_m, total_p90 = med_p90([o.delivered - o.placed for o in done])
         online = [c for c in self.couriers if not c.offline]
-        return {
+        n_c = len(self.couriers)
+        offload_total = sum(c.offload_min for c in self.couriers)
+        # Ziua de lucru reală (09-23), nu 24h: utilizarea pe 24h e înșelător de mică.
+        work_min = self.p["demand"].get("workday_minutes", 14 * 60)
+        out = {
             "delivered": len(done),
             "eligible": len(eligible),
             "unassigned_pct": round(100 * len(cancelled) / max(1, len(eligible)), 2),
             "assign_med": round(assign_m, 2), "assign_p90": round(assign_p90, 2),
             "total_med": round(total_m, 2), "total_p90": round(total_p90, 2),
             "waves_avg": round(float(np.mean([o.waves for o in done])), 2) if done else math.nan,
-            "ghosted": len(self.couriers) - len(online),
+            "ghosted": n_c - len(online),
             "deliveries_per_courier": round(len(done) / max(1, len(online)), 1),
-            "utilization_pct": round(100 * sum(c.busy_min for c in self.couriers) / (len(self.couriers) * 24 * 60), 1),
+            "utilization_pct": round(100 * sum(c.busy_min for c in self.couriers) / (n_c * work_min), 1),
         }
+        if self.cash_on:
+            out.update({
+                "offloads_per_courier": round(sum(c.offloads for c in self.couriers) / n_c, 1),
+                "offload_min_per_courier": round(offload_total / n_c, 1),
+                "cash_skips": self.stat_cash_skips,
+                "cash_starved_orders": self.stat_cash_starved,
+                "cash_time_share_pct": round(100 * offload_total / max(1e-9, sum(c.busy_min for c in self.couriers)), 1),
+            })
+        return out
 
 
 def run_reps(params: dict, reps: int = 5, base_seed: int = 42, **kw) -> dict:
