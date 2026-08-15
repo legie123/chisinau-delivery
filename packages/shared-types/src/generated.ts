@@ -2444,6 +2444,7 @@ export type Database = {
           sector: string | null
           slug: string
           updated_at: string
+          venue_type: string
         }
         Insert: {
           accept_sla_minutes?: number
@@ -2471,6 +2472,7 @@ export type Database = {
           sector?: string | null
           slug: string
           updated_at?: string
+          venue_type?: string
         }
         Update: {
           accept_sla_minutes?: number
@@ -2498,8 +2500,99 @@ export type Database = {
           sector?: string | null
           slug?: string
           updated_at?: string
+          venue_type?: string
         }
         Relationships: []
+      }
+      venue_bookings: {
+        Row: {
+          contact_person: string | null
+          contact_phone: string | null
+          created_at: string
+          customer_id: string
+          decline_reason: string | null
+          ends_at: string
+          id: string
+          notes: string | null
+          party_size: number
+          purpose: string
+          quoted_price_mdl: number | null
+          starts_at: string
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          customer_id: string
+          decline_reason?: string | null
+          ends_at: string
+          id?: string
+          notes?: string | null
+          party_size: number
+          purpose: string
+          quoted_price_mdl?: number | null
+          starts_at: string
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          contact_person?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          customer_id?: string
+          decline_reason?: string | null
+          ends_at?: string
+          id?: string
+          notes?: string | null
+          party_size?: number
+          purpose?: string
+          quoted_price_mdl?: number | null
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_bookings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "admin_restaurant_kpis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_bookings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_daily"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "venue_bookings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_analytics_hourly"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "venue_bookings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "restaurant_wait_kpis"
+            referencedColumns: ["restaurant_id"]
+          },
+          {
+            foreignKeyName: "venue_bookings_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -3057,6 +3150,10 @@ export type Database = {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
       }
+      cancel_venue_booking: {
+        Args: { p_booking_id: string }
+        Returns: undefined
+      }
       claim_notification_outbox: {
         Args: { p_batch?: number }
         Returns: {
@@ -3089,6 +3186,10 @@ export type Database = {
           p_provider_ref?: string
           p_success: boolean
         }
+        Returns: undefined
+      }
+      confirm_venue_booking: {
+        Args: { p_booking_id: string }
         Returns: undefined
       }
       courier_arrived_at_restaurant: {
@@ -3200,6 +3301,10 @@ export type Database = {
       }
       decline_dispatch_offer: {
         Args: { p_offer_id: string }
+        Returns: undefined
+      }
+      decline_venue_booking: {
+        Args: { p_booking_id: string; p_reason: string }
         Returns: undefined
       }
       dispatch_order: { Args: { p_order_id: string }; Returns: string }
@@ -3348,6 +3453,10 @@ export type Database = {
         }[]
       }
       purge_expired_pii: { Args: never; Returns: undefined }
+      quote_venue_booking: {
+        Args: { p_booking_id: string; p_price_mdl: number }
+        Returns: undefined
+      }
       rating_breakdown: {
         Args: { p_restaurant_id: string }
         Returns: {
@@ -3378,6 +3487,19 @@ export type Database = {
       reject_order: {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
+      }
+      request_venue_booking: {
+        Args: {
+          p_contact_person: string
+          p_contact_phone: string
+          p_ends_at: string
+          p_notes?: string
+          p_party_size: number
+          p_purpose: string
+          p_starts_at: string
+          p_venue_id: string
+        }
+        Returns: string
       }
       restaurant_cancel_order: {
         Args: { p_order_id: string; p_reason: string }

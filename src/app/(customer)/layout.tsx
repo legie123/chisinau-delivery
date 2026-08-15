@@ -25,6 +25,9 @@ export default async function CustomerLayout({ children }: { children: React.Rea
             </span>
           </div>
           <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white/70 sm:gap-4">
+            <Link href="/concierge" className="transition hover:text-gold">
+              Concierge
+            </Link>
             <Link href="/restaurants" className="transition hover:text-white">
               Restaurante
             </Link>

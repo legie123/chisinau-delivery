@@ -1,0 +1,64 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { cancelVenueBooking, confirmVenueBooking } from "@chisinau/shared-api";
+import { createClient } from "@/lib/supabase/client";
+
+// Cele două decizii ale clientului pe o rezervare: accept oferta sau renunț.
+// Confirmarea e disponibilă doar când există ofertă (DB-ul refuză altfel, iar
+// butonul nu se afișează degeaba).
+export function BookingActions({
+  bookingId,
+  status,
+  priceMdl,
+}: {
+  bookingId: string;
+  status: string;
+  priceMdl: number | null;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const closed = ["cancelled", "declined", "completed"].includes(status);
+  if (closed) return null;
+
+  function run(action: "confirm" | "cancel") {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const supabase = createClient();
+        if (action === "confirm") await confirmVenueBooking(supabase, bookingId);
+        else await cancelVenueBooking(supabase, bookingId);
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "A apărut o eroare.");
+      }
+    });
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {status === "quoted" && (
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => run("confirm")}
+          className="rounded-full bg-gold px-5 py-2 text-xs font-bold uppercase tracking-wider text-zinc-900 transition hover:bg-gold-light disabled:opacity-40"
+        >
+          {pending ? "Se confirmă…" : `Confirmă${priceMdl != null ? ` · ${priceMdl} MDL` : ""}`}
+        </button>
+      )}
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run("cancel")}
+        className="text-xs text-white/40 underline underline-offset-4 transition hover:text-white/70 disabled:opacity-40"
+      >
+        Renunță
+      </button>
+      {error && <p className="w-full text-xs text-primary">{error}</p>}
+    </div>
+  );
+}

@@ -33,8 +33,12 @@ insert into public.menu_items (restaurant_id, category_id, name, description, pr
   ('33333333-3333-3333-3333-333333333333', 'a3333333-0000-0000-0000-000000000001', 'Dragon Roll', 'Anghilă, avocado, sos unagi.', 220, false, null, 1),
   ('33333333-3333-3333-3333-333333333333', 'a3333333-0000-0000-0000-000000000001', 'Spicy Tuna Roll', 'Ton picant, castravete.', 190, false, null, 2);
 
+-- Program de noapte (2026-08-15): închiderea trece de miezul nopții, la 03:00.
+-- Ambele straturi știau deja să citească un interval care sare peste miezul
+-- nopții — `restaurant_open_at` (SQL) și `isOpenNow` (client) tratează cazul
+-- `closes_at <= opens_at` — doar datele se opreau la 22:00.
 insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at)
-select r.id, d, '11:00', '22:00'
+select r.id, d, '11:00', '03:00'
 from public.restaurants r, generate_series(0, 6) as d;
 
 -- Geo coordinates (WS3): Chișinău points so nearby_restaurants + the ops map work.

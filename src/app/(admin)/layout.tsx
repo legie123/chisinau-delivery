@@ -99,6 +99,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                 </Link>
               </RoleGate>
               <RoleGate role={role} allow={["restaurant_partner"]}>
+                <Link href="/restaurant/rezervari" className="shrink-0 whitespace-nowrap transition hover:text-white">
+                  Rezervări
+                </Link>
+              </RoleGate>
+              <RoleGate role={role} allow={["restaurant_partner"]}>
                 <Link href="/restaurant/menu" className="shrink-0 whitespace-nowrap transition hover:text-white">
                   Meniul meu
                 </Link>

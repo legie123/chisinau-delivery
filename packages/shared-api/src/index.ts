@@ -11,6 +11,7 @@ export * from "./payouts";
 export * from "./onboarding";
 export * from "./discovery";
 export * from "./notifications";
+export * from "./bookings";
 export * from "./cash";
 export * from "./tariff";
 export * from "./pilot";
