@@ -9,5 +9,5 @@ export function siteUrl(): string {
   return raw.replace(/\/+$/, "");
 }
 
-export const SITE_NAME = "Dragons Delivery";
-export const SITE_TAGLINE = "Sushi, fine dining și catering, livrate în Chișinău";
+export const SITE_NAME = "Dragons Delivery Chișinău";
+export const SITE_TAGLINE = "Restaurante, sushi, spa, wellness și săli de business — într-un singur concierge";

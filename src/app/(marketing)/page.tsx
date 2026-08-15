@@ -2,7 +2,7 @@ import Link from "next/link";
 import { AmbientVideo } from "@/components/marketing/AmbientVideo";
 import { masterDoorwayEnabled } from "@/lib/master/gate";
 
-// Central hub — trei porți pe rol (fiecare sector își începe experiența pe
+// Central hub — patru porți (fiecare sector își începe experiența pe
 // pagina LUI de start) + intrarea de cont. Intrarea demonstrativă fără parolă
 // trăiește EXCLUSIV în spatele /master (poarta cu parolă a proprietarului) —
 // hub-ul public nu mai oferă nicio ușă passwordless (2026-08-14).
@@ -14,6 +14,14 @@ const DOORS = [
     emoji: "🍣",
     image: "https://images.unsplash.com/photo-1553621042-f6e147245754?w=900&h=1200&fit=crop",
     tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#3d1220]/95",
+  },
+  {
+    href: "/concierge",
+    title: "Concierge",
+    subtitle: "Spa, wellness & săli de business",
+    emoji: "🗝️",
+    image: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=900&h=1200&fit=crop",
+    tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#1a2f3d]/95",
   },
   {
     href: "/start/curier",
@@ -48,12 +56,12 @@ export default function HubPage() {
           DRAGONS DELIVERY
         </h1>
         <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-white/45">
-          Premium Food Delivery · Chișinău
+          Concierge premium · Chișinău
         </p>
       </div>
 
       {/* Porțile pe rol */}
-      <div className="mx-auto grid w-full max-w-5xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-3">
+      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-2 lg:grid-cols-4">
         {DOORS.map((s) => (
           <Link
             key={s.href}

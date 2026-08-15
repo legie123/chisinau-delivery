@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Chișinău Delivery",
-    short_name: "Chișinău Delivery",
+    name: "Dragons Delivery Chișinău",
+    short_name: "Dragons Delivery Chișinău",
     description: "Livrare sushi și fine dining în Chișinău.",
     start_url: "/",
     display: "standalone",

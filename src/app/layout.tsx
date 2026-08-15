@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     template: `%s · ${SITE_NAME}`,
   },
   description:
-    "Comandă sushi, fine dining și catering în Chișinău: meniuri cu fotografii reale, urmărire live a livrării, plată cash sau card la ușă.",
+    "Concierge premium în Chișinău: comandă de la restaurante și sushi bar-uri, rezervă spa, lounge wellness sau sală de business — dintr-un singur loc, cu urmărire live.",
   applicationName: SITE_NAME,
   manifest: "/manifest.webmanifest",
   openGraph: {
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     locale: "ro_MD",
     siteName: SITE_NAME,
     title: `${SITE_NAME} — ${SITE_TAGLINE}`,
-    description: "Sushi, fine dining și catering livrate în Chișinău, cu urmărire live.",
+    description: "Restaurante, sushi, spa, wellness și săli de business — comandate și rezervate dintr-un singur loc.",
     url: siteUrl(),
   },
   robots: { index: true, follow: true },

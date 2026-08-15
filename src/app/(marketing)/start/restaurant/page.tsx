@@ -1,21 +1,23 @@
 import { StartHero } from "@/components/marketing/StartHero";
 
-export const metadata = { title: "Devino partener — Dragons Delivery" };
+export const metadata = { title: "Devino partener — restaurant, spa, wellness sau sală de business" };
 
-// Poarta restaurantului: video-ul flame (Higgsfield) = bucătăria vie.
-// Mesajul e control + vizibilitate, nu „încă o platformă de comenzi".
+// Poarta partenerilor. De la 2026-08-15 rețeaua nu mai e doar de restaurante:
+// intră și spa-uri, lounge-uri de wellness și săli de business, fiindcă
+// platforma a devenit concierge. Video-ul flame (Higgsfield) rămâne — bucătăria
+// vie e tot cea mai puternică imagine a rețelei.
 export default function StartRestaurantPage() {
   return (
     <StartHero
       media={{ video: { src: "/videos/hero-flame.mp4", poster: "/videos/hero-flame-poster.jpg" } }}
-      eyebrow="Pentru restaurante"
-      headline="Bucătăria ta, în fața orașului"
-      sub="Primești comenzi cu reguli clare, meniul tău arată impecabil și vezi exact câți bani îți intră — comision, payouts, analiză."
+      eyebrow="Pentru parteneri"
+      headline="Locul tău, în fața orașului"
+      sub="Restaurant, sushi bar, spa, lounge de wellness sau sală de business — intri în rețeaua concierge și primești comenzi și rezervări dintr-un singur loc."
       bullets={[
-        "Comenzile vin cu SLA clar — 7 minute să răspunzi, nimic pierdut în zgomot",
-        "Meniu cu fotografii premium generate pentru tine",
-        "Catering cu cotații — tu decizi prețul evenimentului",
-        "Câștiguri și payouts la vedere, fără surprize",
+        "Comenzi cu reguli clare — 7 minute să răspunzi, nimic pierdut în zgomot",
+        "Rezervări cu ofertă: tu pui prețul intervalului, clientul confirmă",
+        "Catering și evenimente, pentru firmele care revin săptămânal",
+        "Câștiguri și plăți la vedere, fără surprize",
       ]}
       ctas={[
         { href: "/devino-partener", label: "Devino partener", primary: true },
