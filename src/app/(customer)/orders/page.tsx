@@ -195,6 +195,18 @@ export default async function OrdersPage() {
                     items={reorderItems}
                   />
                 )}
+                {/* Catering-ul nu trece prin coș (are ofertă), deci nu poate
+                    folosi butonul de mai sus — dar e exact segmentul care se
+                    repetă cel mai des (audit de creștere 2026-08-15). Formularul
+                    se redeschide pre-completat; se schimbă doar data. */}
+                {order.status === "delivered" && order.order_type === "catering" && (
+                  <Link
+                    href={`/catering?repeta=${order.id}`}
+                    className="self-start rounded-full bg-gold/15 px-4 py-2 text-sm font-semibold text-gold ring-1 ring-gold/30 transition hover:bg-gold/25"
+                  >
+                    Repetă comanda de catering
+                  </Link>
+                )}
               </li>
             );
           })}

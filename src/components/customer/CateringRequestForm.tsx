@@ -10,17 +10,43 @@ export type CateringRestaurant = Pick<Restaurant, "id" | "name" | "catering_min_
 
 type Quantities = Record<string, number>;
 
-export function CateringRequestForm({ restaurants }: { restaurants: CateringRestaurant[] }) {
+/** Reluarea unei comenzi de catering livrate — tot ce se repetă, mai puțin data. */
+export type CateringPrefill = {
+  restaurantId: string;
+  quantities: Record<string, number>;
+  guestCount: number | null;
+  eventAddress: string | null;
+  contactPerson: string | null;
+  contactPhone: string | null;
+};
+
+export function CateringRequestForm({
+  restaurants,
+  prefill = null,
+}: {
+  restaurants: CateringRestaurant[];
+  prefill?: CateringPrefill | null;
+}) {
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState(restaurants[0]?.id ?? "");
+  // Doar id-ul, nu obiectul: `prefill` e o referință nouă la fiecare render,
+  // iar în dependențele efectului ar reporni încărcarea meniului la infinit.
+  const prefillRestaurantId = prefill?.restaurantId ?? null;
+  const [restaurantId, setRestaurantId] = useState(
+    prefill && restaurants.some((r) => r.id === prefill.restaurantId)
+      ? prefill.restaurantId
+      : (restaurants[0]?.id ?? ""),
+  );
   const [items, setItems] = useState<MenuItem[]>([]);
-  const [quantities, setQuantities] = useState<Quantities>({});
+  // Cantitățile reluate se păstrează doar cât timp rămâi pe restaurantul de
+  // atunci; la schimbarea restaurantului meniul e altul, deci se golesc.
+  const [quantities, setQuantities] = useState<Quantities>(prefill?.quantities ?? {});
+  // Data rămâne goală intenționat: e singurul lucru care TREBUIE reales.
   const [eventDate, setEventDate] = useState("");
   const [eventTime, setEventTime] = useState("");
-  const [guestCount, setGuestCount] = useState(20);
-  const [eventAddress, setEventAddress] = useState("");
-  const [contactPerson, setContactPerson] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  const [guestCount, setGuestCount] = useState(prefill?.guestCount ?? 20);
+  const [eventAddress, setEventAddress] = useState(prefill?.eventAddress ?? "");
+  const [contactPerson, setContactPerson] = useState(prefill?.contactPerson ?? "");
+  const [contactPhone, setContactPhone] = useState(prefill?.contactPhone ?? "");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -31,6 +57,7 @@ export function CateringRequestForm({ restaurants }: { restaurants: CateringRest
   // so the effect never needs a synchronous setState to reset it.
   const [menuResult, setMenuResult] = useState<{ forId: string; reload: number; failed: boolean } | null>(null);
   const [menuReload, setMenuReload] = useState(0);
+
   const menuState: "loading" | "error" | "ready" =
     menuResult?.forId === restaurantId && menuResult.reload === menuReload
       ? menuResult.failed
@@ -56,13 +83,19 @@ export function CateringRequestForm({ restaurants }: { restaurants: CateringRest
           return;
         }
         setItems((data ?? []) as MenuItem[]);
-        setQuantities({});
+        // Golirea e corectă când schimbi restaurantul (alt meniu, alte id-uri),
+        // dar ar șterge exact ce am reluat dintr-o comandă veche. Condiția e pe
+        // restaurantul curent, nu pe un flag consumabil: în dezvoltare React
+        // rulează efectul de două ori, iar un flag ar fi ars la prima trecere.
+        if (restaurantId !== prefillRestaurantId) {
+          setQuantities({});
+        }
         setMenuResult({ forId: restaurantId, reload: menuReload, failed: false });
       });
     return () => {
       stale = true;
     };
-  }, [restaurantId, menuReload]);
+  }, [restaurantId, menuReload, prefillRestaurantId]);
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + (quantities[item.id] ?? 0) * item.price_mdl, 0),
