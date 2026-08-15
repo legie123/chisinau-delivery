@@ -2,12 +2,13 @@ import { StartHero } from "@/components/marketing/StartHero";
 
 export const metadata = { title: "Devino curier — Dragons Delivery" };
 
-// Poarta curierului: câștig clar, reguli clare. Fără video dedicat încă —
-// imaginea de curier din hub, cu drift ambient (același limbaj vizual).
+// Poarta curierului: câștig clar, reguli clare. Fundalul e generat pentru
+// sectorul ăsta (Higgsfield/Seedance): scuter pe asfalt ud, lumini calde de
+// oraș la amurg — munca lui, nu o poză de stoc.
 export default function StartCurierPage() {
   return (
     <StartHero
-      media={{ image: "https://images.unsplash.com/photo-1526367790999-0150786686a2?w=1600&h=1000&fit=crop" }}
+      media={{ video: { src: "/videos/hero-courier.mp4", poster: "/videos/hero-courier-poster.jpg" } }}
       eyebrow="Pentru curieri"
       headline="Livrezi. Câștigi. În ritmul tău."
       sub="Oferte de livrare direct pe telefon, câștiguri vizibile pe fiecare cursă și predare de numerar fără bătăi de cap."
