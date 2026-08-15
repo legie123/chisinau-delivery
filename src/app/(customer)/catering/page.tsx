@@ -14,9 +14,9 @@ import {
 export default async function CateringPage({
   searchParams,
 }: {
-  searchParams: Promise<{ repeta?: string }>;
+  searchParams: Promise<{ repeta?: string; pentru?: string }>;
 }) {
-  const { repeta } = await searchParams;
+  const { repeta, pentru } = await searchParams;
   const supabase = await createClient();
   // accepting_orders matters too: place_order hard-rejects when it's false,
   // so listing such a restaurant would only produce a failing form.
@@ -27,6 +27,38 @@ export default async function CateringPage({
     .eq("accepts_catering", true)
     .eq("accepting_orders", true)
     .order("name");
+
+
+  // Hub de business: dintr-o rezervare confirmată (sală, ședință) se comandă
+  // direct catering pentru acel interval — data, ora și numărul de persoane
+  // vin din rezervare, ca nimeni să nu le retasteze. RLS face verificarea:
+  // `venue_bookings` e citibil doar de client (sau de locație), deci un id
+  // străin nu întoarce nimic.
+  let eventPrefill: { date: string; time: string; guests: number; person: string | null; phone: string | null } | null = null;
+  if (pentru) {
+    const { data: booking } = await supabase
+      .from("venue_bookings")
+      .select("starts_at, party_size, contact_person, contact_phone, status, restaurants(address)")
+      .eq("id", pentru)
+      .maybeSingle();
+
+    if (booking && booking.status === "confirmed") {
+      const when = new Date(booking.starts_at);
+      const local = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: "Europe/Chisinau",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", hour12: false,
+      }).format(when);
+      const [datePart, timePart] = local.split(" ");
+      eventPrefill = {
+        date: datePart,
+        time: timePart,
+        guests: booking.party_size,
+        person: booking.contact_person,
+        phone: booking.contact_phone,
+      };
+    }
+  }
 
   // RLS ține reluarea în frâu: `orders` e citibil doar de proprietarul comenzii,
   // deci un id străin pur și simplu nu întoarce nimic — fără verificare separată.
@@ -67,6 +99,7 @@ export default async function CateringPage({
       <CateringRequestForm
         restaurants={(restaurants ?? []) as CateringRestaurant[]}
         prefill={prefill}
+        eventPrefill={eventPrefill}
       />
     </main>
   );

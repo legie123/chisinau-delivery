@@ -20,12 +20,23 @@ export type CateringPrefill = {
   contactPhone: string | null;
 };
 
+/** Date venite dintr-o rezervare confirmată: masa se comandă PENTRU acel interval. */
+export type CateringEventPrefill = {
+  date: string;
+  time: string;
+  guests: number;
+  person: string | null;
+  phone: string | null;
+};
+
 export function CateringRequestForm({
   restaurants,
   prefill = null,
+  eventPrefill = null,
 }: {
   restaurants: CateringRestaurant[];
   prefill?: CateringPrefill | null;
+  eventPrefill?: CateringEventPrefill | null;
 }) {
   const router = useRouter();
   // Doar id-ul, nu obiectul: `prefill` e o referință nouă la fiecare render,
@@ -41,12 +52,12 @@ export function CateringRequestForm({
   // atunci; la schimbarea restaurantului meniul e altul, deci se golesc.
   const [quantities, setQuantities] = useState<Quantities>(prefill?.quantities ?? {});
   // Data rămâne goală intenționat: e singurul lucru care TREBUIE reales.
-  const [eventDate, setEventDate] = useState("");
-  const [eventTime, setEventTime] = useState("");
-  const [guestCount, setGuestCount] = useState(prefill?.guestCount ?? 20);
+  const [eventDate, setEventDate] = useState(eventPrefill?.date ?? "");
+  const [eventTime, setEventTime] = useState(eventPrefill?.time ?? "");
+  const [guestCount, setGuestCount] = useState(eventPrefill?.guests ?? prefill?.guestCount ?? 20);
   const [eventAddress, setEventAddress] = useState(prefill?.eventAddress ?? "");
-  const [contactPerson, setContactPerson] = useState(prefill?.contactPerson ?? "");
-  const [contactPhone, setContactPhone] = useState(prefill?.contactPhone ?? "");
+  const [contactPerson, setContactPerson] = useState(eventPrefill?.person ?? prefill?.contactPerson ?? "");
+  const [contactPhone, setContactPhone] = useState(eventPrefill?.phone ?? prefill?.contactPhone ?? "");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);

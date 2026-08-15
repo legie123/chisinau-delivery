@@ -58,7 +58,10 @@ export default async function ConciergePage({
 
   return (
     <main className="relative isolate flex-1 px-5 pb-20 pt-8">
-      <AmbientVideo src="/videos/hero-pour.mp4" poster="/videos/hero-pour-poster.jpg" />
+      {/* Fundal generat pentru sectorul concierge (Higgsfield/Seedance):
+          lounge de business în amurg — imaginea care spune „aici se ține
+          întâlnirea", nu „aici se livrează mâncare". */}
+      <AmbientVideo src="/videos/hero-lounge.mp4" poster="/videos/hero-lounge-poster.jpg" />
 
       <div className="mx-auto w-full max-w-5xl">
         <header className="mb-8 text-center">

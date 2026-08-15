@@ -103,6 +103,18 @@ export default async function ConciergeBookingsPage() {
                 </div>
               </div>
               <BookingActions bookingId={b.id} status={b.status} priceMdl={b.quoted_price_mdl} />
+              {/* Aici se închide cercul „hub de business": ai sala, adaugi masa.
+                  Data, ora și numărul de persoane trec singure în cererea de
+                  catering — nimeni nu le retastează. */}
+              {b.status === "confirmed" && (
+                <Link
+                  href={`/catering?pentru=${b.id}`}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full bg-gold/15 px-4 py-2 text-sm font-semibold text-gold ring-1 ring-gold/30 transition hover:bg-gold/25"
+                >
+                  Adaugă catering pentru această întâlnire
+                  <span aria-hidden>→</span>
+                </Link>
+              )}
             </li>
           ))}
         </ul>
