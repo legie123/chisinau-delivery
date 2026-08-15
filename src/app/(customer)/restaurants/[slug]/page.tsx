@@ -15,6 +15,62 @@ import type {
 } from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
 import { chisinauNow, isOpenNow, nextOpeningLabel, type HoursRow } from "@/lib/orders/hours";
+import { SITE_NAME, siteUrl } from "@/lib/seo/site";
+import type { Metadata } from "next";
+
+const CUISINE_RO: Record<string, string> = {
+  sushi: "Sushi",
+  fine_dining: "Fine dining",
+  pizza: "Pizza",
+  burgers: "Burgeri",
+  asian: "Asiatic",
+  other: "Restaurant",
+};
+
+// Audit de creștere 2026-08-15: fiecare pagină de restaurant purta titlul
+// generic „Chișinău Delivery", fără descriere și fără imagine de partajare —
+// un link trimis pe WhatsApp apărea gol, iar Google n-avea ce indexa. Titlul
+// urmează intenția de căutare reală: „<Nume> — Sushi, livrare în Chișinău".
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("restaurants")
+    .select("name, description, cuisine_type, cover_photo_url, sector")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!data) return { title: `Restaurant negăsit · ${SITE_NAME}` };
+
+  const cuisine = CUISINE_RO[data.cuisine_type] ?? "Restaurant";
+  const title = `${data.name} — ${cuisine}, livrare în Chișinău`;
+  const description =
+    data.description?.trim() ||
+    `Comandă de la ${data.name}${data.sector ? `, ${data.sector}` : ""} — ${cuisine.toLowerCase()} livrat acasă în Chișinău, cu urmărire live a comenzii.`;
+  const url = `${siteUrl()}/restaurants/${slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName: SITE_NAME,
+      locale: "ro_MD",
+      type: "website",
+      ...(data.cover_photo_url ? { images: [{ url: data.cover_photo_url, alt: data.name }] } : {}),
+    },
+    twitter: {
+      card: data.cover_photo_url ? "summary_large_image" : "summary",
+      title,
+      description,
+      ...(data.cover_photo_url ? { images: [data.cover_photo_url] } : {}),
+    },
+  };
+}
 
 export default async function RestaurantMenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -76,8 +132,61 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   }
   const prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0];
 
+  // Date structurate: fără ele Google vede o pagină oarecare, nu un restaurant
+  // cu meniu și prețuri. Includem doar câmpuri pe care le avem cu adevărat —
+  // un rating inventat sau un orar aproximativ ar fi dezinformare, nu SEO.
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Restaurant",
+    name: typedRestaurant.name,
+    ...(typedRestaurant.description ? { description: typedRestaurant.description } : {}),
+    ...(typedRestaurant.cover_photo_url ? { image: typedRestaurant.cover_photo_url } : {}),
+    url: `${siteUrl()}/restaurants/${slug}`,
+    ...(typedRestaurant.phone ? { telephone: typedRestaurant.phone } : {}),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Chișinău",
+      addressCountry: "MD",
+      ...(typedRestaurant.address ? { streetAddress: typedRestaurant.address } : {}),
+    },
+    ...(typedRestaurant.lat && typedRestaurant.lng
+      ? { geo: { "@type": "GeoCoordinates", latitude: typedRestaurant.lat, longitude: typedRestaurant.lng } }
+      : {}),
+    ...(typedRestaurant.rating_count > 0 && typedRestaurant.rating_avg
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: typedRestaurant.rating_avg,
+            reviewCount: typedRestaurant.rating_count,
+          },
+        }
+      : {}),
+    servesCuisine: CUISINE_RO[typedRestaurant.cuisine_type] ?? "Restaurant",
+    priceRange: "$$",
+    hasMenu: {
+      "@type": "Menu",
+      hasMenuSection: categories.map((c) => ({
+        "@type": "MenuSection",
+        name: c.name,
+        hasMenuItem: items
+          .filter((i) => i.category_id === c.id)
+          .map((i) => ({
+            "@type": "MenuItem",
+            name: i.name,
+            ...(i.description ? { description: i.description } : {}),
+            offers: { "@type": "Offer", price: i.price_mdl, priceCurrency: "MDL" },
+          })),
+      })),
+    },
+  };
+
   return (
     <main className="flex-1 px-5 pb-24 pt-6">
+      <script
+        type="application/ld+json"
+        // eslint-disable-next-line react/no-danger -- JSON-LD generat de noi din date proprii
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Cover banner with overlaid identity — Bolt restaurant header */}
       <CoverImage
         src={typedRestaurant.cover_photo_url}
