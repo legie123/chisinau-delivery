@@ -102,6 +102,18 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
                     .join(", ")}
                 </p>
                 {typedAddress.notes && <p className="mt-1 text-white/50">📝 {typedAddress.notes}</p>}
+                {/* Contactul clientului — până acum îl avea doar catering-ul,
+                    deci pe comenzile obișnuite curierul rămânea blocat la poartă
+                    fără nicio cale de a suna (armata SPOF 2026-08-15). */}
+                {typedAddress.contact_phone && (
+                  <a
+                    href={`tel:${typedAddress.contact_phone}`}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary/15 px-4 py-2 font-semibold text-primary ring-1 ring-primary/30 transition hover:bg-primary/25"
+                  >
+                    📞 Sună clientul
+                    <span className="font-normal text-white/60">{typedAddress.contact_phone}</span>
+                  </a>
+                )}
               </>
             ) : catering ? (
               <>

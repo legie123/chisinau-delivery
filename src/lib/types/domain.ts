@@ -122,6 +122,8 @@ export interface Address {
   floor: string | null;
   intercom_code: string | null;
   notes: string | null;
+  /** Contactul de livrare. Curierul îl vede doar cât are comanda în lucru (+24h). */
+  contact_phone: string | null;
   lat: number | null;
   lng: number | null;
   is_default: boolean;

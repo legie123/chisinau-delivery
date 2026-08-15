@@ -55,7 +55,12 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const restaurantState: "loading" | "error" | "ready" =
     summary?.forId === restaurantId ? (summary.data ? "ready" : "error") : "loading";
   const [selectedAddressId, setSelectedAddressId] = useState<string>(addresses[0]?.id ?? "new");
-  const [newAddress, setNewAddress] = useState({ street_address: "", sector: "", building: "", apartment: "", notes: "" });
+  // Telefonul cerut pentru o adresă salvată care încă nu are unul.
+  const [missingPhone, setMissingPhone] = useState("");
+  const selectedAddressHasPhone =
+    selectedAddressId === "new" ||
+    Boolean(addresses.find((a) => a.id === selectedAddressId)?.contact_phone);
+  const [newAddress, setNewAddress] = useState({ street_address: "", sector: "", building: "", apartment: "", notes: "", contact_phone: "" });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   // Tipping — 4 preset chips (% of subtotal) OR a custom MDL amount that overrides them.
   const [tipChoice, setTipChoice] = useState<TipChoice>("none");
@@ -210,6 +215,9 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
 
       if (selectedAddressId === "new") {
         if (!newAddress.street_address.trim()) throw new Error("Adresa este obligatorie.");
+        if (newAddress.contact_phone.replace(/\D/g, "").length < 6) {
+          throw new Error("Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.");
+        }
         if (createdAddressId) {
           // A previous submit already saved this address but place_order failed;
           // reuse it instead of inserting a duplicate.
@@ -229,6 +237,18 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
           deliveryAddressId = inserted.id;
           setCreatedAddressId(inserted.id);
         }
+      } else if (!selectedAddressHasPhone) {
+        // Adresele salvate ÎNAINTE de 2026-08-15 n-au telefon (câmpul nu exista).
+        // Fără asta, clienții vechi n-ar fi întrebați niciodată și curierul ar
+        // rămâne exact la fel de blocat la poartă ca până acum.
+        if (missingPhone.replace(/\D/g, "").length < 6) {
+          throw new Error("Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.");
+        }
+        const { error: phoneError } = await supabase
+          .from("addresses")
+          .update({ contact_phone: missingPhone.trim() })
+          .eq("id", selectedAddressId);
+        if (phoneError) throw new Error(phoneError.message);
       }
 
       let requestedForIso: string | null = null;
@@ -397,6 +417,25 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
             <option value="new">Adresă nouă</option>
           </select>
         )}
+        {!selectedAddressHasPhone && (
+          <div className="mt-2.5">
+            <input
+              aria-label="Telefon de contact"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              required
+              placeholder="Telefon de contact (curierul te sună la livrare)"
+              value={missingPhone}
+              onChange={(e) => setMissingPhone(e.target.value)}
+              className={`w-full ${inputClass}`}
+            />
+            <p className="mt-1 text-xs text-white/40">
+              Îl salvăm pe adresa asta, ca să nu-l mai ceri data viitoare.
+            </p>
+          </div>
+        )}
+
         {selectedAddressId === "new" && (
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <input
@@ -426,6 +465,20 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               placeholder="Apartament"
               value={newAddress.apartment}
               onChange={(e) => setNewAddress({ ...newAddress, apartment: e.target.value })}
+              className={inputClass}
+            />
+            {/* Telefonul e OBLIGATORIU: fără el curierul n-are cum să te sune
+                dacă poarta e încuiată sau interfonul nu răspunde (armata SPOF
+                2026-08-15 — până acum nu se colecta nicăieri). */}
+            <input
+              aria-label="Telefon de contact"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="Telefon (pentru curier)"
+              required
+              value={newAddress.contact_phone}
+              onChange={(e) => setNewAddress({ ...newAddress, contact_phone: e.target.value })}
               className={inputClass}
             />
             <input

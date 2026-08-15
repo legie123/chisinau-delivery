@@ -16,6 +16,10 @@ begin
   select id into v_courier from public.couriers where user_id = v_courier_user;
   -- Curier „nou" prin construcție (fixture-ul seed poate fi vechi în DB-ul viu).
   update public.couriers set created_at = now() - interval '3 days' where id = v_courier;
+  -- courier_has_capacity (S4) cade și pe o livrare ÎN CURS, nu doar pe plafon —
+  -- eliberează curierul, altfel aserțiunea de numerar măsoară altceva.
+  update public.orders set status = 'delivered', delivered_at = coalesce(delivered_at, now())
+  where courier_id = v_courier and status in ('courier_assigned', 'picked_up', 'en_route');
 
   -- ===== S1: implicit = comportamentul hardcodat de dinainte =====
   v_cap := public.effective_cash_cap(v_courier);

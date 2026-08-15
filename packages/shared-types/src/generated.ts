@@ -38,6 +38,7 @@ export type Database = {
         Row: {
           apartment: string | null
           building: string | null
+          contact_phone: string | null
           created_at: string
           customer_id: string
           entrance: string | null
@@ -56,6 +57,7 @@ export type Database = {
         Insert: {
           apartment?: string | null
           building?: string | null
+          contact_phone?: string | null
           created_at?: string
           customer_id: string
           entrance?: string | null
@@ -74,6 +76,7 @@ export type Database = {
         Update: {
           apartment?: string | null
           building?: string | null
+          contact_phone?: string | null
           created_at?: string
           customer_id?: string
           entrance?: string | null
@@ -98,6 +101,8 @@ export type Database = {
           created_by: string | null
           effective_from: string
           id: string
+          new_courier_cap_mdl: number
+          new_courier_days: number
           note: string | null
           offload_channel_text: string
           reactivation_threshold_mdl: number
@@ -108,6 +113,8 @@ export type Database = {
           created_by?: string | null
           effective_from?: string
           id?: string
+          new_courier_cap_mdl?: number
+          new_courier_days?: number
           note?: string | null
           offload_channel_text: string
           reactivation_threshold_mdl: number
@@ -118,6 +125,8 @@ export type Database = {
           created_by?: string | null
           effective_from?: string
           id?: string
+          new_courier_cap_mdl?: number
+          new_courier_days?: number
           note?: string | null
           offload_channel_text?: string
           reactivation_threshold_mdl?: number
@@ -3105,6 +3114,8 @@ export type Database = {
           created_by: string | null
           effective_from: string
           id: string
+          new_courier_cap_mdl: number
+          new_courier_days: number
           note: string | null
           offload_channel_text: string
           reactivation_threshold_mdl: number
@@ -3402,6 +3413,8 @@ export type Database = {
         Args: {
           p_cap_mdl: number
           p_effective_from?: string
+          p_new_courier_cap_mdl?: number
+          p_new_courier_days?: number
           p_note?: string
           p_offload_text: string
           p_reactivation_mdl: number
