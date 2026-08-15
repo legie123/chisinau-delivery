@@ -7,6 +7,7 @@ import type {
   AdminWaitMetricsRow,
 } from "@/lib/types/domain";
 import { OpsLive } from "./OpsLive";
+import { PushOptIn } from "@/components/shared/PushOptIn";
 
 export default async function PlatformOpsPage() {
   const supabase = await createClient();
@@ -36,6 +37,14 @@ export default async function PlatformOpsPage() {
 
   return (
     <main className="flex-1 px-6 py-8">
+      {/* Armata SPOF 2026-08-15 (CRIT): PushOptIn era montat la client, curier
+          și restaurant — dar NU în panoul de platformă. Orice alertă generată
+          pentru administrator (semnalare de fraudă pe drift de numerar, azi)
+          se scria în outbox și nu ajungea nicăieri: zero abonamente push pentru
+          singurul cont de admin, iar trimiterea se încheia „cu succes". */}
+      <div className="mb-4">
+        <PushOptIn />
+      </div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Centru operațional</h1>
         <div className="flex flex-wrap gap-2">
