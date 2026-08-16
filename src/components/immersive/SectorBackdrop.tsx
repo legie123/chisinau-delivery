@@ -39,15 +39,24 @@ export function SectorBackdrop({
   onDone?: () => void;
 }) {
   const cfg = SECTORS[sector];
-  // `ambient` are voie să ceară un asset mai ieftin decât deschiderea de ecran:
-  // stă sub o interfață de lucru, pe date mobile, și nu se uită nimeni la el.
-  const media = resolveBackdropMedia(sector, intensity, variant);
 
   const [motionOk, setMotionOk] = useState(false);
+  // Ecran lat = poate exista o variantă proprie (vezi `SectorMedia.wide`).
+  // Pornim de la `false` ca SSR-ul și prima randare să coincidă; dacă e lat,
+  // efectul de mai jos schimbă sursa înainte să se vadă ceva, iar straturile
+  // sunt oricum absolute — nu se mișcă niciun pixel de layout.
+  const [wide, setWide] = useState(false);
   const [posterOk, setPosterOk] = useState(true);
   const [videoOk, setVideoOk] = useState(true);
   const [visible, setVisible] = useState(true);
   const anchorRef = useRef<HTMLDivElement | null>(null);
+
+  // `ambient` are voie să ceară un asset mai ieftin decât deschiderea de ecran:
+  // stă sub o interfață de lucru, pe date mobile, și nu se uită nimeni la el.
+  const chosen = resolveBackdropMedia(sector, intensity, variant);
+  // Un asset vertical mărit pe desktop devine o pastă; dacă și-a declarat
+  // varianta lată, aceea câștigă acolo.
+  const media = wide && chosen.wide ? { ...chosen.wide, veil: chosen.veil } : chosen;
 
   const plan = planBackdrop(
     sector,
@@ -87,9 +96,17 @@ export function SectorBackdrop({
     const onChange = () => void decide();
     void decide();
     mq.addEventListener("change", onChange);
+
+    // Pragul de „lat": peste el, un cadru vertical ar fi mărit și tăiat.
+    const wideMq = window.matchMedia("(min-width: 900px)");
+    const onWide = () => setWide(wideMq.matches);
+    onWide();
+    wideMq.addEventListener("change", onWide);
+
     return () => {
       cancelled = true;
       mq.removeEventListener("change", onChange);
+      wideMq.removeEventListener("change", onWide);
     };
   }, []);
 

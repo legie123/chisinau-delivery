@@ -1,3 +1,5 @@
+import { statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   SECTORS,
@@ -46,13 +48,28 @@ describe("sectors — configurația celor patru", () => {
   it("sub interfața de lucru a curierului nu se încarcă filmul de pe poartă", () => {
     // Regula 3 a rubricii, aplicată acolo unde doare cel mai tare: `ambient`
     // stă ore în șir sub degetul unui om aflat pe stradă, pe date mobile.
-    // `hero-courier.mp4` are 4,15 MB — de trei ori bugetul de 1,5 MB — și era
-    // singura media a sectorului, deci montarea lui `ambient` l-ar fi tras
-    // tăcut sub bara de comandă, ca să se vadă la 8% opacitate.
-    expect(resolveBackdropMedia("courier", "ambient").video).toBeUndefined();
+    // `hero-courier.mp4` are 4,15 MB — de trei ori bugetul — și era singura
+    // media a sectorului, deci montarea lui `ambient` l-ar fi tras tăcut sub
+    // bara de comandă, ca să se vadă la 8% opacitate.
+    expect(resolveBackdropMedia("courier", "ambient").video).not.toBe("/videos/hero-courier.mp4");
     expect(resolveBackdropMedia("courier", "ambient").poster).toBeTruthy();
     // Poarta curierului (`hero`) rămâne neatinsă — acolo omul chiar se uită.
     expect(resolveBackdropMedia("courier", "hero").video).toBe("/videos/hero-courier.mp4");
+  });
+
+  it("assetul de `ambient` chiar încape în buget — măsurat pe fișier, nu promis", () => {
+    // Regula 3 e o cifră, deci se probează cu o cifră. Un comentariu care spune
+    // „sub 1,2 MB" nu oprește pe nimeni să pună mâine acolo un fișier de 4 MB;
+    // testul ăsta da. Se uită la octeții de pe disc, nu la intenție.
+    const BUGET_KB = 1200; // §3 din rubrică, ținta sectorului curier
+    const media = resolveBackdropMedia("courier", "ambient");
+    const kb = (p: string) => statSync(join(import.meta.dirname, "../../public", p)).size / 1024;
+
+    const posterKb = kb(media.poster);
+    const videoKb = media.video ? kb(media.video) : 0;
+    expect(posterKb + videoKb, `ambient curier = ${Math.round(posterKb + videoKb)} KB`).toBeLessThan(
+      BUGET_KB,
+    );
   });
 
   it("un sector fără `ambientMedia` se comportă exact ca înainte", () => {

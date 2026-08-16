@@ -19,7 +19,19 @@ export type Intensity = "ambient" | "hero" | "focus";
  *  `veil` e o podea proprie assetului: două lumi din același sector pot avea
  *  luminozități foarte diferite (concierge are și lounge la ora albastră, și
  *  bucătărie în flăcări), iar o singură cifră ar pedepsi-o pe cea întunecată. */
-export type SectorMedia = { video?: string; poster: string; veil?: number };
+export type SectorMedia = {
+  video?: string;
+  poster: string;
+  veil?: number;
+  /** Varianta pentru ecran LAT, când assetul principal e vertical.
+   *
+   *  `object-cover` nu decupează doar — și mărește. Un cadru 720×1280 pus într-o
+   *  fereastră 1440×900 e scalat de două ori și tăiat la o fâșie îngustă:
+   *  pe telefon se vede strada întreagă, pe desktop rămâne o pastă neclară.
+   *  Capturile comparative au arătat exact asta, deci fiecare format îl
+   *  primește pe al lui în loc să pretindem că unul singur acoperă ambele. */
+  wide?: { video?: string; poster: string };
+};
 
 export type SectorConfig = {
   /** doar pentru citit codul și pentru QA — nu ajunge niciodată în UI */
@@ -73,12 +85,26 @@ export const SECTORS: Record<Sector, SectorConfig> = {
     gradient: `radial-gradient(115% 78% at 50% 0%, #16213e 0%, ${NAVY} 58%)`,
     driftScale: 1.04,
     media: { video: "/videos/hero-courier.mp4", poster: "/videos/hero-courier-poster.jpg" },
-    // Sub interfața de lucru a curierului: DOAR posterul (129 KB), niciun
-    // video. `hero-courier.mp4` rămâne pe poarta lui (`/start/curier`), unde
-    // omul chiar se uită la el; aici ar fi fost 4,15 MB pe date mobile pentru
-    // 8% opacitate. Când există un loop propriu sub 1,2 MB
-    // (`sector-courier.mp4`, §3 din rubrică), se adaugă aici o singură linie.
-    ambientMedia: { poster: "/videos/hero-courier-poster.jpg" },
+    // Loop propriu pentru suprafața de lucru, generat cu promptul din §3 al
+    // rubricii: 685 KB + poster 40 KB, adică sub bugetul de 1,2 MB al
+    // sectorului și de șase ori mai ușor decât filmul de pe poartă (4,15 MB),
+    // care rămâne unde omul chiar se uită la el (`/start/curier`).
+    //
+    // Bate posterul vechi din două motive verificabile, nu de gust: e VERTICAL
+    // (720×1280), deci pe telefon se vede cadrul întreg în loc de o decupare
+    // din mijlocul unui 16:9 — exact pata neclară de la 390×844 — și e la
+    // persoana întâi, fără chip. Vechiul asset are un curier cu fața spre
+    // cameră: pus sub datele curierului real, îi punea un străin în spatele
+    // propriilor cifre.
+    ambientMedia: {
+      video: "/videos/sector-courier.mp4",
+      poster: "/videos/sector-courier-poster.jpg",
+      // Pe desktop rămâne cadrul orizontal deja existent — arată bine acolo
+      // (verificat în capturi) și, fiind doar poster, nu trage niciodată cele
+      // 4,15 MB ale filmului de pe poartă. Sectorul curier e oricum un ecran
+      // de telefon: „om pe stradă, cu o singură mână liberă" (§3).
+      wide: { poster: "/videos/hero-courier-poster.jpg" },
+    },
   },
   restaurant: {
     note: "căldură de cuptor pe margini, centrul curat ca să respire datele; cel mai discret din patru",
