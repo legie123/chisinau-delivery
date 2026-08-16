@@ -71,13 +71,15 @@ export default async function RestaurantsPage() {
 
   return (
     <main className="flex-1 px-5 pb-24 pt-6">
-      {/* Luxury brand header — Dragons Alliance Premium reference */}
+      {/* Luxury brand header — Dragons Alliance Premium reference.
+          Subtitlul „Premium Food Delivery" a fost scos (2026-08-16): engleză pe
+          o interfață în română, sub un titlu care spune deja același lucru, pe o
+          platformă care de la `5c885e8` nu mai e doar livrare de mâncare, ci
+          rețea de locuri (spa, lounge, săli). O linie care nu adaugă informație
+          și contrazice produsul consumă doar din primul ecran al telefonului. */}
       <div className="mb-6 flex flex-col items-center gap-1 py-4 text-center">
         <span className="text-4xl" aria-hidden>🐉</span>
         <h1 className="font-serif text-3xl font-bold tracking-wide text-gold">DRAGONS DELIVERY</h1>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-white/45">
-          Premium Food Delivery
-        </p>
       </div>
 
       <RestaurantBrowser

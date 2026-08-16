@@ -80,12 +80,23 @@ function DiscoveryStrip({ title, items }: { title: string; items: Restaurant[] }
             <h3 className="relative font-serif text-sm font-bold leading-tight text-white transition line-clamp-2 group-hover:text-gold">
               {r.name}
             </h3>
-            <p className="relative mt-1 flex items-center gap-1.5 text-xs">
-              <span className="font-semibold text-gold">
+            {/* Text tăiat pe cardurile de descoperire (2026-08-16): pe un card de
+                11rem, „Sushi · Bucătărie japoneză" ieșea „Sushi · Bucătărie j…",
+                iar nota se rupea în două rânduri („★" deasupra lui „5.0") fiindcă
+                era lăsată să se strângă. Nota nu se mai strânge niciodată;
+                bucătăria are voie la 2 rânduri (clamp explicit + titlu la hover),
+                nu font mai mic — regula din rubrica de design §6. */}
+            <p className="relative mt-1 flex items-start gap-1.5 text-xs">
+              <span className="shrink-0 whitespace-nowrap font-semibold text-gold">
                 {r.rating_count >= 3 ? `★ ${Number(r.rating_avg).toFixed(1)}` : "★ Nou"}
               </span>
-              <span className="text-white/35">·</span>
-              <span className="truncate text-white/55">{CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}</span>
+              <span className="shrink-0 text-white/35">·</span>
+              <span
+                title={CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}
+                className="line-clamp-2 min-w-0 text-white/55"
+              >
+                {CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}
+              </span>
             </p>
           </Link>
         ))}

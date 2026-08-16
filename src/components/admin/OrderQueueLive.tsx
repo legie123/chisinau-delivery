@@ -160,10 +160,15 @@ export function OrderQueueLive({ restaurantId, pendingCount }: { restaurantId: s
   }, [alerting]);
 
   if (!degraded) return null;
+  // Ancorat jos, nu sus (2026-08-16): la `top-3` banda cădea exact peste bara de
+  // navigare a partenerului și scria peste „Program / Catering / Câștiguri" —
+  // două texte suprapuse, dovedit în captura 1440×900. Panoul partenerului nu are
+  // bară de jos, deci colțul de jos e liber la orice lățime, inclusiv pe telefon
+  // unde antetul are două rânduri.
   return (
     <div
       role="status"
-      className="fixed left-1/2 top-3 z-50 -translate-x-1/2 rounded-full bg-amber-500/15 px-4 py-1.5 text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur"
+      className="fixed bottom-4 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full bg-amber-500/15 px-4 py-1.5 text-center text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur"
     >
       Reconectare la actualizări live… coada se reîmprospătează automat
     </div>

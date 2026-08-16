@@ -139,17 +139,25 @@ export default async function ConciergePage({
                         className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a14] via-[#0a0a14]/60 to-transparent" />
-                    <div className="relative p-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold/80">
+                    <div className="photo-scrim absolute inset-0" />
+                    {/* „Imagine mare, o linie de promisiune, un buton" (rubrica
+                        §5): blocul de text a fost scurtat la o singură linie de
+                        descriere, ca voalul să nu mai fie nevoit să acopere
+                        jumătate de card ca s-o facă lizibilă. Sectorul urcă de
+                        la 50% la 75% alb — la 50% peste fotografie era text
+                        aproape de culoarea fundalului. */}
+                    <div className="photo-caption relative p-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gold">
                         {meta.label}
                       </p>
                       <h3 className="mt-1 font-serif text-xl font-bold text-white transition group-hover:text-gold">
                         {v.name}
                       </h3>
-                      {v.sector && <p className="text-xs text-white/50">{v.sector}</p>}
+                      {v.sector && <p className="text-xs text-white/75">{v.sector}</p>}
                       {v.description && (
-                        <p className="mt-1.5 line-clamp-2 text-sm text-white/65">{v.description}</p>
+                        <p title={v.description} className="mt-1.5 line-clamp-1 text-sm text-white/75">
+                          {v.description}
+                        </p>
                       )}
                     </div>
                   </Link>

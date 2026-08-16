@@ -104,11 +104,14 @@ export default async function RestaurantOrdersPage() {
           </span>
         </div>
         {prepEstimate && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
+          // Pe telefon rândul se rupea între „~34" și „min" (captură 390×844,
+          // 2026-08-16): valoarea și unitatea nu se mai despart niciodată, iar
+          // pastila are voie să se așeze pe două rânduri fără să taie o cifră.
+          <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
             <span className="pg-live-dot" aria-hidden />
             ⏱ Timp de pregătire estimat:{" "}
-            <span className="pg-gold-text font-semibold">~{prepEstimate.prep_minutes} min</span>
-            <span className="ml-1 text-white/40">
+            <span className="pg-gold-text whitespace-nowrap font-semibold">~{prepEstimate.prep_minutes} min</span>
+            <span className="text-white/40">
               {prepEstimate.source === "static"
                 ? "(valoare implicită)"
                 : prepEstimate.source === "hourly"

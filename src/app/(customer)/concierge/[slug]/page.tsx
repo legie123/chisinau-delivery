@@ -64,11 +64,11 @@ export default async function ConciergeVenuePage({ params }: { params: Promise<{
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={data.cover_photo_url} alt={data.name} className="h-full w-full object-cover" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a14] via-[#0a0a14]/50 to-transparent" />
-          <div className="absolute bottom-0 left-0 p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-gold/85">{meta.label}</p>
+          <div className="photo-scrim absolute inset-0" />
+          <div className="photo-caption absolute bottom-0 left-0 p-5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-gold">{meta.label}</p>
             <h1 className="mt-1 font-serif text-3xl font-bold text-white">{data.name}</h1>
-            <p className="text-sm text-white/60">
+            <p className="text-sm text-white/75">
               {[data.address, data.sector].filter(Boolean).join(" · ")}
             </p>
           </div>

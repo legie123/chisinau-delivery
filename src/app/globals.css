@@ -69,6 +69,35 @@ summary:focus-visible {
 }
 
 
+/* Voal de întunecare pentru text peste fotografie (carduri + hero concierge).
+   Înainte (2026-08-16) era `from-[#0a0a14] via-[#0a0a14]/60 to-transparent`:
+   opac 100% jos și încă 0.6 la jumătatea cardului, deci jumătatea de jos a
+   fotografiei murea sub o placă — exact „dreptunghiul lipit" interzis de
+   rubrică (§5). Aici scade continuu, nu atinge niciodată opacitatea totală și
+   se stinge complet la 240px — fotografia rămâne vie sub text.
+   Treptele sunt în PIXELI, nu în procente: textul are o înălțime fixă (~120px),
+   deci voalul trebuie să fie legat de el, nu de cardul care crește. Așa, pe un
+   card înalt, partea întunecată e o mică parte din imagine, nu jumătate.
+   Prima încercare (procente) a ieșit prea slabă exact pe fotografia cea mai
+   deschisă — eticheta aurie a ajuns pe podeaua albă. De aici și umbra de text
+   de mai jos: ea ține lizibilitatea acolo unde voalul deja s-a stins. */
+.photo-scrim {
+  background-image: linear-gradient(
+    to top,
+    rgba(8, 8, 18, 0.94) 0px,
+    rgba(8, 8, 18, 0.88) 48px,
+    rgba(8, 8, 18, 0.7) 104px,
+    rgba(8, 8, 18, 0.34) 165px,
+    rgba(8, 8, 18, 0) 240px
+  );
+}
+
+/* Text peste fotografie: umbra face lizibil și rândul de sus al blocului, unde
+   voalul e deja subțire, fără să mai fie nevoie de o placă opacă. */
+.photo-caption {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 14px rgba(0, 0, 0, 0.5);
+}
+
 /* Cinematic slow push-in for the ambient hero video (marketing hub). Runs only
    when the <video> itself renders, which is already gated on motion-OK. */
 @keyframes ambient-drift {
