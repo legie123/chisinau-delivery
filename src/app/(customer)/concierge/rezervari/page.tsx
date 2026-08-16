@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { BookingActions } from "@/components/customer/BookingActions";
+import { BookingConfirmedFocus } from "@/components/customer/BookingConfirmedFocus";
 import { BOOKING_STATUS_LABEL, PURPOSE_LABEL, type BookingPurpose } from "@/lib/concierge/venues";
 
 const formatWhen = new Intl.DateTimeFormat("ro-RO", {
@@ -26,7 +27,7 @@ type BookingRow = {
   quoted_price_mdl: number | null;
   decline_reason: string | null;
   notes: string | null;
-  restaurants: { name: string; slug: string } | null;
+  restaurants: { name: string; slug: string; venue_type: string } | null;
 };
 
 // Rezervările clientului. RLS face selecția: politica `venue_bookings_customer_read`
@@ -53,14 +54,26 @@ export default async function ConciergeBookingsPage() {
 
   const { data } = await supabase
     .from("venue_bookings")
-    .select("id, starts_at, ends_at, party_size, purpose, status, quoted_price_mdl, decline_reason, notes, restaurants(name, slug)")
+    .select("id, starts_at, ends_at, party_size, purpose, status, quoted_price_mdl, decline_reason, notes, restaurants(name, slug, venue_type)")
     .order("starts_at", { ascending: false })
     .limit(50);
 
   const bookings = (data ?? []) as unknown as BookingRow[];
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-20 pt-8">
+    /* `relative isolate` nu e decor: fără el, stratul `fixed -z-10` al
+       fundalului iese din pagină și ajunge în spatele fundalului opac al
+       documentului, adică invizibil. Prima probă a momentului l-a prins exact
+       așa — DOM-ul îl raporta prezent (opacitate 1, z-index -10), iar captura
+       arăta o pagină neschimbată. `isolate` face din `main` propriul context de
+       stivuire, deci „sub conținut" înseamnă sub TEXT, nu sub pagină. */
+    <main className="relative isolate mx-auto w-full max-w-3xl flex-1 px-5 pb-20 pt-8">
+      {/* Momentul de confirmare (§5: „focus la rezervare confirmată"). Montat o
+          singură dată, la nivelul paginii, nu în rândul care l-a pornit:
+          confirmarea e urmată de `router.refresh()`, iar rândul se re-randează
+          din server sub el. */}
+      <BookingConfirmedFocus />
+
       <div className="mb-6 flex items-baseline justify-between gap-3">
         <h1 className="font-serif text-3xl font-bold text-white">Rezervările tale</h1>
         <Link href="/concierge" className="text-sm text-gold underline underline-offset-4">
@@ -102,7 +115,12 @@ export default async function ConciergeBookingsPage() {
                   )}
                 </div>
               </div>
-              <BookingActions bookingId={b.id} status={b.status} priceMdl={b.quoted_price_mdl} />
+              <BookingActions
+                bookingId={b.id}
+                status={b.status}
+                priceMdl={b.quoted_price_mdl}
+                venueType={b.restaurants?.venue_type}
+              />
               {/* Aici se închide cercul „hub de business": ai sala, adaugi masa.
                   Data, ora și numărul de persoane trec singure în cererea de
                   catering — nimeni nu le retastează. */}

@@ -87,7 +87,7 @@ export default async function ConciergePage({
             aria-current={activeType ? undefined : "page"}
             className={`rounded-full px-4 py-1.5 text-sm ring-1 transition ${
               activeType
-                ? "bg-[#0a0a14]/55 text-white/75 ring-white/15 hover:bg-white/10 hover:text-white"
+                ? "bg-[#0a0a14]/85 text-white/85 ring-white/20 hover:bg-white/10 hover:text-white"
                 : "bg-gold font-semibold text-zinc-900 ring-gold"
             }`}
           >
@@ -101,7 +101,7 @@ export default async function ConciergePage({
               className={`rounded-full px-4 py-1.5 text-sm ring-1 transition ${
                 activeType === t
                   ? "bg-gold font-semibold text-zinc-900 ring-gold"
-                  : "bg-[#0a0a14]/55 text-white/75 ring-white/15 hover:bg-white/10 hover:text-white"
+                  : "bg-[#0a0a14]/85 text-white/85 ring-white/20 hover:bg-white/10 hover:text-white"
               }`}
             >
               {VENUE_META[t].plural}

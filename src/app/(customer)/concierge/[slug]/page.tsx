@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { BookingRequestForm } from "@/components/customer/BookingRequestForm";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 import { VENUE_META, isVenueType } from "@/lib/concierge/venues";
 import { SITE_NAME, siteUrl } from "@/lib/seo/site";
 
@@ -53,7 +54,14 @@ export default async function ConciergeVenuePage({ params }: { params: Promise<{
   const meta = isVenueType(data.venue_type) ? VENUE_META[data.venue_type] : VENUE_META.restaurant;
 
   return (
-    <main className="flex-1 px-5 pb-20 pt-6">
+    <main className="relative isolate flex-1 px-5 pb-20 pt-6">
+      {/* §5: `ambient` pe pagina locului. Nivelul cel mai liniștit din contract
+          — 6% opacitate, fără video, fără octeți preîncărcați — fiindcă eroul
+          paginii e fotografia locului real de deasupra, nu atmosfera. Până la
+          val, pagina asta era singura din concierge fără niciun substrat: se
+          intra dintr-o vitrină la ora albastră direct pe navy gol. */}
+      <SectorBackdrop sector="concierge" intensity="ambient" />
+
       <div className="mx-auto w-full max-w-3xl">
         <Link href="/concierge" className="text-xs text-white/45 transition hover:text-gold">
           ← Toate locațiile

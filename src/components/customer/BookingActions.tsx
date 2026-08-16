@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { cancelVenueBooking, confirmVenueBooking } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/client";
+import { markBookingConfirmed } from "@/components/customer/BookingConfirmedFocus";
 
 // Cele două decizii ale clientului pe o rezervare: accept oferta sau renunț.
 // Confirmarea e disponibilă doar când există ofertă (DB-ul refuză altfel, iar
@@ -12,10 +13,13 @@ export function BookingActions({
   bookingId,
   status,
   priceMdl,
+  venueType,
 }: {
   bookingId: string;
   status: string;
   priceMdl: number | null;
+  /** lumea locului, pentru momentul de confirmare (§5 din rubrică) */
+  venueType?: string | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +33,15 @@ export function BookingActions({
     startTransition(async () => {
       try {
         const supabase = createClient();
-        if (action === "confirm") await confirmVenueBooking(supabase, bookingId);
-        else await cancelVenueBooking(supabase, bookingId);
+        if (action === "confirm") {
+          await confirmVenueBooking(supabase, bookingId);
+          // Semnalul pleacă DUPĂ ce serverul a confirmat și ÎNAINTE de
+          // reîmprospătare: momentul aparține unei rezervări care chiar există,
+          // și pornește peste re-randarea listei, nu după ea.
+          markBookingConfirmed(venueType);
+        } else {
+          await cancelVenueBooking(supabase, bookingId);
+        }
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : "A apărut o eroare.");

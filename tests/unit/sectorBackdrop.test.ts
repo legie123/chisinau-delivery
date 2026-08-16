@@ -37,7 +37,17 @@ describe("sectors — configurația celor patru", () => {
     // înainte să i se genereze assetul — niciuna nu are voie să lase ecranul gol.
     expect(resolveMedia("concierge", "tip-inexistent")).toEqual(SECTORS.concierge.media);
     expect(resolveMedia("concierge", null)).toEqual(SECTORS.concierge.media);
-    expect(resolveMedia("concierge", "spa").video).toBe("/videos/hero-spa.mp4");
+    // Aserțiunea de dinainte pironea lumea „spa" pe `hero-spa.mp4`. A devenit
+    // legitim învechită în V6: măsurat cadru cu cadru, filmul acela cădea la
+    // 3.25:1 în ultima secundă și a fost înlocuit. Ce conta de fapt e că o lume
+    // DECLARATĂ își primește propriul asset, nu că e un fișier anume — pironit
+    // pe fișier, testul ar cere o rescriere la fiecare asset nou.
+    expect(resolveMedia("concierge", "business_lounge")).toEqual(
+      SECTORS.concierge.variants?.business_lounge,
+    );
+    expect(resolveMedia("concierge", "business_lounge").video).not.toBe(
+      SECTORS.concierge.media.video,
+    );
   });
 
   it("hub-ul primește sushi din sectorul client, nu turnatul din pahar", () => {

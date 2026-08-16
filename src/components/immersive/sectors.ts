@@ -123,21 +123,54 @@ export const SECTORS: Record<Sector, SectorConfig> = {
   concierge: {
     note: "lounge la ora albastră; fundalul urmează tipul locației alese din filtru",
     accent: "#d4af37",
-    // Lounge/spa/sushi sunt assete întunecate: la 0.35 textul de corp e deja la
-    // 5.87-6.50:1. Aici voalul rămâne subțire — §5 spune că sectorul ăsta are
-    // cel mai mult drept la atmosferă. Excepția e lumea „Restaurante", care
-    // împrumută flacăra și își duce propria podea (vezi `variants`).
+    // Voalul sectorului rămâne subțire — §5 spune că aici atmosfera are cel mai
+    // mult drept la existență — dar podeaua nu mai vine de la poster.
+    //
+    // `veil-contrast.mjs` măsoară UN cadru (posterul) și tocmai de-aia trecuse
+    // totul: pe postere, lounge/spa/sushi dădeau 5.87-6.50:1 la 0.35. Filmele au
+    // însă 216 cadre, iar `loop-compare.mjs` (V6) le măsoară pe toate: spa urcă
+    // de la 0.085 la 0.479 luminanță în ultima secundă — se aprind prosoapele
+    // albe și orhideea — deci textul de corp cădea la 3.25:1 exact în secunda
+    // aia. Podeaua e acum a celui mai luminos cadru din loop, nu a unuia ales.
     veil: 0.4,
     ambientOpacity: 0.06,
     gradient: `radial-gradient(120% 80% at 50% 0%, #1a2f3d 0%, ${NAVY} 62%)`,
     driftScale: 1.09,
-    media: { video: "/videos/hero-lounge.mp4", poster: "/videos/hero-lounge-poster.jpg" },
+    // Loop propriu de sector (§5), generat cu promptul din rubrică și păstrat
+    // fiindcă a bătut măsurat ambii deținători, nu fiindcă e nou: 0,36 MB față
+    // de 2,73/2,48 (singurul din trei care încape în bugetul de 1,5 MB al
+    // regulii 3), cusătură de loop 6,7 față de 13,4/18,3, derivă 0,24 față de
+    // 1,42/1,12 (regula 4 cere mișcare lentă) și podea de voal 0,25 față de
+    // 0,29/0,56. Dovada în `docs/DESIGN-IMERSIV-4-SECTOARE.md` §5.
+    media: { video: "/videos/sector-concierge.mp4", poster: "/videos/sector-concierge-poster.jpg" },
+    // Pagina unui loc (`ambient`) primește DOAR posterul, 33 KB. Motivul e că
+    // `ambient` nu poate urma lumea fără să mintă bugetul: trei din cele patru
+    // filme rămase (flacără 2,92 · lounge 2,73 · sushi 1,50) sunt peste sau la
+    // limita regulii 3, iar un fundal de 2,7 MB tras la 6% opacitate sub o
+    // pagină de răsfoire e exact greșeala pe care sectorul curier a evitat-o.
+    // Lumea contează la INTRARE, unde se vede întreagă (`hero`, /concierge) —
+    // acolo o urmează în continuare, prin `variants`. Când V9 reîncarcă filmele
+    // rămase sub buget, linia asta poate deveni per-lume fără alt cost.
+    ambientMedia: { poster: "/videos/sector-concierge-poster.jpg" },
     variants: {
+      // Sala de business rămâne pe filmul vechi, deși e de 7,6 ori mai greu
+      // decât noul asset: candidatul e un bazin termal cu aburi, iar sub
+      // filtrul „Săli de business" ar fi fost fix eticheta care minte din
+      // regula 5. Greutatea lui e problema lui V9, nu un motiv de a-i schimba
+      // înțelesul. Podea măsurată 0.29 — trece la voalul sectorului (5.28:1).
       business_lounge: { video: "/videos/hero-lounge.mp4", poster: "/videos/hero-lounge-poster.jpg" },
-      spa: { video: "/videos/hero-spa.mp4", poster: "/videos/hero-spa-poster.jpg" },
-      wellness_lounge: { video: "/videos/hero-spa.mp4", poster: "/videos/hero-spa-poster.jpg" },
-      sushi_bar: { video: "/videos/hero-sushi.mp4", poster: "/videos/hero-sushi-poster.jpg" },
-      restaurant: { video: "/videos/hero-flame.mp4", poster: "/videos/hero-flame-poster.jpg", veil: 0.58 },
+      // Spa și wellness trec pe noul loop: bazinul termal cu aburi E un spa,
+      // deci nu se pierde niciun înțeles, și se repară singurul contrast căzut
+      // din sector (3.25:1 → 5.47:1 la același voal).
+      spa: { video: "/videos/sector-concierge.mp4", poster: "/videos/sector-concierge-poster.jpg" },
+      wellness_lounge: { video: "/videos/sector-concierge.mp4", poster: "/videos/sector-concierge-poster.jpg" },
+      // Sushi-ul are propriul înțeles și rămâne, dar își duce propria podea:
+      // vârful lui de luminanță (0.268 @cadru 152) cere 0.42, iar la voalul
+      // sectorului textul stătea la 4.40:1 — sub prag cu o unitate zecimală,
+      // adică exact genul de ratare pe care media o ascunde.
+      sushi_bar: { video: "/videos/hero-sushi.mp4", poster: "/videos/hero-sushi-poster.jpg", veil: 0.45 },
+      // Flacăra: podeaua măsurată pe film e 0.61, nu 0.58 cât ținea posterul.
+      restaurant: { video: "/videos/hero-flame.mp4", poster: "/videos/hero-flame-poster.jpg", veil: 0.62 },
     },
   },
   customer: {
