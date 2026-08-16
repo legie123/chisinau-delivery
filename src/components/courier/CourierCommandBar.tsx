@@ -13,13 +13,19 @@ export function CourierCommandBar({
   status,
   earnedToday,
   deliveriesToday,
+  pendingToday,
   availableCount,
   hasActiveDelivery,
 }: {
   firstName: string;
   status: string;
+  /** NET, după comision, doar livrări încasate — aceeași definiție ca
+   *  `/earnings` și ca payout-ul real (R8). */
   earnedToday: number;
   deliveriesToday: number;
+  /** Livrări duse azi dar încă neîncasate: nu intră în sumă, dar nici nu se
+   *  ascund — altfel curierul vede o cursă dispărută fără explicație. */
+  pendingToday: number;
   availableCount: number;
   hasActiveDelivery: boolean;
 }) {
@@ -69,7 +75,10 @@ export function CourierCommandBar({
           </div>
         </div>
 
-        {/* Banii de azi — motivul pentru care omul e pe stradă. */}
+        {/* Banii de azi — motivul pentru care omul e pe stradă. Cifra e NETUL
+            decontabil (R8): înainte aduna taxele brute ale tuturor livrărilor
+            de azi, inclusiv cele neîncasate, deci cel mai mare număr de pe
+            ecran era și singurul pe care platforma nu-l plătea așa. */}
         <div className="flex items-end justify-between gap-4 border-t border-white/10 pt-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">Azi ai câștigat</p>
@@ -77,12 +86,23 @@ export function CourierCommandBar({
               {earnedToday}
               <span className="ml-1.5 text-xl font-semibold text-gold/70">MDL</span>
             </p>
+            <p className="mt-1 text-[11px] text-white/55">net, după comision · bacșișul inclus</p>
           </div>
           <div className="text-right">
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">Curse</p>
             <p className="mt-1 text-3xl font-extrabold leading-none text-white tabular-nums">{deliveriesToday}</p>
           </div>
         </div>
+
+        {/* Livrarea dusă dar neîncasată nu se ascunde: fără rândul ăsta, o cursă
+            terminată pur și simplu nu apărea în cifra zilei, iar omul n-avea de
+            unde ști de ce. Aceeași propoziție ca pe `/earnings`, ca cele două
+            ecrane să spună la fel. */}
+        {pendingToday > 0 && (
+          <p className="-mt-1 text-[11px] text-amber-300/90">
+            {pendingToday} {pendingToday === 1 ? "livrare neîncasată" : "livrări neîncasate"} nu intră în sumă — vezi Câștiguri.
+          </p>
+        )}
       </div>
     </section>
   );

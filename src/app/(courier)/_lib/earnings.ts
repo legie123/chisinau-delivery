@@ -64,6 +64,25 @@ export function netForOrder(o: EarningsOrder, commissionPct: number = COMMISSION
   return round2(fee + Number(o.tip_mdl ?? 0) - commission);
 }
 
+// R8 — ce i se promite curierului ÎNAINTE de cursă, în aceeași monedă în care
+// i se plătește DUPĂ ea. Până azi suprafața de decizie (oferta de 30s, lista de
+// comenzi) afișa taxa BRUTĂ sub cuvântul „Câștig", iar `/earnings` și payout-ul
+// real spuneau net — două definiții pentru același cuvânt, pe ecrane care nu se
+// văd niciodată împreună. Formula e a lui `netForOrder` de mai sus, fără bacșiș:
+// bacșișul e integral al curierului și rămâne un chip separat în UI, exact ca
+// până acum.
+//
+// `courier_fee_quoted_mdl` e o PODEA (order 2: finalul ștampilat la livrare
+// poate fi doar mai mare), deci și netul derivat din ea e o podea — de-aia
+// eticheta din UI rămâne „tarif minim".
+export function quotedNetMdl(
+  o: { courier_fee_quoted_mdl?: number | null; courier_fee_mdl?: number | null; delivery_fee_mdl: number },
+  commissionPct: number = COMMISSION_PCT,
+): number {
+  const fee = Number(o.courier_fee_mdl ?? o.courier_fee_quoted_mdl ?? o.delivery_fee_mdl);
+  return round2(fee - round2(fee * (commissionPct / 100)));
+}
+
 // Faza 5 #5 — gross earnings PER SHIFT ("tura"), the audit's go/no-go instrument
 // (target 600-1000 MDL/tura completa). A shift is [started_at, ended_at) from
 // courier_shifts; only delivered+paid orders whose delivered_at falls in that
@@ -77,31 +96,6 @@ export type ShiftSummary = {
   ordersCount: number;
   grossMdl: number;
 };
-
-// Faza 5 #5 target band, 600-1000 MDL gross/tură (Chișinău modal interval from
-// the audit). For the ADMIN go/no-go table it is a band with two edges; on the
-// courier's own screen only the FLOOR may drive the visual cue. Highlighting
-// "inside 600-1000" and dropping the highlight above 1000 makes the best shift
-// of the month render dimmer than an average one — the money going up would
-// look like the money going down. The ceiling stays documented, not painted.
-export const SHIFT_TARGET_MIN = 600;
-export const SHIFT_TARGET_MAX = 1000;
-
-export function shiftReachesTarget(grossMdl: number): boolean {
-  return grossMdl >= SHIFT_TARGET_MIN;
-}
-
-// Round ONCE, to whole minutes, then split. Rounding hours and minutes
-// independently prints an impossible clock: a shift of 10h 59m 46s has
-// floor(h)=10 and round(59.76)=60, i.e. "10h 60m" — seen live on the seeded
-// courier's 13 aug. shift (659.76 min).
-export function formatShiftDuration(startIso: string, endIso: string): string {
-  const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
-  const totalMinutes = Math.max(0, Math.round(ms / 60_000));
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-}
 
 export function summarizeShifts(
   shifts: { id: string; started_at: string; ended_at: string }[],

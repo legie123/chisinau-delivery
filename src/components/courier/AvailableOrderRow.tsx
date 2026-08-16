@@ -3,9 +3,21 @@
 import { useState, useTransition } from "react";
 import { acceptDelivery } from "@/app/(courier)/deliveries/actions";
 import { markRideAccepted } from "@/components/courier/RideAcceptedFocus";
+import { quotedNetMdl } from "@/app/(courier)/_lib/earnings";
 import type { Order } from "@/lib/types/domain";
 
-export function AvailableOrderRow({ order, disabled }: { order: Order; disabled?: boolean }) {
+export function AvailableOrderRow({
+  order,
+  disabled,
+  commissionPct,
+}: {
+  order: Order;
+  disabled?: boolean;
+  // Comisionul viu (`current_pricing_config`), citit o dată pe server și
+  // coborât ca prop — nu o constantă, ca banda de pe `/earnings` și cifra de
+  // aici să nu poată diverge (defectul DispatchCourierAudit #2, altă suprafață).
+  commissionPct: number;
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -35,13 +47,28 @@ export function AvailableOrderRow({ order, disabled }: { order: Order; disabled?
           </p>
           <p className="text-sm font-bold text-gold">
             {/* Order 2 — courier_fee_quoted_mdl is a FLOOR: "tarif minim", never
-                "minim garantat" (the final at delivery can only be higher). */}
-            Câștig: {order.courier_fee_quoted_mdl ?? order.delivery_fee_mdl} MDL
+                "minim garantat" (the final at delivery can only be higher).
+                R8 — cifra e NETUL (`quotedNetMdl`), fiindcă net e ce i se
+                decontează; brutul de dinainte era cu 15% peste plata reală. */}
+            Câștig net: {quotedNetMdl(order, commissionPct)} MDL
             {Number(order.tip_mdl) > 0 && (
               <span className="ml-1.5 font-semibold text-emerald-400">+{order.tip_mdl} bacșiș</span>
             )}
           </p>
-          <p className="text-xs text-white/40">tarif minim — poate crește cu distanța reală</p>
+          {/* O singură propoziție, fără separator: prima variantă avea „net …
+              · tarif minim …", care la 390px se rupea taman la punct și lăsa
+              rândul următor începând cu „·" orfan — exact defectul prins în
+              V7 pe cardurile clientului, reintrodus de mine și văzut în
+              captură înainte de commit. Fără separator, orice punct de rupere
+              e sigur. */}
+          {/* alb/40 dădea 3,79:1 măsurat pe pixeli peste fundalul de sector —
+              sub pragul §8. Era sub prag și înainte, cu textul vechi; acum
+              rândul poartă comisionul, adică chiar termenul plății, deci nu
+              putea rămâne cel mai slab text de pe ecran. Aceeași treaptă ca
+              reparația din V11. */}
+          <p className="text-xs text-white/60">
+            tarif minim după comisionul de {commissionPct}% — poate crește cu distanța reală
+          </p>
           {error && <p className="mt-1 text-xs text-primary">{error}</p>}
         </div>
       </div>

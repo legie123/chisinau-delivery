@@ -11,7 +11,7 @@ import { SatisfactionPrompt } from "@/components/courier/SatisfactionPrompt";
 import { CashFloatStatus } from "@/components/courier/CashFloatStatus";
 import { PushOptIn } from "@/components/shared/PushOptIn";
 import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
-import { currentWeekRange } from "@/app/(courier)/_lib/earnings";
+import { COMMISSION_PCT, currentWeekRange, summarizeEarnings, type EarningsOrder } from "@/app/(courier)/_lib/earnings";
 import { ORDER_STATUS_LABEL, type DispatchOffer, type Order } from "@/lib/types/domain";
 
 export default async function DeliveriesPage() {
@@ -69,28 +69,32 @@ export default async function DeliveriesPage() {
       getCourierCashStatus(supabase).catch(() => null),
       supabase
         .from("orders")
-        .select("courier_fee_mdl, courier_fee_quoted_mdl, delivery_fee_mdl, tip_mdl")
+        .select("courier_fee_mdl, delivery_fee_mdl, tip_mdl, payment_status")
         .eq("courier_id", courier.id)
         .eq("status", "delivered")
         .gte("delivered_at", todayStart.toISOString()),
     ]);
+
+  // Comisionul viu, o singură citire pentru tot ecranul: și cifra zilei, și
+  // fiecare „Câștig" de pe ofertele de dedesubt. `current_pricing_config` e
+  // SECURITY DEFINER cu EXECUTE pentru `authenticated` — probat sub
+  // `set local role authenticated`, nu presupus (lecția sim 62).
+  const { data: pricing } = await supabase.rpc("current_pricing_config");
+  const commissionPct = (pricing as { courier_commission_pct: number } | null)?.courier_commission_pct ?? COMMISSION_PCT;
 
   const active = (activeOrders ?? []) as Order[];
   const available = (availableOrders ?? []) as Order[];
   const offer = (liveOffer as DispatchOffer | null) ?? null;
   const surveyAnswered = survey != null;
 
-  // Câștigul de azi: tariful cursei (cu aceleași rezerve ca la payout) plus
-  // bacșișul, care trece integral la curier.
-  const earnedToday = Math.round(
-    (todayDone ?? []).reduce(
-      (sum, o) =>
-        sum +
-        Number(o.courier_fee_mdl ?? o.courier_fee_quoted_mdl ?? o.delivery_fee_mdl ?? 0) +
-        Number(o.tip_mdl ?? 0),
-      0,
-    ),
-  );
+  // R8 — cifra zilei trece prin ACELAȘI model canonic ca `/earnings` și ca
+  // payout-ul real (`summarizeEarnings`), nu printr-o reducere proprie. Cea
+  // veche aduna brut și număra și livrările NEÎNCASATE — adică exact comenzile
+  // pe care pagina de câștiguri le scoate din sumă și le anunță separat
+  // („N livrări neîncasate nu apar aici"). Două formule pentru aceeași
+  // întrebare au dat, previzibil, două răspunsuri: pe datele de azi ale
+  // curierului de test, 118 MDL pe ecranul principal față de 71 MDL decontați.
+  const todaySummary = summarizeEarnings((todayDone ?? []) as EarningsOrder[], commissionPct);
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
@@ -108,14 +112,15 @@ export default async function DeliveriesPage() {
       <CourierCommandBar
         firstName={courier.full_name.split(" ")[0]}
         status={courier.status}
-        earnedToday={earnedToday}
-        deliveriesToday={(todayDone ?? []).length}
+        earnedToday={Math.round(todaySummary.netMdl)}
+        deliveriesToday={todaySummary.ordersCount}
+        pendingToday={todaySummary.pendingCount}
         availableCount={available.length}
         hasActiveDelivery={active.length > 0}
       />
 
       {/* Oferta vie rămâne imediat sub bară: e singura care cere reacție în 30s. */}
-      {offer && <OfferCard offer={offer} />}
+      {offer && <OfferCard offer={offer} commissionPct={commissionPct} />}
 
       {/* Plafonul de numerar: important, dar nu primul lucru de dimineață. */}
       {cashStatus && <CashFloatStatus status={cashStatus} />}
@@ -168,7 +173,12 @@ export default async function DeliveriesPage() {
         ) : (
           <ul className="flex flex-col gap-3">
             {available.map((order) => (
-              <AvailableOrderRow key={order.id} order={order} disabled={active.length > 0} />
+              <AvailableOrderRow
+                key={order.id}
+                order={order}
+                disabled={active.length > 0}
+                commissionPct={commissionPct}
+              />
             ))}
           </ul>
         )}

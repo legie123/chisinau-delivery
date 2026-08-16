@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { acceptOffer, declineOffer } from "@/app/(courier)/deliveries/actions";
 import { markRideAccepted } from "@/components/courier/RideAcceptedFocus";
+import { quotedNetMdl } from "@/app/(courier)/_lib/earnings";
 import type { DispatchOffer } from "@/lib/types/domain";
 
 // #17 — accept_dispatch_offer/decline_dispatch_offer raise these exact Romanian
@@ -18,7 +19,7 @@ function isOfferGoneMessage(message: string): boolean {
 // WS2 — push-dispatch offer with a 30s countdown. On expiry we refresh so the
 // stale card vanishes without waiting for the sweeper event. The Accept path
 // lands the courier on the active delivery; Decline cascades server-side.
-export function OfferCard({ offer }: { offer: DispatchOffer }) {
+export function OfferCard({ offer, commissionPct }: { offer: DispatchOffer; commissionPct: number }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -97,25 +98,36 @@ export function OfferCard({ offer }: { offer: DispatchOffer }) {
         <p className="font-serif text-xl font-bold text-white">
           {order?.order_number ?? "Comandă"}
         </p>
-        {/* #3a — the fee is what the courier earns; total_mdl is cash he collects
-            from the customer. Câștig must be the primary gold number, mirroring
-            AvailableOrderRow, or a courier reads total_mdl as his own pay.
+        {/* #3a — the fee is what the courier is paid for the ride; total_mdl is
+            cash he collects from the customer. The gold number must be his pay,
+            mirroring AvailableOrderRow, or a courier reads total_mdl as his own.
             Order 2 — courier_fee_quoted_mdl is a FLOOR, not a fixed number:
             "tarif minim" (never "minim garantat" — the final at delivery can
             be higher, never lower). Falls back to delivery_fee_mdl for any
             order that predates the tariff (should not happen post-migration,
-            but mark_ready_for_pickup always stamps it going forward). */}
+            but mark_ready_for_pickup always stamps it going forward).
+            R8 — cifra e NETUL: taxa brută nu i-a fost niciodată plătită ca
+            atare, comisionul se scade la decontare. Formula stă în
+            `_lib/earnings.ts`, aceeași pe care o folosesc `/earnings` și
+            `admin_generate_payouts`. */}
         {order && (
           <div className="mt-1 flex items-baseline gap-2">
             <p className="text-lg font-bold text-gold">
-              Câștig: {order.courier_fee_quoted_mdl ?? order.delivery_fee_mdl} MDL
+              Câștig net: {quotedNetMdl(order, commissionPct)} MDL
             </p>
             {Number(order.tip_mdl) > 0 && (
               <span className="text-sm font-semibold text-emerald-400">+{order.tip_mdl} bacșiș</span>
             )}
           </div>
         )}
-        {order && <p className="text-xs text-white/40">tarif minim — poate crește cu distanța reală</p>}
+        {/* Fără separator în fraza asta — vezi nota din `AvailableOrderRow`:
+            varianta cu „·" lăsa un separator orfan la începutul rândului doi
+            pe telefon. */}
+        {order && (
+          <p className="text-xs text-white/60">
+            tarif minim după comisionul de {commissionPct}% — poate crește cu distanța reală
+          </p>
+        )}
         {order && (
           <p className="text-sm text-white/50">
             De încasat: <span className="font-semibold text-white/70">{order.total_mdl} MDL</span>
