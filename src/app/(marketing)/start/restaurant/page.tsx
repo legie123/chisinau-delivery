@@ -9,7 +9,7 @@ export const metadata = { title: "Devino partener — restaurant, spa, wellness 
 export default function StartRestaurantPage() {
   return (
     <StartHero
-      media={{ video: { src: "/videos/hero-flame.mp4", poster: "/videos/hero-flame-poster.jpg" } }}
+      sector="restaurant"
       eyebrow="Pentru parteneri"
       headline="Locul tău, în fața orașului"
       sub="Restaurant, sushi bar, spa, lounge de wellness sau sală de business — intri în rețeaua concierge și primești comenzi și rezervări dintr-un singur loc."

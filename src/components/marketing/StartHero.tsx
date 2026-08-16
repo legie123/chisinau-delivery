@@ -1,20 +1,24 @@
 import Link from "next/link";
-import { AmbientVideo } from "@/components/marketing/AmbientVideo";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
+import type { Sector } from "@/components/immersive/sectors";
 
 // Experiența de start a unui sector (porțile pe rol, 2026-08-14): fiecare
-// rol își începe drumul pe pagina LUI, cu atmosfera lui — video Higgsfield
-// unde există, imagine cu drift unde nu — și exact două acțiuni clare.
+// rol își începe drumul pe pagina LUI, cu atmosfera lui și exact două acțiuni
+// clare. Din V3 atmosfera nu mai e aleasă aici — pagina spune doar AL CUI e
+// ecranul, iar `sectors.ts` știe ce se vede și cât de gros e voalul.
 export type StartCta = { href: string; label: string; primary?: boolean };
 
 export function StartHero({
-  media,
+  sector,
+  variant,
   eyebrow,
   headline,
   sub,
   bullets,
   ctas,
 }: {
-  media: { video?: { src: string; poster: string }; image?: string };
+  sector: Sector;
+  variant?: string;
   eyebrow: string;
   headline: string;
   sub: string;
@@ -23,26 +27,26 @@ export function StartHero({
 }) {
   return (
     <main className="relative isolate flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
-      {media.video ? (
-        <AmbientVideo src={media.video.src} poster={media.video.poster} />
-      ) : (
-        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
-          {/* eslint-disable-next-line @next/next/no-img-element -- house style: plain img */}
-          <img src={media.image} alt="" className="ambient-drift h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-[#0a0a14]/45" />
-          <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-[#0a0a14]/85 to-transparent" />
-        </div>
-      )}
+      {/* Ecranul întreg E hero-ul aici, deci fundalul umple `main`. */}
+      <SectorBackdrop sector={sector} intensity="hero" variant={variant} />
 
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-        <Link href="/" className="mb-8 text-xs font-semibold uppercase tracking-[0.3em] text-white/40 transition hover:text-gold">
+      {/* `photo-caption` = umbra de text a casei, câștigată în V1 pe cardurile
+          concierge: ține lizibilitatea acolo unde voalul singur n-ar ajunge,
+          fără să pună o placă opacă peste imagine. Aici e necesară fiindcă
+          măsurătoarea din `scripts/veil-contrast.mjs` arată că
+          eticheta aurie mică nu trece de 4.5:1 pe flacără prin voal la nicio
+          valoare care mai lasă video-ul să se vadă. */}
+      <div className="photo-caption mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
+        <Link href="/" className="mb-8 text-xs font-semibold uppercase tracking-[0.3em] text-white/60 transition hover:text-gold">
           ← Dragons Delivery
         </Link>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-gold/80">{eyebrow}</p>
+        {/* auriu plin, nu 80%: la 80% eticheta nu trece de 4.5:1 pe niciunul
+            dintre cele trei assete luminoase, indiferent de voal */}
+        <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-gold">{eyebrow}</p>
         <h1 className="mt-3 font-serif text-4xl font-bold leading-tight sm:text-5xl">{headline}</h1>
-        <p className="mt-4 max-w-lg text-base leading-relaxed text-white/70">{sub}</p>
+        <p className="mt-4 max-w-lg text-base leading-relaxed text-white/80">{sub}</p>
 
-        <ul className="mt-8 flex flex-col items-center gap-2 text-sm text-white/60">
+        <ul className="mt-8 flex flex-col items-center gap-2 text-sm text-white/75">
           {bullets.map((b) => (
             <li key={b} className="flex items-center gap-2">
               <span className="text-gold" aria-hidden>✦</span>

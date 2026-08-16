@@ -7,7 +7,7 @@ export const metadata = { title: "Comandă — Dragons Delivery" };
 export default function StartClientPage() {
   return (
     <StartHero
-      media={{ video: { src: "/videos/hero-pour.mp4", poster: "/videos/hero-pour-poster.jpg" } }}
+      sector="customer"
       eyebrow="Pentru tine"
       headline="Fine dining, la ușa ta"
       sub="Sushi și bucătărie fină din cele mai bune restaurante din Chișinău — fotografii reale, livrare urmărită live, plata cash sau card la ușă."

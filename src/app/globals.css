@@ -102,9 +102,14 @@ summary:focus-visible {
    when the <video> itself renders, which is already gated on motion-OK. */
 @keyframes ambient-drift {
   from { transform: scale(1); }
-  to   { transform: scale(1.09) translateY(-1.5%); }
+  to   { transform: scale(var(--drift-to, 1.09)) translateY(-1.5%); }
 }
 .ambient-drift {
   animation: ambient-drift 36s ease-in-out infinite alternate;
   will-change: transform;
 }
+
+/* Amplitudinea derivei e per sector (`sectors.ts`): curierul e deja în mișcare
+   în realitate, deci fundalul lui respiră cel mai puțin; lounge-ul are voie să
+   se apropie lent. Fără variabilă, rămâne valoarea de dinainte (1.09), deci
+   consumatorii vechi arată identic. */

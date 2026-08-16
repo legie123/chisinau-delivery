@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { AmbientVideo } from "@/components/marketing/AmbientVideo";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 import { VENUE_META, VENUE_ORDER, isVenueType, type VenueType } from "@/lib/concierge/venues";
 import { SITE_NAME, siteUrl } from "@/lib/seo/site";
 
@@ -56,27 +56,19 @@ export default async function ConciergePage({
   }
   const shownTypes = activeType ? [activeType] : VENUE_ORDER;
 
-  // Un fundal per lume; fără filtru rămâne lounge-ul, fiindcă sala de business
-  // e firul poveștii de concierge.
-  const BACKDROPS: Record<string, { src: string; poster: string }> = {
-    spa: { src: "/videos/hero-spa.mp4", poster: "/videos/hero-spa-poster.jpg" },
-    wellness_lounge: { src: "/videos/hero-spa.mp4", poster: "/videos/hero-spa-poster.jpg" },
-    sushi_bar: { src: "/videos/hero-sushi.mp4", poster: "/videos/hero-sushi-poster.jpg" },
-    restaurant: { src: "/videos/hero-flame.mp4", poster: "/videos/hero-flame-poster.jpg" },
-    business_lounge: { src: "/videos/hero-lounge.mp4", poster: "/videos/hero-lounge-poster.jpg" },
-  };
-  const backdrop = (activeType && BACKDROPS[activeType]) || BACKDROPS.business_lounge;
-
   return (
     <main className="relative isolate flex-1 px-5 pb-20 pt-8">
-      {/* Fundalul urmează sectorul ales (Higgsfield/Seedance): lounge de
-          business, aburi de spa sau bucătărie — filtrul nu schimbă doar lista,
-          ci și lumea în care intri. */}
-      <AmbientVideo src={backdrop.src} poster={backdrop.poster} />
+      {/* V3 — reparația structurală de aici. Fundalul curgea `fixed` sub TOATĂ
+          pagina, deci lista de locuri plutea peste o fotografie în mișcare și
+          subtitlurile gri cădeau pe ferestre luminate. Nivelul `hero` îl leagă
+          de deschidere: după ce treci de primul ecran, atmosfera se retrage și
+          rămâne substratul curat. Lumea urmează filtrul (lounge, aburi de spa,
+          bucătărie) — filtrul nu schimbă doar lista, ci și camera în care intri. */}
+      <SectorBackdrop sector="concierge" intensity="hero" variant={activeType} />
 
       <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-8 text-center">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-gold/80">Concierge</p>
+        <header className="photo-caption mb-8 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-gold">Concierge</p>
           <h1 className="mt-3 font-serif text-4xl font-bold leading-tight sm:text-5xl">
             Locul din care pornește o întâlnire bună
           </h1>
@@ -86,13 +78,16 @@ export default async function ConciergePage({
           </p>
         </header>
 
+        {/* Pastilele stau peste video în deschidere: fără un fundal propriu, cea
+            neselectată e text gri pe orice cadru nimerește (capturile de dinainte
+            de val, 390×844, o arată peste scaunele luminate). */}
         <nav aria-label="Tipuri de locații" className="mb-8 flex flex-wrap justify-center gap-2">
           <Link
             href="/concierge"
             aria-current={activeType ? undefined : "page"}
             className={`rounded-full px-4 py-1.5 text-sm ring-1 transition ${
               activeType
-                ? "text-white/60 ring-white/10 hover:bg-white/5 hover:text-white"
+                ? "bg-[#0a0a14]/55 text-white/75 ring-white/15 hover:bg-white/10 hover:text-white"
                 : "bg-gold font-semibold text-zinc-900 ring-gold"
             }`}
           >
@@ -106,7 +101,7 @@ export default async function ConciergePage({
               className={`rounded-full px-4 py-1.5 text-sm ring-1 transition ${
                 activeType === t
                   ? "bg-gold font-semibold text-zinc-900 ring-gold"
-                  : "text-white/60 ring-white/10 hover:bg-white/5 hover:text-white"
+                  : "bg-[#0a0a14]/55 text-white/75 ring-white/15 hover:bg-white/10 hover:text-white"
               }`}
             >
               {VENUE_META[t].plural}

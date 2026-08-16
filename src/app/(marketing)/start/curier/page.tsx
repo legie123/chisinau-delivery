@@ -8,7 +8,7 @@ export const metadata = { title: "Devino curier — Dragons Delivery" };
 export default function StartCurierPage() {
   return (
     <StartHero
-      media={{ video: { src: "/videos/hero-courier.mp4", poster: "/videos/hero-courier-poster.jpg" } }}
+      sector="courier"
       eyebrow="Pentru curieri"
       headline="Livrezi. Câștigi. În ritmul tău."
       sub="Oferte de livrare direct pe telefon, câștiguri vizibile pe fiecare cursă și predare de numerar fără bătăi de cap."
