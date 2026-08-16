@@ -46,8 +46,12 @@ export function CourierCommandBar({
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             {/* Nu e o sumă, deci nu e auriu — aceeași treaptă ca celelalte
-                două etichete ale cardului („Azi ai câștigat", „Curse"). */}
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Tura ta</p>
+                două etichete ale cardului („Azi ai câștigat", „Curse").
+                Treapta e alb/60, nu alb/40: la 40% cele trei etichete de 10px
+                dau 3,76-3,82:1, sub prag. Prinse de un verificator extern după
+                ce instrumentul meu de contrast le declarase trecute — el nu
+                compunea alfa, deci le măsura ca alb opac. */}
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/60">Tura ta</p>
             <h1 className="mt-1 truncate font-serif text-2xl font-bold text-white sm:text-3xl">{firstName}</h1>
             <p className="mt-0.5 text-sm text-white/55">
               {onDelivery || hasActiveDelivery
@@ -68,14 +72,14 @@ export function CourierCommandBar({
         {/* Banii de azi — motivul pentru care omul e pe stradă. */}
         <div className="flex items-end justify-between gap-4 border-t border-white/10 pt-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Azi ai câștigat</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">Azi ai câștigat</p>
             <p className="mt-1 text-5xl font-extrabold leading-none tracking-tight text-gold tabular-nums">
               {earnedToday}
               <span className="ml-1.5 text-xl font-semibold text-gold/70">MDL</span>
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Curse</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60">Curse</p>
             <p className="mt-1 text-3xl font-extrabold leading-none text-white tabular-nums">{deliveriesToday}</p>
           </div>
         </div>

@@ -22,7 +22,9 @@ export function CashFloatStatus({ status }: { status: CourierCashStatus }) {
       <div className="flex items-center justify-between">
         <p className="text-sm text-white/50">Numerar în mână</p>
         <p className={`text-lg font-bold ${nearCap ? "text-primary" : "text-white"}`}>
-          {status.balance_mdl} <span className="text-white/40">/ {status.cap_mdl} MDL</span>
+          {/* alb/40 dădea 3,78:1 pe numitor — plafonul e jumătatea care dă sens
+              cifrei din stânga, nu un ornament. */}
+          {status.balance_mdl} <span className="text-white/60">/ {status.cap_mdl} MDL</span>
         </p>
       </div>
       <div
