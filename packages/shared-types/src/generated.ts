@@ -3388,6 +3388,16 @@ export type Database = {
           slug: string
         }[]
       }
+      notify_venue_staff_or_admin: {
+        Args: {
+          p_body: string
+          p_tag: string
+          p_title: string
+          p_url: string
+          p_venue_id: string
+        }
+        Returns: undefined
+      }
       place_order: {
         Args: {
           p_catering?: Json
