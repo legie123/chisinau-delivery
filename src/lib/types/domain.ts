@@ -374,6 +374,9 @@ export interface RestaurantWaitKpiRow {
   avg_courier_wait_minutes: number | null;
   avoidable_wait_orders: number;
   avoidable_wait_grace_minutes: number | null;
+  // Câte comenzi stau în spatele preciziei. Media e null sub 5 (regula casei din
+  // get_prep_estimates) — numărul rămâne vizibil ca să se vadă DE CE lipsește.
+  prep_accuracy_orders: number;
 }
 
 // Partner analytics (migration 20260728000000) — zero-filled histogram rows

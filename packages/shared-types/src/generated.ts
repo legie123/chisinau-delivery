@@ -3045,6 +3045,7 @@ export type Database = {
           avoidable_wait_grace_minutes: number | null
           avoidable_wait_orders: number | null
           prep_accuracy_avg_minutes: number | null
+          prep_accuracy_orders: number | null
           reject_rate_pct: number | null
           restaurant_id: string | null
           restaurant_name: string | null

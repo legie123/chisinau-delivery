@@ -50,3 +50,35 @@ export function formatClock(iso: string): string {
     timeZone: "Europe/Chisinau",
   });
 }
+
+const dayKeyFmt = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: "Europe/Chisinau",
+});
+
+const dayClockFmt = new Intl.DateTimeFormat("ro-RO", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Europe/Chisinau",
+});
+
+// A bare "09:15" is unambiguous only for today. Once accept_order anchors a
+// scheduled order's target to its requested window (migration 20260816000000),
+// the kitchen target can legitimately land tomorrow morning — and "🎯 Țintă:
+// 09:15" on a screen at 22:00 reads as forty minutes ago, not eleven hours from
+// now. Same calendar day → clock only; any other day → "17 aug., 09:15".
+export function formatTargetClock(iso: string, now = Date.now()): string {
+  const target = new Date(iso);
+  return dayKeyFmt.format(target) === dayKeyFmt.format(new Date(now))
+    ? formatClock(iso)
+    : dayClockFmt.format(target);
+}
+
+// Past this horizon a minute countdown stops being a countdown and starts being
+// arithmetic the reader has to undo ("Gata în ~758 min"). Scheduled orders live
+// out here routinely, so beyond it we state the target time instead.
+export const COUNTDOWN_HORIZON_MIN = 90;

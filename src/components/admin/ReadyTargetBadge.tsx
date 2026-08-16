@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatClock, minutesUntil } from "@/lib/orders/eta";
+import { formatTargetClock, minutesUntil } from "@/lib/orders/eta";
 
-// WS4 — kitchen-side pressure signal: the accept-time ETA target (HH:MM) with
-// colour urgency. Amber under 5 min left, red once past due. Feeds WS8's SLA UI
-// mental model on the partner queue. Own 30s timer; null until mounted (no SSR flash).
+// WS4 — kitchen-side pressure signal: the accept-time ETA target with colour
+// urgency. Amber under 5 min left, red once past due. Feeds WS8's SLA UI mental
+// model on the partner queue. Own 30s timer; null until mounted (no SSR flash).
+//
+// Ținta unei comenzi programate poate cădea legitim mâine dimineață de la
+// migrația 20260816000000 încoace, deci ora se scrie cu ziua când nu e azi.
+// Până atunci, o comandă de a doua zi trecea în „Depășit — pregătește urgent"
+// la 25 de minute după acceptare, fiindcă ținta era ștampilată now()+prep.
 export function ReadyTargetBadge({ estimatedReadyAt }: { estimatedReadyAt: string }) {
   const [now, setNow] = useState<number | null>(null);
 
@@ -30,7 +35,9 @@ export function ReadyTargetBadge({ estimatedReadyAt }: { estimatedReadyAt: strin
 
   return (
     <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${tone}`}>
-      {left < 0 ? "⏱ Depășit — pregătește urgent" : `🎯 Țintă: ${formatClock(estimatedReadyAt)}`}
+      {left < 0
+        ? "⏱ Depășit — pregătește urgent"
+        : `🎯 Țintă: ${formatTargetClock(estimatedReadyAt)}`}
     </span>
   );
 }

@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { Order } from "@/lib/types/domain";
-import { DELIVERY_BUFFER_MIN, formatClock, minutesUntil } from "@/lib/orders/eta";
+import {
+  COUNTDOWN_HORIZON_MIN,
+  DELIVERY_BUFFER_MIN,
+  formatTargetClock,
+  minutesUntil,
+} from "@/lib/orders/eta";
 
 // WS4 — live "gata în ~N min" countdown from orders.estimated_ready_at (stamped
 // by accept_order). No subscription of its own — the parent OrderTracking already
@@ -32,16 +37,21 @@ export function PrepCountdown({
 
   const readyIn = minutesUntil(estimatedReadyAt);
   // Arrival = kitchen-ready + courier travel placeholder (WS3 will refine).
-  const arriveClock = formatClock(
+  const arriveClock = formatTargetClock(
     new Date(new Date(estimatedReadyAt).getTime() + DELIVERY_BUFFER_MIN * 60_000).toISOString(),
   );
 
   const headline =
-    readyIn > 0
-      ? `Gata în ~${readyIn} min`
-      : status === "ready_for_pickup" || status === "courier_assigned"
-        ? "Gata — se pregătește ridicarea"
-        : "Din clipă în clipă";
+    // Comandă programată: de la migrația 20260816000000 ținta e ancorată de
+    // fereastra cerută, deci poate fi peste multe ore. „Gata în ~758 min" e o
+    // socoteală pe care o lași în seama cititorului — spune ora, nu minutele.
+    readyIn > COUNTDOWN_HORIZON_MIN
+      ? `Gata ~${formatTargetClock(estimatedReadyAt)}`
+      : readyIn > 0
+        ? `Gata în ~${readyIn} min`
+        : status === "ready_for_pickup" || status === "courier_assigned"
+          ? "Gata — se pregătește ridicarea"
+          : "Din clipă în clipă";
 
   return (
     <div className="mt-1 text-center">
