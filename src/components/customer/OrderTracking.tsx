@@ -10,13 +10,13 @@ import { CancelOrderButton } from "@/components/customer/CancelOrderButton";
 import { DeliveryMap, type MapPoint } from "@/components/shared/DeliveryMap";
 import {
   ORDER_STATUS_LABEL,
-  PAYMENT_METHOD_LABEL,
   type DeliveryStatusEvent,
   type Order,
   type OrderItem,
   type Rating,
 } from "@/lib/types/domain";
 import { formatScheduledFor } from "@/lib/orders/scheduled";
+import { paymentPresence } from "@/lib/orders/payment";
 
 // Bolt-style 4-step progress. Maps our 7 active statuses onto customer-facing steps.
 const STEPS = [
@@ -88,6 +88,16 @@ export function OrderTracking({
 
   const current = stepIndex(order.status);
   const isTerminalBad = order.status === "cancelled" || order.status === "rejected";
+
+  // Ce s-a întâmplat cu banii, citit din `payment_status` în loc de dedus din
+  // metodă. Eticheta veche (`PAYMENT_METHOD_LABEL`) spunea „plătit online" și
+  // pentru o plată eșuată, și pentru una returnată.
+  const pay = paymentPresence({
+    method: order.payment_method,
+    status: order.payment_status,
+    orderStatus: order.status,
+    amountMdl: order.total_mdl,
+  });
 
   return (
     <div className="flex flex-col gap-4 pb-8">
@@ -267,10 +277,33 @@ export function OrderTracking({
               <span>{order.tip_mdl} MDL</span>
             </div>
           )}
-          <div className="flex justify-between text-lg font-bold text-white">
-            <span>Total ({PAYMENT_METHOD_LABEL[order.payment_method]})</span>
-            <span>{order.total_mdl} MDL</span>
+          {/* Starea plății e un calificativ, nu titlul rândului: la 390px
+              „Total (online, bani returnați)" împingea suma pe două rânduri —
+              adică exact cifra pe care omul a deschis pagina s-o vadă. Suma
+              rămâne pe o linie, eticheta se rupe dacă trebuie. */}
+          <div className="flex items-baseline justify-between gap-3 text-lg font-bold text-white">
+            <span className="min-w-0">
+              Total{" "}
+              <span className="text-sm font-medium text-white/60">({pay.totalLabel})</span>
+            </span>
+            <span className="shrink-0 whitespace-nowrap">{order.total_mdl} MDL</span>
           </div>
+          {/* Corectarea stă lipită de cifra pe care o corectează: o comandă
+              returnată nu poate arăta un total simplu, iar una cu plata căzută
+              nu poate arăta niciun fel de „plătit". */}
+          {pay.notice && (
+            <div
+              role="status"
+              className={`mt-2 flex flex-col gap-0.5 rounded-xl px-3 py-2 text-sm ring-1 ${
+                pay.notice.tone === "good"
+                  ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
+                  : "bg-amber-400/10 text-amber-200 ring-amber-400/30"
+              }`}
+            >
+              <span className="font-semibold">{pay.notice.label}</span>
+              {pay.notice.detail && <span className="text-white/70">{pay.notice.detail}</span>}
+            </div>
+          )}
         </div>
       </section>
 

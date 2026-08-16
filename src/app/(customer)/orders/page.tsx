@@ -4,8 +4,20 @@ import { ORDER_STATUS_LABEL, type Order, type SelectedOption } from "@/lib/types
 import { ReorderButton, type ReorderItem } from "@/components/customer/ReorderButton";
 import { PushOptIn } from "@/components/shared/PushOptIn";
 import { formatScheduledFor } from "@/lib/orders/scheduled";
+import { paymentPresence } from "@/lib/orders/payment";
 
-type OrderRow = Pick<Order, "id" | "order_number" | "order_type" | "created_at" | "status" | "total_mdl" | "requested_for"> & {
+type OrderRow = Pick<
+  Order,
+  | "id"
+  | "order_number"
+  | "order_type"
+  | "created_at"
+  | "status"
+  | "total_mdl"
+  | "requested_for"
+  | "payment_method"
+  | "payment_status"
+> & {
   restaurant_id: string;
   restaurants: { slug: string; name: string } | null;
   order_items: {
@@ -45,7 +57,7 @@ export default async function OrdersPage() {
   const { data: orders } = await supabase
     .from("orders")
     .select(
-      "id, order_number, order_type, created_at, status, total_mdl, requested_for, restaurant_id, restaurants(slug, name), order_items(menu_item_id, item_name_snapshot, unit_price_mdl, quantity, selected_options)",
+      "id, order_number, order_type, created_at, status, total_mdl, requested_for, payment_method, payment_status, restaurant_id, restaurants(slug, name), order_items(menu_item_id, item_name_snapshot, unit_price_mdl, quantity, selected_options)",
     )
     .eq("customer_id", user.id)
     .order("created_at", { ascending: false })
@@ -149,6 +161,14 @@ export default async function OrdersPage() {
         <ul className="flex flex-col gap-3">
           {orderList.map((order) => {
             const reorderItems = buildReorderItems(order);
+            const pay = paymentPresence({
+              method: order.payment_method,
+              status: order.payment_status,
+              orderStatus: order.status,
+              amountMdl: order.total_mdl,
+            });
+            const payChip = pay.chip;
+            const payTone = pay.notice?.tone;
             const canReorder =
               order.status === "delivered" &&
               order.order_type === "standard" &&
@@ -164,17 +184,9 @@ export default async function OrdersPage() {
                   <div className="min-w-0">
                     {/* #7 — restaurant name + a short item summary so the row is
                         recognizable at a glance, not just an opaque order number. */}
-                    {/* R2 — eticheta CATERING stătea ÎN interiorul blocului cu
-                        `truncate`, deci la 390px se tăia în „CATERI…" pe cel mai
-                        lung nume din listă. Nu e decor: rândul de catering duce
-                        pe alt drum (`/catering/{id}`, ofertă-întâi), deci e
-                        singurul semn că nu e o comandă obișnuită. Numele se
-                        scurtează, eticheta nu. */}
-                    <p className="flex items-baseline gap-2 font-semibold text-white">
-                      <span className="truncate">{order.restaurants?.name ?? "Restaurant"}</span>
-                      {order.order_type === "catering" && (
-                        <span className="shrink-0 text-xs text-gold">CATERING</span>
-                      )}
+                    <p className="truncate font-semibold text-white">
+                      {order.restaurants?.name ?? "Restaurant"}
+                      {order.order_type === "catering" && <span className="ml-2 text-xs text-gold">CATERING</span>}
                     </p>
                     {order.order_items.length > 0 && (
                       <p className="mt-0.5 truncate text-sm text-white/60">
@@ -188,11 +200,27 @@ export default async function OrdersPage() {
                       )}
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusTone(order.status)}`}>
-                      {ORDER_STATUS_LABEL[order.status]}
-                    </span>
-                    <span className="font-bold text-white">{order.total_mdl} MDL</span>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ring-1 ${statusTone(order.status)}`}>
+                        {ORDER_STATUS_LABEL[order.status]}
+                      </span>
+                      <span className="font-bold text-white">{order.total_mdl} MDL</span>
+                    </div>
+                    {/* Starea banilor apare DOAR când contrazice normalul (returnare,
+                        plată eșuată, sumă doar rezervată). Pe drumul fericit rândul
+                        rămâne exact cum era — altfel pastilele se devalorizează. */}
+                    {payChip && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ${
+                          payTone === "good"
+                            ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30"
+                            : "bg-amber-400/15 text-amber-200 ring-amber-400/30"
+                        }`}
+                      >
+                        {payChip}
+                      </span>
+                    )}
                   </div>
                 </Link>
                 {canReorder && (
