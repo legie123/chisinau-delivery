@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
+import { ReconnectNotice } from "@/components/shared/ReconnectNotice";
 import { cancelCateringOrder, confirmCateringQuote } from "@/app/(customer)/catering/actions";
 import {
   ORDER_STATUS_LABEL,
@@ -31,6 +33,13 @@ export function CateringTracking({
   const [details, setDetails] = useState(initialDetails);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  // Suprafața cu cea mai mare miză de pe platformă (media unei comenzi de
+  // catering din DB e ~9.000 MDL) consuma două canale live FĂRĂ niciun poll și
+  // fără semnal de degradare: la un websocket căzut, clientul rămânea pe
+  // „Cerere trimisă — așteptăm oferta restaurantului" după ce oferta sosise,
+  // iar butonul de confirmare pur și simplu nu apărea niciodată.
+  const [degraded, setDegraded] = useState(false);
 
   // Server Actions revalidate this route and the server component re-renders
   // with fresh props — without this sync, useState would keep the stale copy
@@ -49,9 +58,29 @@ export function CateringTracking({
 
   useEffect(() => {
     const supabase = createClient();
-    const unsubOrder = subscribeTable<Order>(supabase, "catering-order", "orders", `id=eq.${order.id}`, (payload) => {
-      if (payload.new && "id" in payload.new) setOrder(payload.new as Order);
-    });
+    // Cele două canale au o singură bandă: dacă oricare cade, pagina minte, deci
+    // semnalul e OR-ul lor. Se stinge doar când amândouă s-au întors.
+    const down = new Set<string>();
+    const markDown = (key: string) => () => {
+      down.add(key);
+      setDegraded(true);
+    };
+    const markUp = (key: string) => () => {
+      down.delete(key);
+      if (down.size === 0) setDegraded(false);
+    };
+
+    const unsubOrder = subscribeTable<Order>(
+      supabase,
+      "catering-order",
+      "orders",
+      `id=eq.${order.id}`,
+      (payload) => {
+        if (payload.new && "id" in payload.new) setOrder(payload.new as Order);
+      },
+      markDown("order"),
+      markUp("order"),
+    );
     const unsubDetails = subscribeTable<CateringDetails>(
       supabase,
       "catering-details",
@@ -60,12 +89,24 @@ export function CateringTracking({
       (payload) => {
         if (payload.new && "order_id" in payload.new) setDetails(payload.new as CateringDetails);
       },
+      markDown("details"),
+      markUp("details"),
     );
     return () => {
       unsubOrder();
       unsubDetails();
     };
   }, [order.id]);
+
+  // Recuperarea trece prin server, nu printr-un select paralel: componenta își
+  // sincronizează deja starea din props (vezi adjust-during-render de mai sus),
+  // fiindcă Server Action-urile revalidează ruta. `router.refresh()` refolosește
+  // exact acel drum, deci nu apare a doua sursă de adevăr pentru aceleași date.
+  useEffect(() => {
+    if (!degraded) return;
+    const id = setInterval(() => router.refresh(), 15000);
+    return () => clearInterval(id);
+  }, [degraded, router]);
 
   function handleConfirm() {
     startTransition(async () => {
@@ -98,6 +139,7 @@ export function CateringTracking({
 
   return (
     <div className="flex flex-col gap-6">
+      {degraded && <ReconnectNotice detail="oferta apare automat când sosește" placement="flow" />}
       <section className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
         <p className="text-sm font-medium">
           {isTerminal ? ORDER_STATUS_LABEL[order.status] : QUOTE_LABEL[details.quote_status]}
