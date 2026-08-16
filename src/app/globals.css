@@ -42,6 +42,10 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  /* Fundalul imersiv e un copil cu z-index negativ, montat în layout. Fără un
+     stacking context aici, el s-ar picta SUB fundalul body-ului și ar rămâne
+     invizibil deși rulează — exact bugul „este identic" din 13 august. */
+  isolation: isolate;
 }
 
 /* Audit DesignCode 2026-08-12: 0 of 45 primary CTAs had any keyboard focus

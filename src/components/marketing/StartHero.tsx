@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AmbientVideo } from "@/components/marketing/AmbientVideo";
 
 // Experiența de start a unui sector (porțile pe rol, 2026-08-14): fiecare
 // rol își începe drumul pe pagina LUI, cu atmosfera lui — video Higgsfield
@@ -22,17 +21,7 @@ export function StartHero({
   ctas: StartCta[];
 }) {
   return (
-    <main className="relative isolate flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
-      {media.video ? (
-        <AmbientVideo src={media.video.src} poster={media.video.poster} />
-      ) : (
-        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden>
-          {/* eslint-disable-next-line @next/next/no-img-element -- house style: plain img */}
-          <img src={media.image} alt="" className="ambient-drift h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-[#0a0a14]/45" />
-          <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-[#0a0a14]/85 to-transparent" />
-        </div>
-      )}
+    <main className="relative flex min-h-screen flex-1 flex-col text-white">
 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-6 py-16 text-center">
         <Link href="/" className="mb-8 text-xs font-semibold uppercase tracking-[0.3em] text-white/40 transition hover:text-gold">

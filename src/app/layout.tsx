@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { AuthListener } from "@/components/auth/AuthListener";
+import { Suspense } from "react";
 import { ServiceWorkerRegister } from "@/components/shared/ServiceWorkerRegister";
+import { ImmersiveBackdrop } from "@/components/immersive/ImmersiveBackdrop";
 import { SITE_NAME, SITE_TAGLINE, siteUrl } from "@/lib/seo/site";
 import "./globals.css";
 
@@ -64,6 +66,12 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthListener />
         <ServiceWorkerRegister />
+        {/* Fundalul imersiv stă în layout, nu în pagini: o singură pânză care
+            își schimbă lumea la navigare, în loc să repornească la fiecare rută.
+            Se montează doar pe vitrine și porți — vezi sectorForPath. */}
+        <Suspense fallback={null}>
+          <ImmersiveBackdrop />
+        </Suspense>
         {children}
       </body>
     </html>
