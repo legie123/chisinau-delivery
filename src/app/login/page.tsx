@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand/BrandMark";
 import { LoginForm } from "@/components/auth/LoginForm";
 
 export default async function LoginPage({
@@ -9,7 +10,7 @@ export default async function LoginPage({
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center bg-[#0a0a14] px-6 py-16 text-white">
-      <span className="text-5xl" aria-hidden>🐉</span>
+      <BrandMark size="md" />
       <h1 className="mt-3 text-xl font-bold tracking-widest text-gold">DRAGONS DELIVERY</h1>
       <p className="mb-8 mt-1 text-sm text-white/50">Autentifică-te ca să continui</p>
       <LoginForm next={next ?? null} />

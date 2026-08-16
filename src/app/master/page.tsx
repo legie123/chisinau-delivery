@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { MASTER_COOKIE, masterCookieValue, masterDoorwayEnabled, masterPasswordRequired } from "@/lib/master/gate";
 import { MasterLogin } from "./MasterLogin";
 
@@ -40,9 +41,7 @@ export default async function MasterPage({
     <main className="flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
       {/* Brand */}
       <div className="flex flex-col items-center gap-1 px-6 pb-8 pt-12 text-center">
-        <span className="text-5xl" aria-hidden>
-          🐉
-        </span>
+        <BrandMark size="md" />
         <h1 className="font-serif text-3xl font-bold tracking-wide text-gold sm:text-4xl">
           DRAGON MASTER
         </h1>

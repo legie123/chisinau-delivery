@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { createClient } from "@/lib/supabase/server";
 import { getCourierCashStatus } from "@chisinau/shared-api";
 import { CourierCommandBar } from "@/components/courier/CourierCommandBar";
@@ -145,7 +146,7 @@ export default async function DeliveriesPage() {
         )}
         {available.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.04] py-14 text-center ring-1 ring-white/[0.06]">
-            <span className="text-5xl" aria-hidden>🐉</span>
+            <BrandMark size="md" />
             <p className="text-white/60">{courier.status === "online" ? "Nimic momentan — te anunțăm imediat ce apare." : "Treci online ca să primești comenzi."}</p>
           </div>
         ) : (

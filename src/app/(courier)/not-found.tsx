@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { BrandMark } from "@/components/brand/BrandMark";
+
 // Audit 2026-08-13 HIGH: notFound() used to fall through to Next's default
 // English boundary ("This page could not be found") — untranslated, no way
 // back, and unbranded. Every route group now has a localized boundary with
@@ -7,7 +9,7 @@ import Link from "next/link";
 export default function NotFound() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-4 px-5 py-24 text-center">
-      <span className="text-6xl" aria-hidden>🐉</span>
+      <BrandMark size="lg" />
       <h1 className="font-serif text-3xl font-bold text-gold">Livrarea nu există</h1>
       <p className="max-w-md text-white/60">Poate a fost reasignată sau linkul e vechi.</p>
       <Link

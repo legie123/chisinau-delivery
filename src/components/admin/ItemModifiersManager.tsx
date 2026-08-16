@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { BrandWatermark } from "@/components/brand/BrandMark";
 import type { MenuOptionGroup } from "@/lib/types/domain";
 import {
   addOption,
@@ -27,9 +28,7 @@ export function ItemModifiersManager({ itemId, groups }: { itemId: string; group
       className="relative mt-3 overflow-hidden rounded-2xl p-5 ring-1 ring-gold/20"
       style={{ background: "linear-gradient(105deg,#141024 0%,#241826 70%,#2e1c2a 100%)" }}
     >
-      <span className="pointer-events-none absolute -right-3 -top-4 select-none text-[80px] leading-none opacity-[0.06]" aria-hidden>
-        🐉
-      </span>
+      <BrandWatermark px={80} className="absolute -right-3 -top-4 opacity-[0.06]" />
 
       <div className="relative flex items-center justify-between gap-3">
         <h4 className="font-serif text-lg font-bold text-gold">Modificatori</h4>

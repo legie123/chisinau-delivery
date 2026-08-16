@@ -1,13 +1,13 @@
 "use client";
 
+import { BrandMark } from "@/components/brand/BrandMark";
+
 // Premium master login card. Plain HTML form (works without JS) that POSTs to
 // /master/auth. Shows an error line when the page passes hasError (URL ?e=1).
 export function MasterLogin({ hasError }: { hasError: boolean }) {
   return (
     <main className="flex min-h-screen flex-1 flex-col items-center justify-center bg-[#0a0a14] px-6 py-16 text-white">
-      <span className="text-6xl" aria-hidden>
-        🐉
-      </span>
+      <BrandMark size="lg" />
       <h1 className="mt-4 font-serif text-3xl font-bold tracking-wide text-gold sm:text-4xl">
         DRAGON MASTER
       </h1>

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPrepEstimates } from "@chisinau/shared-api";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { RestaurantBrowser } from "@/components/customer/RestaurantBrowser";
 import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 
@@ -78,7 +79,7 @@ export default async function RestaurantsPage() {
           rețea de locuri (spa, lounge, săli). O linie care nu adaugă informație
           și contrazice produsul consumă doar din primul ecran al telefonului. */}
       <div className="mb-6 flex flex-col items-center gap-1 py-4 text-center">
-        <span className="text-4xl" aria-hidden>🐉</span>
+        <BrandMark size="sm" />
         <h1 className="font-serif text-3xl font-bold tracking-wide text-gold">DRAGONS DELIVERY</h1>
       </div>
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 import { formatPrepRange } from "@/lib/orders/eta";
 import { useNearbyRestaurants } from "@/hooks/useNearbyRestaurants";
+import { BrandWatermark } from "@/components/brand/BrandMark";
 import { FavoriteButton } from "@/components/customer/FavoriteButton";
 import type { MenuSearchHit } from "@/app/api/menu-search/route";
 
@@ -74,9 +75,7 @@ function DiscoveryStrip({ title, items }: { title: string; items: Restaurant[] }
               />
             )}
             <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" aria-hidden />
-            <span className="pointer-events-none absolute -right-2 -top-3 select-none text-[56px] opacity-[0.07]" aria-hidden>
-              🐉
-            </span>
+            <BrandWatermark px={56} className="absolute -right-2 -top-3 opacity-[0.07]" />
             <h3 className="relative font-serif text-sm font-bold leading-tight text-white transition line-clamp-2 group-hover:text-gold">
               {r.name}
             </h3>
@@ -343,9 +342,7 @@ export function RestaurantBrowser({
               style={{ background: CARD_TINT[r.cuisine_type] ?? CARD_TINT.other }}
             >
               {/* dragon watermark */}
-              <span className="pointer-events-none absolute -right-3 -top-5 select-none text-[90px] opacity-[0.07]" aria-hidden>
-                🐉
-              </span>
+              <BrandWatermark px={90} className="absolute -right-3 -top-5 opacity-[0.07]" />
               <div className="relative flex items-center justify-between gap-5">
                 <div className="min-w-0 flex-1">
                   <h3 className="font-serif text-xl font-bold text-white transition group-hover:text-gold">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { createClient } from "@/lib/supabase/server";
 import { OnboardingForms } from "./OnboardingForms";
 import type { OnboardingApplication } from "@/lib/types/domain";
@@ -54,9 +55,7 @@ export default async function DevinoPartenerPage() {
     <main className="flex-1 px-5 pb-24 pt-6">
       {/* Hero */}
       <div className="mb-8 flex flex-col items-center gap-2 py-6 text-center">
-        <span className="text-4xl" aria-hidden>
-          🐉
-        </span>
+        <BrandMark size="sm" />
         <h1 className="font-serif text-3xl font-bold tracking-wide text-gold">Devino partener</h1>
         <p className="max-w-md text-sm text-white/55">
           Alătură-te platformei Dragons Delivery ca curier sau restaurant partener. Completează

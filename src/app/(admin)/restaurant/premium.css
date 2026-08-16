@@ -7,29 +7,55 @@
    ========================================================================= */
 
 :root {
+  /* V4 — paleta nu se mai redeclară aici. Cele patru navy-uri și cele opt
+     metale erau scrise a doua oară, cu ACELEAȘI hexuri ca în globals.css, în
+     două fișiere care nu se știau unul pe altul; un hex schimbat într-unul
+     rămânea vechi în celălalt. Numele `--pg-*` rămân toate, cu exact aceleași
+     valori — cele ~30 de utilitare `.pg-*` de mai jos nu se ating — dar acum
+     sunt indicatoare spre definiția unică din `globals.css`, derivată la rândul
+     ei din `docs/design/dragons-dna.json`. */
+
   /* ---- Navy substrate (rich near-black) ---- */
-  --pg-navy-0: #0a0a14;
-  --pg-navy-1: #0d0d1f;
-  --pg-navy-2: #111118;
-  --pg-navy-3: #16162a;
+  --pg-navy-0: var(--navy-0);
+  --pg-navy-1: var(--navy-1);
+  --pg-navy-2: var(--navy-2);
+  --pg-navy-3: var(--navy-3);
 
   /* ---- Metallic brushed gold (crests / CTAs / key accents / rim-light) ---- */
-  --pg-gold-0: #b8860b;
-  --pg-gold-1: #d4af37;
-  --pg-gold-2: #f5c542;
-  --pg-gold-3: #fff3c4;
-  --pg-gold-grad: linear-gradient(135deg, #b8860b 0%, #d4af37 38%, #f5c542 68%, #fff3c4 100%);
-  --pg-gold-sheen: linear-gradient(100deg, #d4af37 0%, #f5c542 45%, #fff3c4 55%, #d4af37 100%);
+  --pg-gold-0: var(--gold-0);
+  --pg-gold-1: var(--gold-1);
+  --pg-gold-2: var(--gold-2);
+  --pg-gold-3: var(--gold-3);
+  --pg-gold-grad: linear-gradient(
+    135deg,
+    var(--gold-0) 0%,
+    var(--gold-1) 38%,
+    var(--gold-2) 68%,
+    var(--gold-3) 100%
+  );
+  --pg-gold-sheen: linear-gradient(
+    100deg,
+    var(--gold-1) 0%,
+    var(--gold-2) 45%,
+    var(--gold-3) 55%,
+    var(--gold-1) 100%
+  );
 
   /* ---- Amethyst / crystal horn jewel (SECONDARY: glows, active, live pulses) ---- */
-  --pg-amethyst-0: #6d28d9;
-  --pg-amethyst-1: #7c3aed;
-  --pg-amethyst-2: #a855f7;
-  --pg-amethyst-3: #c084fc;
-  --pg-amethyst-grad: linear-gradient(135deg, #6d28d9 0%, #7c3aed 40%, #a855f7 75%, #c084fc 100%);
+  --pg-amethyst-0: var(--amethyst-0);
+  --pg-amethyst-1: var(--amethyst-1);
+  --pg-amethyst-2: var(--amethyst-2);
+  --pg-amethyst-3: var(--amethyst-3);
+  --pg-amethyst-grad: linear-gradient(
+    135deg,
+    var(--amethyst-0) 0%,
+    var(--amethyst-1) 40%,
+    var(--amethyst-2) 75%,
+    var(--amethyst-3) 100%
+  );
 
   /* ---- Danger (subtle reject accent only — the existing brand red) ---- */
-  --pg-danger: #e94560;
+  --pg-danger: var(--error);
 
   /* ---- Glass / facet surfaces ---- */
   --pg-glass: rgba(255, 255, 255, 0.045);
@@ -150,7 +176,11 @@
 }
 .pg-crest-mark {
   font-family: var(--font-serif), Georgia, serif;
-  letter-spacing: 0.28em;
+  /* 0.28em era scris de mână aici — e exact treapta `overline` din ADN, adică
+     eticheta gravată de pe crest. Acum o citește de la sursă: valoarea iese
+     identică, dar dacă ADN-ul se răzgândește, nu rămâne un număr orfan aici
+     (garda din tests/unit/designTokens.test.ts ține ADN-ul și CSS-ul lipite). */
+  letter-spacing: var(--text-overline--letter-spacing);
 }
 
 /* =========================================================================

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 import { masterDoorwayEnabled } from "@/lib/master/gate";
 
@@ -52,7 +53,7 @@ export default function HubPage() {
       <SectorBackdrop sector="customer" intensity="hero" variant="sushi" />
       {/* Brand */}
       <div className="flex flex-col items-center gap-1 px-6 pb-6 pt-12 text-center">
-        <span className="text-5xl" aria-hidden>🐉</span>
+        <BrandMark size="md" />
         <h1 className="font-serif text-3xl font-bold tracking-wide text-gold sm:text-4xl">
           DRAGONS DELIVERY
         </h1>
