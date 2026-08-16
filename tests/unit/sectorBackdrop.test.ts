@@ -111,6 +111,52 @@ describe("planBackdrop — cele trei niveluri", () => {
     expect(planBackdrop("concierge", "focus", motion).fadesOnScroll).toBe(false);
   });
 
+  it("hero MĂRGINIT: atmosfera ține de deschidere, nu de fereastră", () => {
+    // Gaura semnalată de trei valuri la rând (V3 pe /concierge la 1440, V6 —
+    // „a treia oară" — și V7 pe /restaurants): `hero` era `fixed inset-0`, deci
+    // acoperea fereastra ÎNTREAGĂ. Pe o pagină unde lista începe la mai puțin
+    // de un ecran, atmosfera stă sub liste — exact ce interzice §6. Măsurat
+    // înainte de reparație cu `scripts/hero-band.mjs`: 535px de listă peste
+    // film la 1440×900, 266px la 390×844.
+    //
+    // Nivelul mărginit nu e un al patrulea nivel, ci o proprietate a lui
+    // `hero`: aceeași atmosferă, dar întinsă peste blocul de deschidere din
+    // pagină, nu peste tot ce se vede. Cine deține întinderea e MARCAJUL
+    // paginii (blocul care înconjoară fundalul), nu o cifră ghicită aici — o
+    // înălțime fixă ar fi mințit la prima schimbare de titlu sau de filtru.
+    const marginit = planBackdrop("concierge", "hero", { ...motion, bounded: true });
+    const intreg = planBackdrop("concierge", "hero", motion);
+
+    expect(marginit.bounded).toBe(true);
+    expect(intreg.bounded).toBe(false);
+
+    // O bandă iese din ecran singură, odată cu pagina. Retragerea la scroll era
+    // mecanismul care ținea locul mărginirii; ținute amândouă, atmosfera s-ar
+    // stinge ÎNAINTE să iasă din cadru — adică fix în timp ce omul încă se uită
+    // la deschidere.
+    expect(marginit.fadesOnScroll).toBe(false);
+    expect(intreg.fadesOnScroll).toBe(true);
+
+    // Restul contractului rămâne neatins: o bandă e tot o deschidere, deci
+    // aceeași podea de voal și aceeași media. Dacă mărginirea ar schimba și
+    // culorile, n-ar mai fi aceeași atmosferă mutată, ci alta.
+    expect(marginit.veilOpacity).toBe(intreg.veilOpacity);
+    expect(marginit.mediaOpacity).toBe(intreg.mediaOpacity);
+    expect(marginit.showVideo).toBe(intreg.showVideo);
+  });
+
+  it("mărginirea are sens doar la deschidere: `ambient` și `focus` o ignoră", () => {
+    // `ambient` stă SUB o interfață de lucru — acolo fundalul are voie să țină
+    // toată fereastra, fiindcă nu concurează cu nimic (8% opacitate). `focus` e
+    // un moment de confirmare pe tot ecranul. O bandă în oricare din cele două
+    // ar fi un dreptunghi cu muchii în mijlocul unei pagini de lucru.
+    for (const intensity of ["ambient", "focus"] as Intensity[]) {
+      expect(planBackdrop("courier", intensity, { ...motion, bounded: true }).bounded, intensity).toBe(
+        false,
+      );
+    }
+  });
+
   it("focus e un moment, nu o stare: ține și se stinge singur", () => {
     const focus = planBackdrop("courier", "focus", motion);
     expect(focus.holdMs).toBe(2000);

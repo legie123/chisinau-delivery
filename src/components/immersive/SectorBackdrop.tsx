@@ -29,12 +29,19 @@ export function SectorBackdrop({
   sector,
   intensity = "ambient",
   variant,
+  bounded = false,
   onDone,
 }: {
   sector: Sector;
   intensity?: Intensity;
   /** o lume din interiorul sectorului (concierge: tipul locației) */
   variant?: string | null;
+  /** `hero` MĂRGINIT: atmosfera umple blocul PĂRINTE (care trebuie să fie
+   *  `relative`), nu fereastra. De folosit pe orice pagină unde lista începe
+   *  la mai puțin de un ecran — §6 interzice atmosfera sub liste, iar
+   *  retragerea la scroll vine prea târziu acolo: primul rând de carduri e în
+   *  cadru încă de la scroll 0. Măsurabil cu `scripts/hero-band.mjs`. */
+  bounded?: boolean;
   /** `focus`: se cheamă după ce momentul s-a stins */
   onDone?: () => void;
 }) {
@@ -61,7 +68,7 @@ export function SectorBackdrop({
   const plan = planBackdrop(
     sector,
     intensity,
-    { motionOk, hasVideo: Boolean(media.video) && videoOk },
+    { motionOk, hasVideo: Boolean(media.video) && videoOk, bounded },
     variant,
   );
 
@@ -152,7 +159,36 @@ export function SectorBackdrop({
         // stătea la `z-30`, adică peste interfață — vezi comentariul din
         // `planBackdrop`: la prima montare pe ecran real a ascuns exact livrarea
         // pe care o confirma. Atmosfera nu trece niciodată în fața comenzii.
-        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-opacity duration-300 ease-out"
+        //
+        // Mărginit: `absolute inset-0`, deci întinderea o dă blocul părinte, nu
+        // fereastra. Fără unități `vw` — `w-screen` include lățimea barei de
+        // derulare pe desktop și ar fi adăugat exact atâția pixeli de derulare
+        // orizontală; sângerarea pe toată lățimea se face din marcaj (`-mx-5`
+        // pe blocul de deschidere), unde e gratis.
+        className={`pointer-events-none -z-10 overflow-hidden transition-opacity duration-300 ease-out ${
+          plan.bounded
+            ? // Mărginit: `absolute inset-0`, deci întinderea o dă blocul
+              // părinte, nu fereastra.
+              //
+              // Muchiile laterale sunt plătite, nu presupuse: prima montare a
+              // ieșit un DREPTUNGHI cu două tăieturi verticale la 1440 (văzut
+              // în captură, nu dedus). Cauza e că paginile de client stau
+              // într-un `max-w-5xl mx-auto` din layout, deci blocul are 1024px
+              // pe o fereastră de 1440 — atmosfera se termina brusc la 208px
+              // de fiecare margine, exact acolo unde înainte curgea până în
+              // marginea ecranului.
+              //
+              // Sângerarea cu `w-screen` ar fi readus-o, dar `100vw` include
+              // lățimea barei de derulare clasice (Windows/Linux): ar fi
+              // apărut derulare orizontală pe FIECARE pagină cu deschidere
+              // mărginită, iar aici n-am cum s-o probez. Deci nu se lățește
+              // banda, ci se STING muchiile — și numai de la `lg` în sus,
+              // unde blocul chiar e mai îngust decât fereastra; pe telefon
+              // banda atinge oricum ambele margini și o estompare acolo ar
+              // subția voalul exact sub textul care ajunge până la margini.
+              "absolute inset-0 lg:[mask-image:linear-gradient(to_right,transparent_0%,#000_7%,#000_93%,transparent_100%)]"
+            : "fixed inset-0"
+        }`}
         style={{ opacity: shown ? 1 : 0 }}
       >
         {/* nivel 3 — gradientul: singurul strat care nu poate lipsi */}
@@ -208,9 +244,17 @@ export function SectorBackdrop({
 
         {/* Ancora de jos a foldului — exact tratamentul care rula deja în
             producție (`h-1/4`, 85% → transparent). Nu-l atinge valul ăsta:
-            migrarea are voie să mute unde stă atmosfera, nu cum arată. */}
+            migrarea are voie să mute unde stă atmosfera, nu cum arată.
+            EXCEPȚIA e banda: acolo marginea de jos nu mai e foldul (unde
+            oricum nu se vede), ci o muchie în mijlocul paginii. 85% ar lăsa-o
+            vizibilă, deci banda se stinge complet în fundalul paginii, pe
+            jumătate din înălțimea ei — de-aia nu se vede unde se termină. */}
         {plan.holdMs === null ? (
-          <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-[#0a0a14]/85 to-transparent" />
+          <div
+            className={`absolute inset-x-0 bottom-0 bg-gradient-to-t to-transparent ${
+              plan.bounded ? "h-1/2 from-[#0a0a14]" : "h-1/4 from-[#0a0a14]/85"
+            }`}
+          />
         ) : (
           /* `focus`: o singură pulsație de accent pe margini, apoi liniște */
           <div

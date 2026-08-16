@@ -58,15 +58,23 @@ export default async function ConciergePage({
 
   return (
     <main className="relative isolate flex-1 px-5 pb-20 pt-8">
-      {/* V3 — reparația structurală de aici. Fundalul curgea `fixed` sub TOATĂ
-          pagina, deci lista de locuri plutea peste o fotografie în mișcare și
-          subtitlurile gri cădeau pe ferestre luminate. Nivelul `hero` îl leagă
-          de deschidere: după ce treci de primul ecran, atmosfera se retrage și
-          rămâne substratul curat. Lumea urmează filtrul (lounge, aburi de spa,
-          bucătărie) — filtrul nu schimbă doar lista, ci și camera în care intri. */}
-      <SectorBackdrop sector="concierge" intensity="hero" variant={activeType} />
+      {/* V3 a legat fundalul de deschidere prin RETRAGERE la scroll: înainte
+          curgea `fixed` sub toată pagina, deci lista de locuri plutea peste o
+          fotografie în mișcare. A rezolvat jumătate din problemă și a scris-o
+          onest în jurnal: la scroll 0, pe 1440, primul rând de carduri ÎMPARTE
+          încă ecranul cu filmul, fiindcă retragerea se declanșează abia când
+          treci de deschidere. Măsurat acum cu `scripts/hero-band.mjs`: 535px
+          de listă peste atmosferă la 1440×900, 266px la 390×844.
+          Blocul de mai jos e cealaltă jumătate: deschiderea devine un bloc REAL
+          în pagină, iar atmosfera e mărginită la el (§6 — niciodată sub liste).
+          `-mx-5 -mt-8` anulează marginile lui `main` ca banda să atingă
+          muchiile ecranului; `px-5 pt-8` le pun la loc pentru conținut.
+          Lumea urmează filtrul (lounge, aburi de spa, bucătărie) — filtrul nu
+          schimbă doar lista, ci și camera în care intri. */}
+      <div className="relative -mx-5 -mt-8 px-5 pb-10 pt-8">
+        <SectorBackdrop sector="concierge" intensity="hero" variant={activeType} bounded />
 
-      <div className="mx-auto w-full max-w-5xl">
+        <div className="mx-auto w-full max-w-5xl">
         <header className="photo-caption mb-8 text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-gold">Concierge</p>
           <h1 className="mt-3 font-serif text-4xl font-bold leading-tight sm:text-5xl">
@@ -80,8 +88,12 @@ export default async function ConciergePage({
 
         {/* Pastilele stau peste video în deschidere: fără un fundal propriu, cea
             neselectată e text gri pe orice cadru nimerește (capturile de dinainte
-            de val, 390×844, o arată peste scaunele luminate). */}
-        <nav aria-label="Tipuri de locații" className="mb-8 flex flex-wrap justify-center gap-2">
+            de val, 390×844, o arată peste scaunele luminate).
+            Fără `mb-8`: pastilele sunt ultimul lucru din blocul de deschidere,
+            iar o margine de jos s-ar prăbuși prin părinte (marginile se
+            colapsează) — adică banda s-ar termina exact pe pastile în loc să
+            respire sub ele. Distanța o ține acum `pb-10` de pe bloc. */}
+        <nav aria-label="Tipuri de locații" className="flex flex-wrap justify-center gap-2">
           <Link
             href="/concierge"
             aria-current={activeType ? undefined : "page"}
@@ -108,7 +120,10 @@ export default async function ConciergePage({
             </Link>
           ))}
         </nav>
+        </div>
+      </div>
 
+      <div className="mx-auto w-full max-w-5xl">
         {shownTypes.map((type) => {
           const list = byType.get(type) ?? [];
           if (list.length === 0) return null;

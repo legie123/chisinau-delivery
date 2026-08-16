@@ -241,6 +241,9 @@ export type BackdropPlan = {
   preload: "auto" | "none";
   /** `hero` se stinge după primul ecran, ca listele să nu stea peste film */
   fadesOnScroll: boolean;
+  /** `hero` MĂRGINIT: atmosfera ocupă blocul de deschidere al paginii, nu
+   *  fereastra. Vezi comentariul din `planBackdrop`. */
+  bounded: boolean;
   /** `focus`: cât ține momentul înainte să se stingă singur */
   holdMs: number | null;
 };
@@ -250,7 +253,7 @@ export type BackdropPlan = {
 export function planBackdrop(
   sector: Sector,
   intensity: Intensity,
-  env: { motionOk: boolean; hasVideo: boolean },
+  env: { motionOk: boolean; hasVideo: boolean; bounded?: boolean },
   variant?: string | null,
 ): BackdropPlan {
   const cfg = SECTORS[sector];
@@ -269,6 +272,10 @@ export function planBackdrop(
       driftScale: env.motionOk ? cfg.driftScale : 1,
       preload: "none",
       fadesOnScroll: false,
+      // `ambient` stă SUB o interfață de lucru, la 5-8% opacitate: acolo
+      // atmosfera nu concurează cu nimic, deci n-are de ce să fie mărginită.
+      // O bandă ar fi doar un dreptunghi cu muchii în mijlocul unei pagini.
+      bounded: false,
       holdMs: null,
     };
   }
@@ -294,9 +301,29 @@ export function planBackdrop(
       driftScale: 1,
       preload: "auto",
       fadesOnScroll: false,
+      // Momentul de confirmare ține tot ecranul, două secunde. Mărginit, ar
+      // fi o fâșie care clipește undeva sus.
+      bounded: false,
       holdMs: 2000,
     };
   }
+
+  // `hero`. MĂRGINIT sau nu, e aceeași deschidere: aceeași media, aceeași
+  // podea de voal, aceeași derivă. Se schimbă doar CÂT ține.
+  //
+  // Nemărginit, atmosfera e `fixed inset-0` — acoperă fereastra și se retrage
+  // la scroll. Corect acolo unde deschiderea CHIAR e tot ecranul: hub, porțile
+  // `/start/*`, login. Greșit oriunde lista începe la mai puțin de un ecran:
+  // acolo retragerea vine prea târziu, fiindcă primul rând de carduri e deja
+  // în cadru de la scroll 0. Trei valuri au notat-o și au ocolit-o (V3, V6,
+  // V7); măsurată cu `scripts/hero-band.mjs`, era 535px de listă peste film pe
+  // /concierge la 1440×900 și 266px la 390×844.
+  //
+  // Mărginit, atmosfera e `absolute inset-0` peste blocul de deschidere al
+  // paginii — deci întinderea o declară MARCAJUL, nu o cifră de aici. O
+  // înălțime fixă ar fi mințit la primul titlu care se rupe pe două rânduri
+  // sau la primul filtru adăugat în bara de sus.
+  const bounded = intensity === "hero" && Boolean(env.bounded);
 
   return {
     mediaOpacity: 1,
@@ -305,7 +332,11 @@ export function planBackdrop(
     drift: env.motionOk,
     driftScale: env.motionOk ? cfg.driftScale : 1,
     preload: "auto",
-    fadesOnScroll: true,
+    // O bandă iese din cadru singură, odată cu pagina. Ținute amândouă,
+    // atmosfera s-ar stinge înainte să iasă din ecran — adică exact în timp ce
+    // omul încă se uită la deschidere.
+    fadesOnScroll: !bounded,
+    bounded,
     holdMs: null,
   };
 }
