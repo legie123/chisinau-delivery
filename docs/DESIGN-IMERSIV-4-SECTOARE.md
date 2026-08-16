@@ -100,6 +100,25 @@ no text, very slow camera drift, cinematic anamorphic, seamless loop"
 ```
 Ținta: `sector-concierge.mp4`. Există deja `hero-spa.mp4` și `hero-lounge.mp4` — se compară cadru cu cadru și **câștigătorul rămâne**, chiar dacă e cel vechi.
 
+**Verdictul comparației (V6, 2026-08-16)** — măsurat cu `scripts/loop-compare.mjs`, care ia toate cadrele, nu posterul:
+
+| asset | MB | buget §3 | cusătură loop | derivă | podea de voal |
+|---|---|---|---|---|---|
+| `sector-concierge.mp4` (nou) | 0,36 | da | 6,7 | 0,24 | 0,25 |
+| `hero-lounge.mp4` | 2,73 | nu (×1,8) | 13,4 | 1,42 | 0,29 |
+| `hero-spa.mp4` | 2,48 | nu (×1,7) | 18,3 | 1,12 | **0,56** |
+
+Câștigătorul e pe LUMI, nu global: noul loop ia lumea implicită, `spa` și `wellness_lounge`
+(bate pe toate patru axele, iar la spa repară un contrast căzut — 3,25:1 → 5,47:1 la același
+voal, fiindcă `hero-spa` își aprinde prosoapele albe în ultima secundă). **`hero-lounge` rămâne
+pe `business_lounge`** deși pierde la fiecare cifră: candidatul e un bazin termal, iar sub
+filtrul „Săli de business" ar fi fost eticheta care minte din regula 5. Greutatea lui e o
+problemă de performanță (V9), nu un motiv de a-i schimba înțelesul.
+
+Lecție de metodă, plătită aici: podeaua calculată pe banda de citire a cadrelor e **optimistă**
+față de pixelii randați (a promis 5,28:1 pe lounge, ecranul dă 2,81:1). Pentru a ALEGE între
+assete e bună; pentru a CERTIFICA un ecran, măsoară textul viu.
+
 ## 6. CLIENT — poftă, apetit, aur
 
 Adevărul sectorului: om flămând, seara, care decide în 15 secunde. Imersivul lui e mâncarea, nu decorul. Un video de fundal care fură atenția de la fotografia mâncării e o pierdere netă.
