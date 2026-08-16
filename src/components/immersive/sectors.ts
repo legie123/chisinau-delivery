@@ -110,11 +110,21 @@ export const SECTORS: Record<Sector, SectorConfig> = {
     note: "căldură de cuptor pe margini, centrul curat ca să respire datele; cel mai discret din patru",
     accent: "#f5a623",
     // Cel mai luminos asset din set — flacăra ocupă jumătate de cadru la
-    // saturație maximă, deci și cea mai înaltă podea măsurată (0.58). Captura
-    // de dinainte de V3 (`/start/restaurant`, 390×844) arată subtitlul și cele
-    // patru rânduri de beneficii direct pe portocaliu: 2.76:1, adică exact
-    // „textul se citește din noroc" pe care regula 1 îl interzice.
-    veil: 0.58,
+    // saturație maximă, deci și cea mai înaltă podea din tot contractul.
+    //
+    // 0.58 era măsurat pe POSTER, adică pe un cadru din 218, iar posterul e
+    // dintre cele întunecate. `loop-compare.mjs` le trece pe toate: cadrul cel
+    // mai aprins e #27 și cere 0.61. Diferența nu e cosmetică — măsurată pe
+    // ecranul viu la cadrul ăla (`/start/restaurant`, 390×844, filmul înghețat
+    // la 1.125 s), lista de beneficii stătea la 1.59:1 și eticheta aurie la
+    // 4.09:1, deci exact „textul se citește din noroc" pe care regula 1 îl
+    // interzice — doar că norocul ține de secunda în care te uiți.
+    //
+    // Aceeași flacără trăia deja cu DOUĂ podele diferite în același fișier:
+    // varianta `restaurant` din concierge o are la 0.62 (V6 a măsurat-o corect
+    // pe film), iar sectorul restaurant rămăsese la cifra de pe poster. Un
+    // asset, o podea — 0.62, rotunjit în sus de la 0.61 ca în V6.
+    veil: 0.62,
     ambientOpacity: 0.05,
     gradient: `radial-gradient(120% 80% at 50% 0%, #4a350f 0%, ${NAVY} 62%)`,
     driftScale: 1.06,
@@ -176,16 +186,23 @@ export const SECTORS: Record<Sector, SectorConfig> = {
   customer: {
     note: "întuneric cald, mâncarea e eroul; video doar pe hero, niciodată sub liste",
     accent: "#e94560",
-    // Turnatul din pahar e luminos (3.20:1 la 0.35); sushi-ul hub-ului e
-    // întunecat și n-are nevoie de aceeași podea — de-aia varianta o coboară.
-    veil: 0.55,
+    // Turnatul din pahar e luminos. 0.55 venea tot de pe poster; pe film,
+    // cadrul cel mai aprins e #188 și cere 0.60 (`loop-compare.mjs`). Ridicat
+    // la 0.61 din același motiv ca flacăra — podeaua se ia de pe cel mai prost
+    // cadru, nu de pe cel ales ca poster.
+    veil: 0.61,
     ambientOpacity: 0.06,
     gradient: `radial-gradient(120% 80% at 50% 0%, #3d1220 0%, ${NAVY} 62%)`,
     driftScale: 1.07,
     media: { video: "/videos/hero-pour.mp4", poster: "/videos/hero-pour-poster.jpg" },
     variants: {
       // Hub-ul (`/`) e primul contact cu brandul: sushi, nu turnatul din pahar.
-      sushi: { video: "/videos/hero-sushi.mp4", poster: "/videos/hero-sushi-poster.jpg", veil: 0.4 },
+      // Podea 0.45, nu 0.40: e ACELAȘI fișier pe care concierge îl folosește la
+      // filtrul „Sushi bar", iar acolo V6 îi măsurase deja 0.42 pe film și îi
+      // pusese 0.45. Un asset trăia deci cu două podele, iar hub-ul o avea pe
+      // cea mai mică — exact defectul pentru care a fost scris valul ăsta, doar
+      // că în celălalt sector. Un asset, o podea.
+      sushi: { video: "/videos/hero-sushi.mp4", poster: "/videos/hero-sushi-poster.jpg", veil: 0.45 },
     },
   },
 };

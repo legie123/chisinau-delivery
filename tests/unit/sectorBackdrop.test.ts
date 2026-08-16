@@ -8,6 +8,7 @@ import {
   resolveBackdropMedia,
   resolveMedia,
   type Intensity,
+  type Sector,
 } from "@/components/immersive/sectors";
 
 // Contractul din §2 al rubricii, probat unde poate fi probat: aritmetica
@@ -154,26 +155,70 @@ describe("planBackdrop — cele trei niveluri", () => {
     expect(spa.veilOpacity).toBe(lounge.veilOpacity);
   });
 
-  it("fiecare voal stă peste podeaua MĂSURATĂ pe posterul lui", () => {
-    // Podelele vin din `node scripts/veil-contrast.mjs` (2026-08-16): opacitatea
-    // minimă la care textul de corp (alb 70%) atinge 4.5:1 peste pixelul de
-    // percentila 95 din banda de citire a posterului. Nu sunt gusturi — sunt
-    // măsurători pe assetul real. Dacă schimbi un poster, RE-RULEAZĂ unealta:
-    // testul ăsta e singurul care prinde un asset nou mai luminos decât voalul.
+  it("fiecare voal stă peste podeaua măsurată pe FILM, nu pe poster", () => {
+    // Podelele astea veneau din `veil-contrast.mjs`, care măsoară POSTERUL —
+    // adică un cadru din 218. Testul trecea, dar nu apăra nimic: cerea 0.58 de
+    // la flacără unde configul dădea 0.58, și ZERO de la cele două sushi. Un
+    // prag pe care assetul îl atinge din construcție nu e o gardă, e o
+    // formalitate — clasa de defect din §5 (comentariu/probă care minte).
+    //
+    // Acum vin din `node scripts/loop-compare.mjs public/videos/*.mp4`
+    // (re-rulat 2026-08-16 pe assetele RE-ÎNCODATE de valul de performanță):
+    // opacitatea minimă la care textul de corp (alb 70%) atinge 4.5:1 peste
+    // percentila 95 a CELUI MAI LUMINOS cadru din tot loop-ul. Diferența nu e
+    // teoretică — pe flacără posterul cerea 0.58 iar cadrul #27 cere 0.61, și
+    // exact în secunda aia lista de beneficii de pe `/start/restaurant` pica
+    // sub prag. Dacă schimbi un film, RE-RULEAZĂ unealta și adu cifra aici.
+    //
+    // Regula pe care o impune tabelul: UN ASSET, O PODEA. Aceeași flacără
+    // trăia cu 0.58 în sectorul restaurant și 0.62 în concierge; același
+    // `hero-sushi` cu 0.40 pe hub și 0.45 în concierge. De fiecare dată
+    // suprafața cu podeaua mai mică era cea care mințea.
     const PODELE: Array<[string, number, number]> = [
-      // [ce măsor, podea măsurată, voalul din config]
-      ["courier", 0.5, planBackdrop("courier", "hero", motion).veilOpacity],
-      ["restaurant (flacără)", 0.58, planBackdrop("restaurant", "hero", motion).veilOpacity],
-      ["concierge (lounge)", 0.11, planBackdrop("concierge", "hero", motion).veilOpacity],
-      ["concierge/spa", 0.04, planBackdrop("concierge", "hero", motion, "spa").veilOpacity],
-      ["concierge/sushi_bar", 0, planBackdrop("concierge", "hero", motion, "sushi_bar").veilOpacity],
+      // [ce măsor, podea măsurată pe film (cadrul aprins), voalul din config]
+      ["courier (hero-courier #101)", 0.51, planBackdrop("courier", "hero", motion).veilOpacity],
+      ["restaurant (hero-flame #27)", 0.61, planBackdrop("restaurant", "hero", motion).veilOpacity],
+      ["concierge (sector-concierge #118)", 0.25, planBackdrop("concierge", "hero", motion).veilOpacity],
+      ["concierge/spa (sector-concierge #118)", 0.25, planBackdrop("concierge", "hero", motion, "spa").veilOpacity],
+      ["concierge/sushi_bar (hero-sushi #153)", 0.42, planBackdrop("concierge", "hero", motion, "sushi_bar").veilOpacity],
+      ["concierge/business_lounge (hero-lounge #215)", 0.29, planBackdrop("concierge", "hero", motion, "business_lounge").veilOpacity],
       // lumea „Restaurante" din concierge împrumută flacăra, deci și podeaua ei
-      ["concierge/restaurant", 0.58, planBackdrop("concierge", "hero", motion, "restaurant").veilOpacity],
-      ["customer (turnat)", 0.53, planBackdrop("customer", "hero", motion).veilOpacity],
-      ["customer/sushi (hub)", 0, planBackdrop("customer", "hero", motion, "sushi").veilOpacity],
+      ["concierge/restaurant (hero-flame #27)", 0.61, planBackdrop("concierge", "hero", motion, "restaurant").veilOpacity],
+      ["customer (hero-pour #188)", 0.6, planBackdrop("customer", "hero", motion).veilOpacity],
+      ["customer/sushi hub (hero-sushi #153)", 0.42, planBackdrop("customer", "hero", motion, "sushi").veilOpacity],
     ];
     for (const [nume, podea, voal] of PODELE) {
       expect(voal, `${nume}: voal ${voal} sub podeaua măsurată ${podea}`).toBeGreaterThanOrEqual(podea);
+    }
+  });
+
+  it("același fișier video are aceeași podea oriunde apare", () => {
+    // Garda care lipsea. Podeaua ține de ASSET (cât de aprins e cel mai
+    // luminos cadru al lui), nu de sectorul care se întâmplă să-l folosească —
+    // deci două suprafețe care arată același film nu pot cere voaluri
+    // diferite. Când o fac, cea mai mică e o promisiune ruptă în tăcere.
+    const perFisier = new Map<string, Map<number, string[]>>();
+    const noteaza = (sector: Sector, variant: string | null, eticheta: string) => {
+      const media = resolveMedia(sector, variant);
+      if (!media.video) return;
+      const veil = planBackdrop(sector, "hero", motion, variant).veilOpacity;
+      const grupuri = perFisier.get(media.video) ?? new Map<number, string[]>();
+      grupuri.set(veil, [...(grupuri.get(veil) ?? []), eticheta]);
+      perFisier.set(media.video, grupuri);
+    };
+    for (const sector of SECTOR_ORDER) {
+      noteaza(sector, null, sector);
+      for (const variant of Object.keys(SECTORS[sector].variants ?? {})) {
+        noteaza(sector, variant, `${sector}/${variant}`);
+      }
+    }
+    for (const [video, grupuri] of perFisier) {
+      expect(
+        [...grupuri.keys()],
+        `${video} rulează cu voaluri diferite: ${[...grupuri]
+          .map(([v, unde]) => `${v} (${unde.join(", ")})`)
+          .join(" vs ")}`,
+      ).toHaveLength(1);
     }
   });
 

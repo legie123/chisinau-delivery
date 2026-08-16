@@ -81,20 +81,20 @@ export default async function RestaurantOrdersPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
-      {restaurantPoint && pickupCourier && (
-        <RestaurantPickupMap
-          restaurant={restaurantPoint}
-          courierId={pickupCourier.id}
-          courierName={pickupCourier.name}
-          initialCourier={pickupCourier.pos}
-        />
-      )}
-      {/* Web Push opt-in so the partner gets the "Comandă nouă" alert even with the
-          tab backgrounded — the marquee reliable-outbox feature (audit HIGH #3). */}
-      <div className="mb-4">
-        <PushOptIn />
-      </div>
-      {waitKpi && <RestaurantWaitKpiChips kpi={waitKpi} />}
+      {/* IERARHIA CERUTĂ DE §4 din rubrică: „comenzi noi > timp de preparare >
+          încasări. Nu invers." Era fix invers, și se vedea în captură: la
+          390×844 primul ecran al partenerului însemna antet + bandă de crest +
+          butonul de notificări + patru pastile cu statistici pe 30 de zile, iar
+          titlul „Comenzi" începea la ~830 px din 844. Omul de la tejghea, cu 20
+          de secunde de atenție, trebuia să deruleze ca să vadă comanda care
+          tocmai intrase — sub o medie de acum o lună.
+
+          Ordinea de acum, de sus în jos: coada (decizia de ACUM, cu timpul de
+          pregătire lipit de ea fiindcă e treapta a doua a ierarhiei ȘI e
+          promisiunea pe care coada o face) → harta curierului care vine la
+          ridicare, imediat sub comanda la care se referă → statisticile pe 30
+          de zile → invitația la notificări. Nimic șters, doar pus în ordinea în
+          care se iau deciziile. */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="pg-gold-text font-serif text-2xl font-bold">Comenzi</h1>
@@ -141,6 +141,29 @@ export default async function RestaurantOrdersPage() {
           ))}
         </ul>
       )}
+
+      {restaurantPoint && pickupCourier && (
+        <div className="mt-6">
+          <RestaurantPickupMap
+            restaurant={restaurantPoint}
+            courierId={pickupCourier.id}
+            courierName={pickupCourier.name}
+            initialCourier={pickupCourier.pos}
+          />
+        </div>
+      )}
+      {waitKpi && (
+        <div className="mt-8">
+          <RestaurantWaitKpiChips kpi={waitKpi} />
+        </div>
+      )}
+      {/* Web Push opt-in so the partner gets the "Comandă nouă" alert even with the
+          tab backgrounded — the marquee reliable-outbox feature (audit HIGH #3).
+          Rămâne pe pagină, dar la subsol: e o setare de făcut o dată, nu o
+          decizie de luat la fiecare comandă. */}
+      <div className="mt-6">
+        <PushOptIn />
+      </div>
     </main>
   );
 }

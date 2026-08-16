@@ -124,11 +124,29 @@
   position: relative;
   isolation: isolate;
   background-color: var(--pg-navy-0);
-  /* rim-light glows (top-left gold, mid-right amethyst) + dragon-scale weave */
+  /* CĂLDURĂ DE CUPTOR PE MARGINI, CENTRUL CURAT — §4 din rubrica vizuală.
+     Panoul e „cel mai discret imersiv din toate patru": operator la tejghea,
+     în vârf de comenzi, 20 de secunde de atenție. Deci atmosfera atinge doar
+     marginile, iar mijlocul, unde stau cifrele, rămâne substrat curat.
+
+     Ce era înainte, și de ce nu ținea: cele două pete de ametist aveau 90%×70%
+     și 80%×90% ancorate la `96% 8%` și `50% 120%`, adică se întindeau fix peste
+     coloana de date; singurul chihlimbar era o pată în colțul din stânga-sus.
+     Sectorul citea a ametist, nu a cuptor — se vede în captura de dinainte
+     (`/tmp/v8-before/orders-1440x900.png`): tot centrul e violet.
+
+     Acum: doi jar pe muchiile de sus (`--pg-gold-1`, aurul de marcă, în
+     rgba ca restul fișierului), ametistul redus și împins pe muchia de jos ca
+     semnătură a casei, nimic ancorat în mijloc. E gradient STATIC, nu video:
+     măsurătoarea din `scripts/frame-cost.mjs` a arătat că un film de fundal la
+     5% NU fură cadre nici la CPU încetinit de 8 ori (120,1 → 120,0 fps, zero
+     sarcini peste 50 ms) — dar `hero-flame.mp4` are 2,78 MB, adică de 1,9 ori
+     bugetul de 1,5 MB al regulii 3, pentru un tapet de sub o interfață la care
+     nu se uită nimeni. Cuptorul din CSS costă zero octeți și zero decodare. */
   background-image:
-    radial-gradient(120% 80% at 12% -8%, rgba(212, 175, 55, 0.10), transparent 46%),
-    radial-gradient(90% 70% at 96% 8%, rgba(124, 58, 237, 0.12), transparent 50%),
-    radial-gradient(80% 90% at 50% 120%, rgba(109, 40, 217, 0.08), transparent 55%),
+    radial-gradient(58% 42% at 0% -6%, rgba(212, 175, 55, 0.13), transparent 66%),
+    radial-gradient(58% 42% at 100% -6%, rgba(245, 166, 35, 0.10), transparent 66%),
+    radial-gradient(70% 34% at 50% 106%, rgba(124, 58, 237, 0.09), transparent 62%),
     radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.02) 0.9px, transparent 1px),
     linear-gradient(180deg, var(--pg-navy-1) 0%, var(--pg-navy-0) 60%);
   background-size: auto, auto, auto, 22px 34px, auto;
