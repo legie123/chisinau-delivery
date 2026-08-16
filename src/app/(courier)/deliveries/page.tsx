@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCourierCashStatus } from "@chisinau/shared-api";
-import { OnlineToggle } from "@/components/courier/OnlineToggle";
+import { CourierCommandBar } from "@/components/courier/CourierCommandBar";
 import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
 import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
 import { OfferCard } from "@/components/courier/OfferCard";
@@ -36,7 +36,12 @@ export default async function DeliveriesPage() {
   // Faza 5 #5 — same Mon-Sun boundary the earnings page + payout periods use.
   const weekStartIso = currentWeekRange().start.toISOString().slice(0, 10);
 
-  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }, { data: survey }, cashStatus] =
+  // Ziua curentă în ora Chișinăului — banii de azi sunt prima întrebare a
+  // curierului, iar până acum nu se vedeau nicăieri pe ecranul principal.
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }, { data: survey }, cashStatus, { data: todayDone }] =
     await Promise.all([
       supabase
         .from("orders")
@@ -60,6 +65,12 @@ export default async function DeliveriesPage() {
         .maybeSingle(),
       // Order 1 (pilot-critical) — cash float (balance vs. cap + offload text).
       getCourierCashStatus(supabase).catch(() => null),
+      supabase
+        .from("orders")
+        .select("courier_fee_mdl, courier_fee_quoted_mdl, delivery_fee_mdl, tip_mdl")
+        .eq("courier_id", courier.id)
+        .eq("status", "delivered")
+        .gte("delivered_at", todayStart.toISOString()),
     ]);
 
   const active = (activeOrders ?? []) as Order[];
@@ -67,34 +78,38 @@ export default async function DeliveriesPage() {
   const offer = (liveOffer as DispatchOffer | null) ?? null;
   const surveyAnswered = survey != null;
 
+  // Câștigul de azi: tariful cursei (cu aceleași rezerve ca la payout) plus
+  // bacșișul, care trece integral la curier.
+  const earnedToday = Math.round(
+    (todayDone ?? []).reduce(
+      (sum, o) =>
+        sum +
+        Number(o.courier_fee_mdl ?? o.courier_fee_quoted_mdl ?? o.delivery_fee_mdl ?? 0) +
+        Number(o.tip_mdl ?? 0),
+      0,
+    ),
+  );
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
       <AvailableOrdersLive />
       <OffersLive courierId={courier.id} />
 
-      {/* Web Push opt-in — so dispatch offers arrive even when the tab is backgrounded. */}
-      <div className="mb-4">
-        <PushOptIn />
-      </div>
+      {/* Starea, banii și cursele — în ordinea în care le caută omul de pe stradă. */}
+      <CourierCommandBar
+        firstName={courier.full_name.split(" ")[0]}
+        status={courier.status}
+        earnedToday={earnedToday}
+        deliveriesToday={(todayDone ?? []).length}
+        availableCount={available.length}
+        hasActiveDelivery={active.length > 0}
+      />
 
-      {/* Order 1 (pilot-critical) — cash float balance vs. cap. */}
-      {cashStatus && <CashFloatStatus status={cashStatus} />}
-
-      {/* Faza 5 #5 — weekly satisfaction pulse; hidden once this week is answered. */}
-      {!surveyAnswered && <SatisfactionPrompt />}
-
-      {/* WS2 — push-dispatch offer takes the top slot when one is live. */}
+      {/* Oferta vie rămâne imediat sub bară: e singura care cere reacție în 30s. */}
       {offer && <OfferCard offer={offer} />}
 
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Salut, {courier.full_name.split(" ")[0]} 👋</h1>
-          <p className="mt-0.5 text-sm text-white/50">
-            {available.length === 0 ? "Nicio comandă disponibilă acum" : `${available.length} comenzi disponibile`}
-          </p>
-        </div>
-        <OnlineToggle initialStatus={courier.status} />
-      </div>
+      {/* Plafonul de numerar: important, dar nu primul lucru de dimineață. */}
+      {cashStatus && <CashFloatStatus status={cashStatus} />}
 
       {active.length > 0 && (
         <section className="mb-7">
@@ -130,8 +145,8 @@ export default async function DeliveriesPage() {
         )}
         {available.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.04] py-14 text-center ring-1 ring-white/[0.06]">
-            <span className="text-5xl" aria-hidden>🧘</span>
-            <p className="text-white/60">Nimic momentan — rămâi online, te anunțăm.</p>
+            <span className="text-5xl" aria-hidden>🐉</span>
+            <p className="text-white/60">{courier.status === "online" ? "Nimic momentan — te anunțăm imediat ce apare." : "Treci online ca să primești comenzi."}</p>
           </div>
         ) : (
           <ul className="flex flex-col gap-3">
@@ -141,6 +156,12 @@ export default async function DeliveriesPage() {
           </ul>
         )}
       </section>
+
+      {/* Coborâte sub fold: utile, dar nu sunt motivul pentru care deschide app-ul. */}
+      <div className="mt-8 flex flex-col gap-4 border-t border-white/[0.07] pt-6">
+        <PushOptIn />
+        {!surveyAnswered && <SatisfactionPrompt />}
+      </div>
     </main>
   );
 }

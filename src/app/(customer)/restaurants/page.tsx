@@ -16,7 +16,16 @@ export default async function RestaurantsPage() {
   // 22:00–02:00) is stored under the day it STARTS, so at 01:00 today it lives
   // on yesterday's row (audit #15 — mirrors the SQL restaurant_open_at fix).
   const [{ data: restaurants, error }, { data: { user } }, { data: hoursRows }] = await Promise.all([
-    supabase.from("restaurants").select("*").eq("is_active", true).order("name"),
+    // Doar locurile care LIVREAZĂ mâncare. De când rețeaua a devenit concierge,
+    // aici intrau și spa-urile, lounge-urile și sălile de business, etichetate
+    // „Restaurant" — un spa în lista de sushi e o promisiune falsă; ele se
+    // rezervă din /concierge, nu se comandă.
+    supabase
+      .from("restaurants")
+      .select("*")
+      .eq("is_active", true)
+      .in("venue_type", ["restaurant", "sushi_bar"])
+      .order("name"),
     supabase.auth.getUser(),
     supabase
       .from("restaurant_hours")
