@@ -44,8 +44,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex flex-1 flex-col bg-[#0a0a14] text-white">
       <header className="flex items-center gap-3 border-b border-white/10 bg-[#0d0d1f] px-4 py-4 text-white sm:px-6">
+        {/* Grupul `(admin)` ține DOUĂ suprafețe: `/platform/*` (adminul de
+            platformă) și `/restaurant/*` (partenerul). Antetul scria „— Admin"
+            pentru amândouă, deci partenerul citea că e administrator al
+            platformei — și se contrazicea cu propria bandă de dedesubt, care
+            scrie „PARTENER RESTAURANT" (captură 1440×900, 2026-08-16).
+            Eticheta urmează acum rolul real al celui care se uită. */}
+        {/* Sufixul de rol apare doar de la `sm` în sus: la 390px antetul e deja
+            plin, iar un cuvânt în plus mai mânca din bara de navigare, care taie
+            oricum „Rezervări" (defect deschis în issues.md — nu-l agravez ca să
+            repar o etichetă). Pe telefon rolul rămâne spus o dată, de banda de
+            dedesubt („PARTENER RESTAURANT"), deci nimic nu se pierde. */}
         <Link href="/" className="shrink-0 font-semibold">
-          <span className="text-gold">Dragons</span> Delivery — Admin
+          <span className="text-gold">Dragons</span> Delivery
+          {(role === "platform_admin" || role === "restaurant_partner") && (
+            <span className="hidden sm:inline">{role === "platform_admin" ? " — Admin" : " — Partener"}</span>
+          )}
         </Link>
         {/* Consolidare 2026-08-14: nav-ul e împărțit PE ROL. Adminul de
             platformă vede 6 secțiuni comasate (sub-paginile trăiesc ca tab-uri

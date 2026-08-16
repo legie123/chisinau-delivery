@@ -25,7 +25,21 @@ const ALERT_FAVICON =
 // page (out of scope here) purely for its live-refresh behavior, which never
 // deals in pending_restaurant orders and so never raises the alert anyway.
 // When omitted, the alert (once started) only clears on interaction.
-export function OrderQueueLive({ restaurantId, pendingCount }: { restaurantId: string; pendingCount?: number }) {
+export function OrderQueueLive({
+  restaurantId,
+  pendingCount,
+  // Pastila de conexiune, redată INLINE acolo unde stă componenta. Pagina de
+  // comenzi avea o pastilă „● Live" scrisă de mână lângă titlu, iar componenta
+  // asta — care ȘTIE când conexiunea a căzut — arăta în același timp banda
+  // „Reconectare la actualizări live…". Ambele se vedeau în aceeași captură
+  // (1440×900, 2026-08-16): ecranul se contrazicea singur. Semnalul e acum
+  // unul singur, luat de la sursă.
+  showConnection = false,
+}: {
+  restaurantId: string;
+  pendingCount?: number;
+  showConnection?: boolean;
+}) {
   const router = useRouter();
   // Raw "a new order arrived and hasn't been acknowledged yet" signal. The
   // effective alert also requires pendingCount > 0 (derived below) so it
@@ -36,7 +50,10 @@ export function OrderQueueLive({ restaurantId, pendingCount }: { restaurantId: s
   // Realtime degradation: if the websocket drops (CHANNEL_ERROR/TIMED_OUT), the
   // queue would silently freeze on stale data — a restaurant would MISS orders.
   // We surface a banner + fall back to polling so new orders keep arriving.
-  const [degraded, setDegraded] = useState(false);
+  // Trei stări, nu două: până când abonarea nu confirmă (SUBSCRIBED), nu avem
+  // dreptul să scriem „Live" — necunoscut nu se rotunjește la bine.
+  const [connection, setConnection] = useState<"connecting" | "live" | "degraded">("connecting");
+  const degraded = connection === "degraded";
 
   useEffect(() => {
     const supabase = createClient();
@@ -51,8 +68,8 @@ export function OrderQueueLive({ restaurantId, pendingCount }: { restaurantId: s
         }
         router.refresh();
       },
-      () => setDegraded(true), // onDegraded
-      () => setDegraded(false), // onHealthy (recovered)
+      () => setConnection("degraded"), // onDegraded
+      () => setConnection("live"), // onHealthy (SUBSCRIBED / recuperat)
     );
   }, [restaurantId, router]);
 
@@ -159,18 +176,41 @@ export function OrderQueueLive({ restaurantId, pendingCount }: { restaurantId: s
     }
   }, [alerting]);
 
-  if (!degraded) return null;
+  const pill = showConnection ? (
+    connection === "live" ? (
+      <span className="pg-amethyst-glow inline-flex items-center gap-1.5 text-xs font-medium">
+        <span className="pg-live-dot" aria-hidden /> Live
+      </span>
+    ) : (
+      <span
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-200"
+        title={
+          connection === "connecting"
+            ? "Se caută conexiunea cu actualizările live"
+            : "Conexiunea live a căzut — coada se reîmprospătează prin verificare periodică"
+        }
+      >
+        <span className="inline-block h-2 w-2 rounded-full bg-amber-400/80" aria-hidden />
+        {connection === "connecting" ? "Se conectează…" : "Reconectare…"}
+      </span>
+    )
+  ) : null;
+
+  if (!degraded) return pill;
   // Ancorat jos, nu sus (2026-08-16): la `top-3` banda cădea exact peste bara de
   // navigare a partenerului și scria peste „Program / Catering / Câștiguri" —
   // două texte suprapuse, dovedit în captura 1440×900. Panoul partenerului nu are
   // bară de jos, deci colțul de jos e liber la orice lățime, inclusiv pe telefon
   // unde antetul are două rânduri.
   return (
-    <div
-      role="status"
-      className="fixed bottom-4 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full bg-amber-500/15 px-4 py-1.5 text-center text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur"
-    >
-      Reconectare la actualizări live… coada se reîmprospătează automat
-    </div>
+    <>
+      {pill}
+      <div
+        role="status"
+        className="fixed bottom-4 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full bg-amber-500/15 px-4 py-1.5 text-center text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur"
+      >
+        Reconectare la actualizări live… coada se reîmprospătează automat
+      </div>
+    </>
   );
 }

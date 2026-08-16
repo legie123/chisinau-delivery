@@ -1,5 +1,7 @@
 import "./premium.css";
 import { createClient } from "@/lib/supabase/server";
+import { chisinauNow, isOpenNow, nextOpeningLabel, type HoursRow } from "@/lib/orders/hours";
+import { restaurantPresence, type Presence } from "@/lib/orders/presence";
 
 /**
  * Premium restaurant SHELL — Dragons Alliance design layer.
@@ -23,6 +25,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export default async function RestaurantPremiumLayout({ children }: { children: React.ReactNode }) {
   let showInactiveBanner = false;
+  let presence: Presence | null = null;
   try {
     const supabase = await createClient();
     const {
@@ -37,16 +40,39 @@ export default async function RestaurantPremiumLayout({ children }: { children: 
         .limit(1);
       const restaurantId = staffRows?.[0]?.restaurant_id as string | undefined;
       if (restaurantId) {
-        const { data: rest } = await supabase
-          .from("restaurants")
-          .select("is_active")
-          .eq("id", restaurantId)
-          .maybeSingle();
+        // Săptămâna ÎNTREAGĂ de ore, nu doar azi+ieri: `nextOpeningAt` caută
+        // printre rândurile primite, iar cu fereastra de azi deja pornită
+        // singurul rând rămas ar fi al zilei de ieri, adică peste șase zile
+        // (capcana plătită în V7, scrisă ca probă în `hours.test.ts`).
+        const [{ data: rest }, { data: hours }] = await Promise.all([
+          supabase
+            .from("restaurants")
+            .select("is_active, accepting_orders")
+            .eq("id", restaurantId)
+            .maybeSingle(),
+          supabase
+            .from("restaurant_hours")
+            .select("restaurant_id, day_of_week, opens_at, closes_at, is_closed")
+            .eq("restaurant_id", restaurantId),
+        ]);
         if (rest && rest.is_active === false) showInactiveBanner = true;
+        if (rest) {
+          const rows = (hours ?? []) as HoursRow[];
+          const { dow, time } = chisinauNow();
+          presence = restaurantPresence({
+            isActive: rest.is_active !== false,
+            acceptingOrders: rest.accepting_orders !== false,
+            openNow: isOpenNow(rows, dow, time),
+            nextOpening: nextOpeningLabel(rows, dow, time),
+          });
+        }
       }
     }
   } catch {
     showInactiveBanner = false;
+    // Sondă moale: dacă starea nu se poate citi, pastila DISPARE. O stare
+    // necunoscută nu se rotunjește la „Live" — exact defectul reparat aici.
+    presence = null;
   }
 
   return (
@@ -68,10 +94,34 @@ export default async function RestaurantPremiumLayout({ children }: { children: 
             <span className="pg-gold-text pg-gold-text--live">Dragons</span>
             <span className="ml-2 text-white/35">Partener Restaurant</span>
           </span>
-          <span className="ml-auto flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-white/40">
-            <span className="pg-live-dot" aria-hidden />
-            Live
-          </span>
+          {/* Pastila de stare. Scria „Live" ca text fix, lângă un punct care
+              pulsa din CSS — nimeni nu măsura nimic: la 07:22, cu Sakura Sushi
+              închis (program 00:00–02:00) și cu trei localuri pe
+              `accepting_orders=false`, antetul spunea tot „LIVE". Acum vine din
+              starea reală, iar punctul care pulsează apare DOAR când localul
+              chiar poate primi o comandă. */}
+          {presence && (
+            <span
+              className={`ml-auto flex shrink-0 items-center gap-2 text-[11px] font-medium uppercase tracking-wider ${
+                presence.live ? "text-white/55" : "text-amber-200/80"
+              }`}
+            >
+              {presence.live ? (
+                <span className="pg-live-dot" aria-hidden />
+              ) : (
+                <span className="inline-block h-2 w-2 rounded-full bg-amber-400/70" aria-hidden />
+              )}
+              {presence.label}
+              {/* alb/60, nu alb/40: măsurat pe pixeli, /40 dă 3,79:1 pe banda
+                  asta — sub pragul de 4,5:1 din §8. Aceeași lecție ca în V5,
+                  unde `text-white/40` s-a dovedit 3,8:1 și a urcat la /60. */}
+              {presence.detail && (
+                <span className="hidden normal-case tracking-normal text-white/60 sm:inline">
+                  · {presence.detail}
+                </span>
+              )}
+            </span>
+          )}
         </div>
       </div>
       {children}

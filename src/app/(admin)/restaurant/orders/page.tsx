@@ -81,7 +81,6 @@ export default async function RestaurantOrdersPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
-      {staffRow && <OrderQueueLive restaurantId={staffRow.restaurant_id} pendingCount={pendingCount} />}
       {restaurantPoint && pickupCourier && (
         <RestaurantPickupMap
           restaurant={restaurantPoint}
@@ -99,9 +98,13 @@ export default async function RestaurantOrdersPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <h1 className="pg-gold-text font-serif text-2xl font-bold">Comenzi</h1>
-          <span className="pg-amethyst-glow inline-flex items-center gap-1.5 text-xs font-medium">
-            <span className="pg-live-dot" aria-hidden /> Live
-          </span>
+          {/* Pastila „Live" era scrisă aici de mână, deci rămânea aprinsă și
+              atunci când `OrderQueueLive` afișa în josul ACELEIAȘI pagini banda
+              „Reconectare la actualizări live…". Acum o desenează componenta
+              care ține conexiunea — un singur adevăr, în locul a două. */}
+          {staffRow && (
+            <OrderQueueLive restaurantId={staffRow.restaurant_id} pendingCount={pendingCount} showConnection />
+          )}
         </div>
         {prepEstimate && (
           // Pe telefon rândul se rupea între „~34" și „min" (captură 390×844,
