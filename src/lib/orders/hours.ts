@@ -41,16 +41,53 @@ export function isOpenNow(rows: HoursRow[], dow: number, time: string): boolean 
 
 const DAY_LABEL = ["duminică", "luni", "marți", "miercuri", "joi", "vineri", "sâmbătă"];
 
-/** Human label for the NEXT opening ("azi la 11:00", "mâine la 11:00",
- *  "vineri la 12:00") — null when no open window exists at all. */
-export function nextOpeningLabel(rows: HoursRow[], dow: number, time: string): string | null {
+/** Când se deschide data viitoare, ca pereche ordonabilă: `ahead` = peste câte
+ *  zile, `opens` = ora. Separată de etichetă fiindcă lista are nevoie să COMPARE
+ *  deschiderile a unsprezece restaurante, iar „mâine la 08:00" și „azi la 18:00"
+ *  nu se compară ca text.
+ *
+ *  ATENȚIE la contract: caută doar printre rândurile primite. Cine vrea un
+ *  răspuns corect îi dă săptămâna întreagă — cu doar azi+ieri (cât îi trebuie
+ *  lui `isOpenNow`) răspunsul poate sări cu șase zile. Probat în `hours.test.ts`. */
+export function nextOpeningAt(
+  rows: HoursRow[],
+  dow: number,
+  time: string,
+): { ahead: number; opens: string } | null {
   for (let ahead = 0; ahead <= 7; ahead++) {
     const d = (dow + ahead) % 7;
     const row = rows.find((h) => h.day_of_week === d && !h.is_closed);
     if (!row) continue;
     if (ahead === 0 && time >= row.opens_at) continue; // today's window already started (or passed)
-    const when = ahead === 0 ? "azi" : ahead === 1 ? "mâine" : DAY_LABEL[d];
-    return `${when} la ${row.opens_at.slice(0, 5)}`;
+    return { ahead, opens: row.opens_at };
   }
   return null;
+}
+
+/** Human label for the NEXT opening ("azi la 11:00", "mâine la 11:00",
+ *  "vineri la 12:00") — null when no open window exists at all. */
+export function nextOpeningLabel(rows: HoursRow[], dow: number, time: string): string | null {
+  const next = nextOpeningAt(rows, dow, time);
+  if (!next) return null;
+  return `${openingWhen(next.ahead, dow)} la ${next.opens.slice(0, 5)}`;
+}
+
+/** „azi" / „mâine" / numele zilei, pentru o deschidere aflată peste `ahead` zile. */
+export function openingWhen(ahead: number, dow: number): string {
+  if (ahead === 0) return "azi";
+  if (ahead === 1) return "mâine";
+  return DAY_LABEL[(dow + ahead) % 7];
+}
+
+/** Cea mai apropiată deschidere dintr-o listă întreagă — ziua înaintea orei.
+ *  Rândurile fără nicio deschidere se ignoră; null = nimeni nu mai deschide. */
+export function earliestOpening(
+  all: ({ ahead: number; opens: string } | null)[],
+): { ahead: number; opens: string } | null {
+  return all.reduce<{ ahead: number; opens: string } | null>((best, cur) => {
+    if (!cur) return best;
+    if (!best) return cur;
+    if (cur.ahead !== best.ahead) return cur.ahead < best.ahead ? cur : best;
+    return cur.opens < best.opens ? cur : best;
+  }, null);
 }

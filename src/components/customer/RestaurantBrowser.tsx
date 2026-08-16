@@ -92,7 +92,7 @@ function DiscoveryStrip({ title, items }: { title: string; items: Restaurant[] }
               <span className="shrink-0 text-white/35">·</span>
               <span
                 title={CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}
-                className="line-clamp-2 min-w-0 text-white/55"
+                className="line-clamp-2 min-w-0 text-white/70"
               >
                 {CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}
               </span>
@@ -109,12 +109,18 @@ export function RestaurantBrowser({
   estimates = {},
   favoriteIds = [],
   openNowIds = [],
+  openingById = {},
+  earliestLabel = null,
   customerId = null,
 }: {
   restaurants: Restaurant[];
   estimates?: Record<string, PrepEstimate>;
   favoriteIds?: string[];
   openNowIds?: string[];
+  /** „mâine la 10:00" pentru fiecare loc închis care are o oră de promis */
+  openingById?: Record<string, string>;
+  /** cea mai apropiată deschidere din toată lista, când nimic nu e deschis */
+  earliestLabel?: string | null;
   customerId?: string | null;
 }) {
   const [query, setQuery] = useState("");
@@ -126,6 +132,9 @@ export function RestaurantBrowser({
 
   const favoriteSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const openNowSet = useMemo(() => new Set(openNowIds), [openNowIds]);
+  // Starea în care butonul „Vezi restaurante deschise" era o promisiune goală:
+  // nimic deschis, deci filtrul pe care îl apăsa ducea într-o listă vidă.
+  const allClosed = restaurants.length > 0 && openNowSet.size === 0;
 
   // Bolt-Food-style mixed results: a query also surfaces dishes from
   // restaurants whose name doesn't match (e.g. "somon" finds Philadelphia
@@ -309,16 +318,51 @@ export function RestaurantBrowser({
         <h2 className="font-serif text-lg font-semibold text-white">
           {hasLocation ? "Aproape de tine" : "Restaurante alese"}
         </h2>
-        <span className="text-sm text-white/40">
+        <span className="text-sm text-white/60">
           {locating ? "Te localizăm…" : `${filtered.length} disponibile`}
         </span>
       </div>
 
+      {/* V7 — când tot orașul e închis (între 03:00 și dimineață, în fiecare
+          noapte), lista arăta unsprezece carduri stinse și niciun răspuns la
+          singura întrebare care rămâne: „și atunci când?". O spunem o dată, sus,
+          cu ora reală, în loc de unsprezece butoane care duceau într-o listă
+          goală. */}
+      {/* …dar o singură dată pe ecran: cu filtrul „Deschis acum" pornit, lista e
+          goală și mesajul de mai jos spune deja exact aceeași frază. */}
+      {allClosed && earliestLabel && filtered.length > 0 && (
+        <p className="rounded-xl border border-white/15 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
+          Toate restaurantele sunt închise acum. Primul deschide{" "}
+          <strong className="font-semibold text-white">{earliestLabel}</strong>.
+        </p>
+      )}
+
       {/* Luxury horizontal cards */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <span className="text-4xl" aria-hidden>🔍</span>
-          <p className="text-white/60">Niciun rezultat pentru căutarea ta.</p>
+          {/* Mesajul vorbea despre „căutarea ta" chiar și când filtrul „Deschis
+              acum" era singurul vinovat — omul nu căutase nimic. */}
+          {openNowOnly && openNowSet.size === 0 ? (
+            <>
+              <span className="text-4xl" aria-hidden>🌙</span>
+              <p className="text-white/60">
+                Niciun restaurant nu e deschis acum
+                {earliestLabel ? `. Primul deschide ${earliestLabel}.` : "."}
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpenNowOnly(false)}
+                className="mt-1 rounded-full border border-white/25 px-4 py-1.5 text-sm font-semibold text-white/85 transition hover:border-white/50"
+              >
+                Vezi toate restaurantele
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="text-4xl" aria-hidden>🔍</span>
+              <p className="text-white/60">Niciun rezultat pentru căutarea ta.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -348,7 +392,27 @@ export function RestaurantBrowser({
                   <h3 className="font-serif text-xl font-bold text-white transition group-hover:text-gold">
                     {r.name}
                   </h3>
-                  <p className="mt-0.5 text-sm text-white/55">{CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}</p>
+                  <p className="mt-0.5 text-sm text-white/70">{CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type}</p>
+                  {/* V7 — starea închisă stătea peste conținut: un voal negru la
+                      70% peste TOT cardul plus o pastilă albă centrată exact pe
+                      numele, nota și timpul de pregătire pe care omul voia să le
+                      citească. Acum e o linie a cardului, lângă celelalte fapte,
+                      și spune și ora de deschidere — informația pentru care
+                      altfel trebuia să intri în restaurant ca să afli. */}
+                  {isClosed && (
+                    <p className="mt-1.5 text-sm">
+                      <span className="inline-flex items-center gap-1.5 font-semibold text-white">
+                        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/45" />
+                        {!r.accepting_orders ? "Închis momentan" : "Închis acum"}
+                      </span>
+                      {/* Rând propriu, fără separator: pe 390px varianta „· deschide
+                          …" se rupea exact la separator și linia începea cu un
+                          punct orfan, care se citește ca greșeală de tipar. */}
+                      {openingById[r.id] && (
+                        <span className="block text-white/70">Deschide {openingById[r.id]}</span>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-2 flex items-center gap-2 text-sm">
                     <span className="flex items-center gap-1.5 font-semibold text-gold">
                       {/* #1 — color-tier status dot lets the eye triage rating
@@ -396,7 +460,11 @@ export function RestaurantBrowser({
                         the price/fee/min row keeps identical vertical rhythm on every card. */}
                     <span
                       aria-hidden={Number(r.min_order_amount_mdl) > 0 ? undefined : true}
-                      className={`inline-block w-[92px] rounded-md border px-2.5 py-1 text-center text-[11px] font-medium ${
+                      // `min-w` în loc de lățime fixă + `nowrap`: pe 390px, cu
+                      // fotografia alături, „min. 200 MDL" se rupea în „min. 200"
+                      // și „MDL". Ritmul vertical pe care-l apăra lățimea fixă
+                      // rămâne (placeholder-ul invizibil ține aceeași podea).
+                      className={`inline-block min-w-[92px] whitespace-nowrap rounded-md border px-2.5 py-1 text-center text-[11px] font-medium ${
                         Number(r.min_order_amount_mdl) > 0
                           ? "border-white/15 text-white/50"
                           : "invisible border-transparent"
@@ -413,31 +481,14 @@ export function RestaurantBrowser({
                     decoding="async"
                     src={r.cover_photo_url}
                     alt={r.name}
-                    className="h-28 w-28 shrink-0 rounded-xl object-cover shadow-lg shadow-black/40 sm:h-32 sm:w-40"
+                    className={`h-28 w-28 shrink-0 rounded-xl object-cover shadow-lg shadow-black/40 sm:h-32 sm:w-40 ${
+                      // Închis = fotografia se retrage, textul rămâne întreg.
+                      isClosed ? "opacity-45 saturate-50" : ""
+                    }`}
                   />
                 )}
               </div>
-              {/* #2 — closed by manual toggle OR by today's hours: visible before any
-                  effort is spent, not only rejected at the final pay tap. */}
-              {isClosed && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 bg-black/70">
-                  <span className="rounded-full bg-white/95 px-4 py-1.5 text-sm font-semibold text-zinc-900">
-                    {!r.accepting_orders ? "Închis momentan" : "Închis acum"}
-                  </span>
-                </div>
-              )}
             </Link>
-            {/* #5b — closed is a recoverable moment, not a dead end. Sibling
-                button OUTSIDE the <Link> so it triggers the filter, not navigation. */}
-            {isClosed && (
-              <button
-                type="button"
-                onClick={() => setOpenNowOnly(true)}
-                className="absolute inset-x-0 bottom-5 z-10 mx-auto w-fit rounded-full bg-gold px-4 py-1.5 text-xs font-bold text-zinc-900 shadow-lg transition hover:bg-gold/90"
-              >
-                Vezi restaurante deschise
-              </button>
-            )}
             {customerId && (
               <FavoriteButton
                 customerId={customerId}
