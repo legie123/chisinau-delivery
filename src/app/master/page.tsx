@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
-import { MASTER_COOKIE, masterCookieValue, masterDoorwayEnabled } from "@/lib/master/gate";
+import { MASTER_COOKIE, masterCookieValue, masterDoorwayEnabled, masterPasswordRequired } from "@/lib/master/gate";
 import { MasterLogin } from "./MasterLogin";
 
 // Never prerender: the gate (runtime env flag + master cookie) must be
@@ -29,7 +29,8 @@ export default async function MasterPage({
   const cookieStore = await cookies();
   const expected = masterCookieValue();
   const cookie = cookieStore.get(MASTER_COOKIE)?.value;
-  const authed = expected !== null && cookie === expected;
+  // În dezvoltare poarta e deschisă: parola se cere doar în producție.
+  const authed = !masterPasswordRequired() || (expected !== null && cookie === expected);
 
   if (!authed) {
     return <MasterLogin hasError={e === "1"} />;

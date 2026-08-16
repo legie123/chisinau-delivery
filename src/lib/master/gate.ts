@@ -15,6 +15,16 @@ export function masterDoorwayEnabled(): boolean {
   return process.env.ENABLE_MASTER_DOORWAY === "true";
 }
 
+/**
+ * În DEZVOLTARE poarta nu mai cere parolă (cerut 2026-08-16: „vreau să intru
+ * simplu în sectoare"). Producția rămâne neatinsă: acolo se cere în continuare
+ * utilizator + parolă din variabilele de mediu, iar dacă lipsesc, poarta nu
+ * există deloc. Ca să ceri parola și local: DISABLE_DEV_AUTOLOGIN=1.
+ */
+export function masterPasswordRequired(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.DISABLE_DEV_AUTOLOGIN === "1";
+}
+
 // Length-checked, timing-safe string compare. The length check can leak length,
 // which is acceptable here — the point is to avoid a byte-by-byte early return.
 function safeEqual(a: string, b: string): boolean {

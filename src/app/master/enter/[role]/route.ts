@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { MASTER_COOKIE, masterCookieValue, masterDoorwayEnabled } from "@/lib/master/gate";
+import { MASTER_COOKIE, masterCookieValue, masterDoorwayEnabled, masterPasswordRequired } from "@/lib/master/gate";
 
 // Same sector map as the dev doorway (src/app/enter/[role]/route.ts): each role
 // signs in server-side with its seeded test account and lands on that surface.
@@ -22,9 +22,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   // Require a valid master session cookie.
+  // În dezvoltare sari peste dovada de parolă: poarta e deschisă (vezi gate.ts).
   const expected = masterCookieValue();
   const cookie = request.cookies.get(MASTER_COOKIE)?.value;
-  if (expected === null || cookie !== expected) {
+  if (masterPasswordRequired() && (expected === null || cookie !== expected)) {
     return NextResponse.redirect(new URL("/master", request.url), 303);
   }
 

@@ -114,6 +114,34 @@ export default function HubPage() {
             master
           </Link>
         )}
+
+        {/* Intrare directă în panouri, fără parolă și fără login (doar în
+            dezvoltare). Porțile de deasupra rămân experiența reală a fiecărui
+            rol; astea sunt scurtătura de lucru. */}
+        {process.env.NODE_ENV !== "production" && (
+          <div className="mt-6 w-full max-w-2xl rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
+            <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-white/30">
+              Intrare directă în sectoare
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                { href: "/restaurants", label: "Client" },
+                { href: "/deliveries", label: "Curier" },
+                { href: "/restaurant/orders", label: "Restaurant" },
+                { href: "/platform", label: "Platformă" },
+                { href: "/concierge", label: "Concierge" },
+              ].map((s) => (
+                <Link
+                  key={s.href}
+                  href={s.href}
+                  className="rounded-full bg-white/5 px-4 py-2 text-sm font-semibold text-white/75 ring-1 ring-white/10 transition hover:bg-gold/15 hover:text-gold hover:ring-gold/40"
+                >
+                  {s.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
