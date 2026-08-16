@@ -51,13 +51,20 @@ export function OnlineToggle({ initialStatus }: { initialStatus: string }) {
         type="button"
         onClick={handleToggle}
         disabled={pending}
+        // Auriul e rezervat banilor pe sectorul curier (§3 al rubricii), iar
+        // verdele înseamnă „online". Butonul ăsta nu e niciuna: offline, e o
+        // CHEMARE la online, nu o stare, deci verdele ar minți; iar auriu era
+        // cel mai mare obiect auriu de pe ecran, adică se certa cu singura
+        // cifră care chiar e bani („Azi ai câștigat"). Alb plin: rămâne cel mai
+        // contrastant lucru de pe ecran, deci tot cea mai mare țintă de atins
+        // (regula 2), fără să împrumute înțelesul altei culori.
         className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${
           online
             ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
-            : "bg-gold text-zinc-900 ring-1 ring-gold hover:bg-gold-light"
+            : "bg-white text-[#0a0a14] ring-1 ring-white/80 hover:bg-white/90"
         }`}
       >
-        <span className={`h-2 w-2 rounded-full ${online ? "animate-pulse bg-emerald-400" : "bg-zinc-900/40"}`} aria-hidden />
+        <span className={`h-2 w-2 rounded-full ${online ? "animate-pulse bg-emerald-400" : "bg-[#0a0a14]/40"}`} aria-hidden />
         {failed ? "Reîncearcă" : online ? "Online" : "Treci online"}
       </button>
       {error && <p className="max-w-[16rem] text-right text-xs text-amber-400">{error}</p>}

@@ -10,6 +10,7 @@ import { OffersLive } from "@/components/courier/OffersLive";
 import { SatisfactionPrompt } from "@/components/courier/SatisfactionPrompt";
 import { CashFloatStatus } from "@/components/courier/CashFloatStatus";
 import { PushOptIn } from "@/components/shared/PushOptIn";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 import { currentWeekRange } from "@/app/(courier)/_lib/earnings";
 import { ORDER_STATUS_LABEL, type DispatchOffer, type Order } from "@/lib/types/domain";
 
@@ -93,6 +94,13 @@ export default async function DeliveriesPage() {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
+      {/* Noaptea orașului în spatele barei de comandă (§3 al rubricii), la 8%.
+          `ambient`, nu `hero`: ecranul ăsta e un instrument de lucru, nu o
+          deschidere — atmosfera nu se retrage la scroll, fiindcă nu s-a impus
+          niciodată. Sub el intră doar posterul, nu filmul de 4 MB de pe poarta
+          curierului (vezi `ambientMedia` în `sectors.ts`). */}
+      <SectorBackdrop sector="courier" intensity="ambient" />
+
       <AvailableOrdersLive />
       <OffersLive courierId={courier.id} />
 
@@ -119,7 +127,15 @@ export default async function DeliveriesPage() {
             <Link
               key={order.id}
               href={`/deliveries/${order.id}`}
-              className="flex items-center justify-between gap-4 rounded-2xl bg-primary-dark p-5 text-white shadow-lg shadow-primary/25 transition hover:bg-primary-darker"
+              // §3 al rubricii dă sectorului o lege de culoare: auriul e al
+              // banilor, verdele al lui „online", roșul DOAR al lucrurilor
+              // care îl costă acum. Cursa în desfășurare nu-l costă — e
+              // venitul lui — dar era pictată în roșul de alarmă, aceeași
+              // culoare ca avertismentul de plafon de numerar de deasupra.
+              // Albastrul e limbajul pe care produsul îl folosea deja pentru
+              // exact starea asta („În livrare", `OnlineToggle`), deci cardul
+              // și pastila de stare spun acum același lucru în aceeași culoare.
+              className="flex items-center justify-between gap-4 rounded-2xl bg-blue-600/90 p-5 text-white shadow-lg shadow-blue-900/40 transition hover:bg-blue-600"
             >
               <div className="flex items-center gap-4">
                 <span className="flex h-12 w-12 animate-pulse items-center justify-center rounded-full bg-white/20 text-xl" aria-hidden>

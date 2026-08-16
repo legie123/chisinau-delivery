@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { acceptOffer, declineOffer } from "@/app/(courier)/deliveries/actions";
+import { markRideAccepted } from "@/components/courier/RideAcceptedFocus";
 import type { DispatchOffer } from "@/lib/types/domain";
 
 // #17 — accept_dispatch_offer/decline_dispatch_offer raise these exact Romanian
@@ -50,6 +51,10 @@ export function OfferCard({ offer }: { offer: DispatchOffer }) {
         if (isOfferGoneMessage(result.error)) setGone(true);
         else setError(result.error);
       } else {
+        // Semnalul ÎNAINTE de navigare: momentul de confirmare pornește în
+        // clipa apăsării și trece peste schimbarea de pagină, fără să o
+        // întârzie cu nimic (regula 1 — atmosfera nu stă în calea banilor).
+        markRideAccepted();
         router.push(`/deliveries/${offer.order_id}`);
       }
     });
@@ -70,7 +75,11 @@ export function OfferCard({ offer }: { offer: DispatchOffer }) {
   return (
     <section className="mb-6 overflow-hidden rounded-2xl bg-gradient-to-br from-[#2a1f0a] to-[#3d1220] p-5 ring-1 ring-gold/40 shadow-lg shadow-black/40">
       <div className="flex items-center justify-between">
-        <span className="rounded-full bg-gold/20 px-3 py-1 text-xs font-bold uppercase tracking-wide text-gold">
+        {/* Eticheta stătea auriu exact deasupra sumei aurii, deci ochiul avea
+            două lucruri de aceeași importanță și niciunul nu ieșea. Rama aurie
+            a cardului rămâne — cardul ÎNTREG e un eveniment de bani — dar în
+            interiorul lui auriul e doar pe câștig. */}
+        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
           🔔 Comandă nouă pentru tine
         </span>
         {secs !== null && (

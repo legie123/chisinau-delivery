@@ -43,6 +43,19 @@ export type SectorConfig = {
    *  mai puțin; lounge-ul are voie să se apropie lent. */
   driftScale: number;
   media: SectorMedia;
+  /** Ce are voie să se încarce SUB o interfață de lucru (`ambient`).
+   *
+   *  `media` e ales pentru deschiderea unui ecran, unde un video mare se
+   *  amortizează: omul se uită la el. `ambient` e altceva — stă ore în șir sub
+   *  degetul cuiva care lucrează, pe date mobile, și nu se uită nimeni la el.
+   *  Regula 3 a rubricii („un asset care nu se încarcă în 2 secunde pe 4G nu
+   *  există", buget 1,5 MB) se aplică aici cel mai tare, iar `hero-courier.mp4`
+   *  are 4,15 MB — de trei ori bugetul. Fără separarea asta, montarea lui
+   *  `ambient` ar fi însemnat exact asta: 4 MB de film sub bara de comandă a
+   *  unui om aflat pe stradă, ca să se vadă la 8% opacitate.
+   *
+   *  Lipsește ⇒ `ambient` folosește `media`, ca înainte. */
+  ambientMedia?: SectorMedia;
   /** lumi din interiorul aceluiași sector (concierge: tipul locației) */
   variants?: Record<string, SectorMedia>;
 };
@@ -60,6 +73,12 @@ export const SECTORS: Record<Sector, SectorConfig> = {
     gradient: `radial-gradient(115% 78% at 50% 0%, #16213e 0%, ${NAVY} 58%)`,
     driftScale: 1.04,
     media: { video: "/videos/hero-courier.mp4", poster: "/videos/hero-courier-poster.jpg" },
+    // Sub interfața de lucru a curierului: DOAR posterul (129 KB), niciun
+    // video. `hero-courier.mp4` rămâne pe poarta lui (`/start/curier`), unde
+    // omul chiar se uită la el; aici ar fi fost 4,15 MB pe date mobile pentru
+    // 8% opacitate. Când există un loop propriu sub 1,2 MB
+    // (`sector-courier.mp4`, §3 din rubrică), se adaugă aici o singură linie.
+    ambientMedia: { poster: "/videos/hero-courier-poster.jpg" },
   },
   restaurant: {
     note: "căldură de cuptor pe margini, centrul curat ca să respire datele; cel mai discret din patru",
@@ -121,6 +140,19 @@ export function resolveMedia(sector: Sector, variant?: string | null): SectorMed
   return cfg.media;
 }
 
+/** Media efectivă pentru un NIVEL. `ambient` poate cere un asset mai ieftin
+ *  decât deschiderea de ecran (vezi `SectorConfig.ambientMedia`) — un sector
+ *  care nu declară unul se comportă exact ca înainte. */
+export function resolveBackdropMedia(
+  sector: Sector,
+  intensity: Intensity,
+  variant?: string | null,
+): SectorMedia {
+  const cfg = SECTORS[sector];
+  if (intensity === "ambient" && cfg.ambientMedia) return cfg.ambientMedia;
+  return resolveMedia(sector, variant);
+}
+
 export type BackdropPlan = {
   /** cât de vizibilă e imaginea/video-ul peste gradient */
   mediaOpacity: number;
@@ -167,8 +199,20 @@ export function planBackdrop(
 
   if (intensity === "focus") {
     return {
-      mediaOpacity: 0.55,
-      veilOpacity: 0.15,
+      // Prima montare pe un ecran real (V5, cursa acceptată) a arătat că
+      // valorile de dinainte — media la 0.55, peste conținut — nu erau un
+      // moment de confirmare, ci o eclipsă: fotografia acoperea complet
+      // livrarea tocmai acceptată, iar timp de 2 secunde curierul nu mai vedea
+      // nici adresa, nici butonul. Regula 1 spune exact invers („atmosfera stă
+      // în spate, comanda stă în față"), iar o confirmare care ascunde chiar
+      // lucrul pe care îl confirmă e mai rea decât lipsa ei.
+      //
+      // Acum e o RESPIRAȚIE, nu un capac: fundalul urcă scurt peste nivelul
+      // `ambient` (0.08 → 0.16, deci se simte că s-a întâmplat ceva), voalul
+      // rămâne gros ca textul să nu piardă contrast, iar accentul cald de pe
+      // margini dă pulsul. Totul dedesubt, niciodată peste conținut.
+      mediaOpacity: 0.16,
+      veilOpacity: 0.3,
       showVideo,
       drift: false,
       driftScale: 1,

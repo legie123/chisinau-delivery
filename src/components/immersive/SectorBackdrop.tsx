@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   SECTORS,
   planBackdrop,
-  resolveMedia,
+  resolveBackdropMedia,
   type Intensity,
   type Sector,
 } from "@/components/immersive/sectors";
@@ -39,7 +39,9 @@ export function SectorBackdrop({
   onDone?: () => void;
 }) {
   const cfg = SECTORS[sector];
-  const media = resolveMedia(sector, variant);
+  // `ambient` are voie să ceară un asset mai ieftin decât deschiderea de ecran:
+  // stă sub o interfață de lucru, pe date mobile, și nu se uită nimeni la el.
+  const media = resolveBackdropMedia(sector, intensity, variant);
 
   const [motionOk, setMotionOk] = useState(false);
   const [posterOk, setPosterOk] = useState(true);
@@ -129,9 +131,11 @@ export function SectorBackdrop({
 
       <div
         aria-hidden
-        className={`pointer-events-none fixed inset-0 overflow-hidden transition-opacity duration-300 ease-out ${
-          plan.holdMs !== null ? "z-30" : "-z-10"
-        }`}
+        // `-z-10` la TOATE nivelurile, inclusiv `focus`. Momentul de confirmare
+        // stătea la `z-30`, adică peste interfață — vezi comentariul din
+        // `planBackdrop`: la prima montare pe ecran real a ascuns exact livrarea
+        // pe care o confirma. Atmosfera nu trece niciodată în fața comenzii.
+        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden transition-opacity duration-300 ease-out"
         style={{ opacity: shown ? 1 : 0 }}
       >
         {/* nivel 3 — gradientul: singurul strat care nu poate lipsi */}

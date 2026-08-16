@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { acceptDelivery } from "@/app/(courier)/deliveries/actions";
+import { markRideAccepted } from "@/components/courier/RideAcceptedFocus";
 import type { Order } from "@/lib/types/domain";
 
 export function AvailableOrderRow({ order, disabled }: { order: Order; disabled?: boolean }) {
@@ -13,13 +14,18 @@ export function AvailableOrderRow({ order, disabled }: { order: Order; disabled?
     startTransition(async () => {
       const result = await acceptDelivery(order.id);
       setError(result.error);
+      // Preluarea din listă nu navighează nicăieri — comanda apare sub
+      // „Livrarea ta activă" pe ecranul curent. Fără momentul ăsta, singura
+      // confirmare a unei curse luate era o listă care se rearanjează.
+      if (!result.error) markRideAccepted();
     });
   }
 
   return (
     <li className="flex items-center justify-between gap-4 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
       <div className="flex items-center gap-4">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-gold/15 text-xl" aria-hidden>
+        {/* Pastila pictogramei nu e o sumă — auriul rămâne pe „Câștig". */}
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-xl" aria-hidden>
           📦
         </span>
         <div>

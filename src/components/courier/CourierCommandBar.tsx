@@ -24,29 +24,36 @@ export function CourierCommandBar({
   hasActiveDelivery: boolean;
 }) {
   const online = status === "online";
+  // `on_delivery` e o a TREIA stare, nu absența lui „online". Tratată ca offline,
+  // ecranul se contrazicea singur: pastila din dreapta scria „În livrare", iar
+  // rândul de sub nume, în același card, „Ești offline — treci online ca să
+  // primești comenzi" — două afirmații opuse despre același om, în același
+  // moment (prins la prima montare a momentului de confirmare, nu la citit).
+  const onDelivery = status === "on_delivery";
 
   return (
     <section className="relative mb-6 overflow-hidden rounded-3xl ring-1 ring-white/10">
-      {/* Filigran de brand, ca pe banda partenerului — aceeași familie vizuală. */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#16213e] via-[#0d0d1f] to-[#0a0a14]" />
-      <div
-        className="absolute inset-0 opacity-[0.06]"
-        style={{
-          backgroundImage: "radial-gradient(circle at 85% 20%, #f5a623 0%, transparent 45%)",
-        }}
-        aria-hidden
-      />
+      {/* Substratul cardului lasă acum să treacă atmosfera de sector de
+          dedesubt (`SectorBackdrop` pe `/deliveries`): opac, bara ar fi fost o
+          placă etanșă peste noaptea orașului, iar rubrica cere exact invers —
+          pâlpâirea se vede ÎN SPATELE barei de comandă. Rămâne întunecat, deci
+          contrastul textului nu se schimbă: și cardul, și fundalul sunt navy.
+          Filigranul auriu propriu a fost scos: atmosfera vine acum dintr-un
+          singur loc, iar auriul de aici concura cu suma câștigată. */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#16213e]/90 via-[#0d0d1f]/88 to-[#0a0a14]/85" />
 
       <div className="relative flex flex-col gap-5 p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-gold/70">Tura ta</p>
+            {/* Nu e o sumă, deci nu e auriu — aceeași treaptă ca celelalte
+                două etichete ale cardului („Azi ai câștigat", „Curse"). */}
+            <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/40">Tura ta</p>
             <h1 className="mt-1 truncate font-serif text-2xl font-bold text-white sm:text-3xl">{firstName}</h1>
             <p className="mt-0.5 text-sm text-white/55">
-              {!online
-                ? "Ești offline — treci online ca să primești comenzi"
-                : hasActiveDelivery
-                  ? "Ai o livrare în curs"
+              {onDelivery || hasActiveDelivery
+                ? "Ai o livrare în curs"
+                : !online
+                  ? "Ești offline — treci online ca să primești comenzi"
                   : availableCount > 0
                     ? `${availableCount} ${availableCount === 1 ? "comandă disponibilă" : "comenzi disponibile"}`
                     : "Online — aștepți prima comandă"}

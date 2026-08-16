@@ -41,12 +41,22 @@ export function OffersLive({ courierId }: { courierId: string }) {
   }, [degraded, router]);
 
   if (!degraded) return null;
+  // Banda era `fixed top-3`, deci ateriza PESTE antetul curierului — aceeași
+  // clasă de defect reparată la partener în V1, dar acolo soluția a fost
+  // mutarea în jos, iar la curier jos e zona degetului mare, unde stau oferta
+  // și butonul de online (regula 2). Aici e altfel: stă în flux, la începutul
+  // conținutului, deci nu poate acoperi nimic la nicio lățime — și rămâne
+  // lipită sus la derulare, ca un curier care a coborât în listă să vadă tot
+  // că e deconectat. Apare doar când websocket-ul chiar a căzut, deci
+  // împingerea de conținut nu se vede în funcționarea normală.
   return (
     <div
       role="status"
-      className="fixed left-1/2 top-3 z-50 -translate-x-1/2 rounded-full bg-amber-500/15 px-4 py-1.5 text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur"
+      className="sticky top-0 z-40 -mx-5 mb-3 flex justify-center px-5 pt-1"
     >
-      Reconectare… ofertele se reîmprospătează automat
+      <span className="rounded-full bg-amber-500/15 px-4 py-1.5 text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur">
+        Reconectare… ofertele se reîmprospătează automat
+      </span>
     </div>
   );
 }

@@ -82,9 +82,12 @@ export function CourierOfflineSync() {
         <div
           role="status"
           aria-live="polite"
-          className="flex items-center justify-center gap-2 bg-gold/15 px-4 py-2 text-center text-sm font-medium text-gold ring-1 ring-inset ring-gold/25"
+          // O acțiune care așteaptă sincronizarea nu e o sumă — auriul de pe
+          // sectorul curier înseamnă bani (§3), iar banda asta apărea exact
+          // deasupra cardului cu câștigul zilei, în aceeași culoare.
+          className="flex items-center justify-center gap-2 bg-white/10 px-4 py-2 text-center text-sm font-medium text-white ring-1 ring-inset ring-white/15"
         >
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-gold" aria-hidden />
+          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-white/70" aria-hidden />
           {pending} {pending === 1 ? "acțiune în așteptare" : "acțiuni în așteptare"} — se sincronizează…
         </div>
       )}

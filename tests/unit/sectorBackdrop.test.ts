@@ -3,6 +3,7 @@ import {
   SECTORS,
   SECTOR_ORDER,
   planBackdrop,
+  resolveBackdropMedia,
   resolveMedia,
   type Intensity,
 } from "@/components/immersive/sectors";
@@ -40,6 +41,27 @@ describe("sectors — configurația celor patru", () => {
   it("hub-ul primește sushi din sectorul client, nu turnatul din pahar", () => {
     expect(resolveMedia("customer", "sushi").video).toBe("/videos/hero-sushi.mp4");
     expect(resolveMedia("customer").video).toBe("/videos/hero-pour.mp4");
+  });
+
+  it("sub interfața de lucru a curierului nu se încarcă filmul de pe poartă", () => {
+    // Regula 3 a rubricii, aplicată acolo unde doare cel mai tare: `ambient`
+    // stă ore în șir sub degetul unui om aflat pe stradă, pe date mobile.
+    // `hero-courier.mp4` are 4,15 MB — de trei ori bugetul de 1,5 MB — și era
+    // singura media a sectorului, deci montarea lui `ambient` l-ar fi tras
+    // tăcut sub bara de comandă, ca să se vadă la 8% opacitate.
+    expect(resolveBackdropMedia("courier", "ambient").video).toBeUndefined();
+    expect(resolveBackdropMedia("courier", "ambient").poster).toBeTruthy();
+    // Poarta curierului (`hero`) rămâne neatinsă — acolo omul chiar se uită.
+    expect(resolveBackdropMedia("courier", "hero").video).toBe("/videos/hero-courier.mp4");
+  });
+
+  it("un sector fără `ambientMedia` se comportă exact ca înainte", () => {
+    for (const sector of SECTOR_ORDER) {
+      if (SECTORS[sector].ambientMedia) continue;
+      expect(resolveBackdropMedia(sector, "ambient")).toEqual(resolveMedia(sector));
+    }
+    // și varianta cerută rămâne respectată pe nivelurile care o folosesc
+    expect(resolveBackdropMedia("concierge", "hero", "spa")).toEqual(resolveMedia("concierge", "spa"));
   });
 });
 

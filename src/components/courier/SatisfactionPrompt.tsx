@@ -52,7 +52,12 @@ export function SatisfactionPrompt() {
               onMouseEnter={() => setHover(n)}
               onMouseLeave={() => setHover(0)}
               onClick={() => handleSubmit(n)}
-              className={`text-2xl leading-none transition disabled:opacity-50 ${lit ? "text-gold" : "text-white/20"}`}
+              // Stelele clientului rămân aurii pe sectorul LUI — acolo auriul e
+              // identitate. Aici, pe curier, auriul e rezervat banilor (§3), iar
+              // un sondaj de satisfacție nu e o sumă: cinci stele aurii sub
+              // cardul cu câștigul zilei sunt exact confuzia pe care regula o
+              // interzice. Aprins/stins se citește la fel de bine în alb.
+              className={`text-2xl leading-none transition disabled:opacity-50 ${lit ? "text-white" : "text-white/20"}`}
             >
               ★
             </button>

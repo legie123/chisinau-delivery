@@ -51,7 +51,8 @@ function ElapsedWait({ since }: { since: string }) {
 
   return (
     <p className="flex items-center gap-2 px-1 text-xs text-white/50">
-      <span className="h-2 w-2 rounded-full bg-gold/80" aria-hidden />
+      {/* Un cronometru de așteptare nu e o sumă (§3 — auriul e al banilor). */}
+      <span className="h-2 w-2 rounded-full bg-white/50" aria-hidden />
       Aștept la restaurant: {mm}:{String(ss).padStart(2, "0")}
     </p>
   );
@@ -204,7 +205,9 @@ export function DeliveryStatusControls({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]">
         <span className="text-sm text-white/60">Status curent</span>
-        <span className="rounded-full bg-gold/15 px-3 py-1 text-sm font-semibold text-gold ring-1 ring-gold/30">
+        {/* Starea comenzii nu e o sumă — pe ecranul livrării singurul auriu
+            rămâne „De încasat" și confirmarea de plată. */}
+        <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white ring-1 ring-white/15">
           {ORDER_STATUS_LABEL[order.status]}
         </span>
       </div>

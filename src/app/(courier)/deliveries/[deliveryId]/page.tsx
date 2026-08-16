@@ -72,7 +72,8 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
       {/* Route: pickup -> dropoff, Bolt driver two-stop card */}
       <div className="mb-4 flex flex-col gap-3">
         <section className="flex items-start gap-4 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
-          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gold/15 text-lg" aria-hidden>
+          {/* Pastila de ridicare nu e o sumă — §3: auriul e al banilor. */}
+          <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-lg" aria-hidden>
             🏪
           </span>
           <div className="min-w-0 text-sm">
