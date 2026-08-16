@@ -117,7 +117,11 @@ export default async function ConciergePage({
             <section key={type} className="mb-12">
               <div className="mb-4">
                 <h2 className="font-serif text-2xl font-bold text-white">{meta.plural}</h2>
-                <p className="mt-0.5 text-sm text-white/50">{meta.blurb}</p>
+                {/* alb/70, nu alb/50: primul titlu de secțiune cade ÎNCĂ peste
+                    fundalul de deschidere, iar pe lumea „Restaurante" fundalul
+                    e flacăra. Podeaua de voal (`sectors.ts`) e calibrată pe
+                    alb/70 — un text mai slab decât ea iese din calcul. */}
+                <p className="mt-0.5 text-sm text-white/70">{meta.blurb}</p>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {list.map((v) => (
