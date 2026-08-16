@@ -361,7 +361,13 @@ export interface AdminDispatchMetricsRow {
   // not the wait itself. The real arrival-clock-based wait lives in
   // admin_wait_metrics (avg_wait_minutes_7d).
   restaurant_handover_avg_seconds: number | null;
+  // R9: media rămâne publicată — o coloană ștearsă ar ascunde exact cozile
+  // lungi — dar cifra JUDECATĂ e mediana, iar `total_delivery_orders` spune pe
+  // câte livrări stă. Vezi src/lib/ops/dispatchMetrics.ts pentru regula de
+  // citire (pragul casei de 5, ca la get_prep_estimates).
   total_delivery_avg_minutes: number | null;
+  total_delivery_median_minutes: number | null;
+  total_delivery_orders: number | null;
   unfinished_order_rate: number | null;
 }
 

@@ -2631,6 +2631,8 @@ export type Database = {
           restaurant_handover_avg_seconds: number | null
           time_to_assign_avg_seconds: number | null
           total_delivery_avg_minutes: number | null
+          total_delivery_median_minutes: number | null
+          total_delivery_orders: number | null
           unfinished_order_rate: number | null
         }
         Relationships: []

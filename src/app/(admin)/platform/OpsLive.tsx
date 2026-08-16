@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
+import { formatDeliveryDuration } from "@/lib/ops/dispatchMetrics";
 import { startJitteredPoll, type JitteredPoll } from "@/lib/realtime/pollJitter";
 import type { AdminDispatchMetricsRow, AdminFleetRow, AdminOrderBoardRow, AdminWaitMetricsRow } from "@/lib/types/domain";
 import { OrdersBoard } from "./OrdersBoard";
@@ -28,11 +29,25 @@ function Tile({ label, value, tone, href }: { label: string; value: number; tone
 
 // Vetted order 10 #1 — dispatch metric tiles show a formatted string (not a
 // bare number, unlike Tile above) plus a Romanian one-line explanation.
-function DispatchTile({ label, display, subtitle }: { label: string; display: string; subtitle: string }) {
+function DispatchTile({
+  label,
+  display,
+  subtitle,
+  sample,
+}: {
+  label: string;
+  display: string;
+  subtitle: string;
+  // R9 — pe ce stă cifra. Opțional fiindcă doar durata de livrare a primit
+  // deocamdată eșantion publicat; restul tile-urilor rămân fără (scris în
+  // jurnal ca datorie, nu ca terminat).
+  sample?: string | null;
+}) {
   return (
     <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06]" title={subtitle}>
       <p className="text-2xl font-bold tabular-nums text-white">{display}</p>
       <p className="mt-0.5 text-xs text-white/60">{label}</p>
+      {sample && <p className="mt-0.5 text-[11px] font-medium text-white/60 tabular-nums">{sample}</p>}
       <p className="mt-1 text-[11px] leading-snug text-white/40">{subtitle}</p>
     </div>
   );
@@ -52,11 +67,6 @@ function formatPercent(rate: number | null): string {
 function formatWaves(depth: number | null): string {
   if (depth === null) return "—";
   return `${depth.toFixed(1)} valuri`;
-}
-
-function formatMinutes(minutes: number | null): string {
-  if (minutes === null) return "—";
-  return `${minutes.toFixed(0)} min`;
 }
 
 // Live ops center. Subscribes to orders + couriers + courier_locations whole-table
@@ -162,6 +172,13 @@ export function OpsLive({
 
   const couriersWorking = fleet.filter((c) => c.status === "online" || c.status === "on_delivery").length;
 
+  // R9 — o singură regulă de citire pentru durata de livrare, testată separat.
+  const deliveryDuration = formatDeliveryDuration({
+    medianMinutes: dispatch?.total_delivery_median_minutes ?? null,
+    avgMinutes: dispatch?.total_delivery_avg_minutes ?? null,
+    orders: dispatch?.total_delivery_orders ?? null,
+  });
+
   return (
     <div className="flex flex-col gap-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -217,10 +234,21 @@ export function OpsLive({
             display={formatSecondsAsMinutes(dispatch?.restaurant_handover_avg_seconds ?? null)}
             subtitle="De la 'gata de ridicare' până la ridicare efectivă — INCLUDE deplasarea curierului, deci e o limită superioară a așteptării reale (vezi Așteptare evitabilă mai sus)."
           />
+          {/* R9 — era „Livrare totală medie", o medie aritmetică fără eșantion
+              scris nicăieri: pe datele vii dădea 2872 min lângă o țintă de
+              „≤35–49 min". Patru din șase livrări din fereastră erau sub un
+              sfert de oră; două rămăseseră zile în conductă și duceau media
+              singure. Acum se judecă mediana, se spune pe câte livrări stă, iar
+              media rămâne scrisă când diferă material — coada nu se ascunde. */}
           <DispatchTile
-            label="Livrare totală medie"
-            display={formatMinutes(dispatch?.total_delivery_avg_minutes ?? null)}
-            subtitle="De la plasarea comenzii până la livrare."
+            label="Livrare totală (mediană)"
+            display={deliveryDuration.display}
+            sample={deliveryDuration.sample}
+            subtitle={
+              deliveryDuration.tail
+                ? `De la plasarea comenzii până la livrare — ${deliveryDuration.tail}.`
+                : "De la plasarea comenzii până la livrare."
+            }
           />
           <DispatchTile
             label="Comenzi neonorate"
