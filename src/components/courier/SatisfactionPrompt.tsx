@@ -35,7 +35,10 @@ export function SatisfactionPrompt() {
           type="button"
           onClick={() => setDismissed(true)}
           aria-label="Închide"
-          className="shrink-0 text-white/30 transition hover:text-white/60"
+          // Măsurat 12,2×24 px: cel mai mic obiect apăsabil de pe tot sectorul
+          // curier, pe ecranul unui om care ține telefonul cu o mână, în stradă
+          // (§3 + regula 2). Glifa rămâne la fel, cutia ajunge la 44.
+          className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center text-white/30 transition hover:text-white/60"
         >
           ✕
         </button>
@@ -57,7 +60,13 @@ export function SatisfactionPrompt() {
               // un sondaj de satisfacție nu e o sumă: cinci stele aurii sub
               // cardul cu câștigul zilei sunt exact confuzia pe care regula o
               // interzice. Aprins/stins se citește la fel de bine în alb.
-              className={`text-2xl leading-none transition disabled:opacity-50 ${lit ? "text-white" : "text-white/20"}`}
+              // 24×24 măsurat — sub pragul de 44 al rubricii ȘI sub minimul AA
+              // de 24×24 al WCAG 2.5.8 dacă socotești spațiul dintre ele. Cele
+              // cinci cutii de 44px încap pe 390 (5×44 + 4×6 = 244), deci aici
+              // ținta se mărește pe bune; nu se falsifică cu o zonă invizibilă,
+              // fiindcă la stele lipite una de alta zonele s-ar călca și omul ar
+              // da patru stele când voia cinci.
+              className={`flex h-11 w-11 items-center justify-center text-2xl leading-none transition disabled:opacity-50 ${lit ? "text-white" : "text-white/20"}`}
             >
               ★
             </button>

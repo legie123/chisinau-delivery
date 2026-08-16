@@ -101,7 +101,9 @@ export function PushOptIn() {
       type="button"
       onClick={enable}
       disabled={state === "working"}
-      className="flex w-full items-center justify-center gap-2 rounded-full bg-white/5 px-4 py-2.5 text-sm text-white/80 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
+      // 40px măsurat — la patru pixeli sub prag, adică genul de ratare pe care
+      // ochiul n-o vede și degetul o simte. `min-h-11` = 44.
+      className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-white/5 px-4 py-2.5 text-sm text-white/80 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
     >
       🔔 {state === "working" ? "Se activează…" : state === "error" ? "Reîncearcă notificările" : "Activează notificările"}
     </button>

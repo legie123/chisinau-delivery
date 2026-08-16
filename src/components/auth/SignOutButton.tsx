@@ -33,7 +33,9 @@ export function SignOutButton() {
       type="button"
       onClick={handleSignOut}
       disabled={pending}
-      className="text-sm text-white/50 transition hover:text-white disabled:opacity-50"
+      // 34,9×20 măsurat pe ambele bare de navigare (client + curier); `py-1` îl
+      // aduce la 28 de pixeli, ca pe linkurile de lângă el.
+      className="py-1 text-sm text-white/50 transition hover:text-white disabled:opacity-50"
       title={failed ? "Ieșirea a eșuat — verifică conexiunea și încearcă din nou" : undefined}
     >
       {pending ? "..." : failed ? "Reîncearcă ieșirea" : "Ieșire"}

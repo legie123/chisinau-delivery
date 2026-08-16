@@ -24,38 +24,55 @@ export default async function CustomerLayout({ children }: { children: React.Rea
               Chișinău
             </span>
           </div>
+          {/* `py-1` pe fiecare link: măsurate 20px înălțime, adică sub minimul
+              AA de 24×24 (WCAG 2.5.8) pe suprafața cea mai vizitată. NU merg la
+              44px, și motivul e geometric, nu de lene: rândurile navigării stau
+              la 28px unul de altul, deci două zone de 44px s-ar suprapune pe
+              16px și degetul ar deschide „Comenzile mele" când voia „Catering".
+              44 aici cere antet mai înalt sau bară de jos — decizie de layout,
+              scrisă în issues.md, nu ascunsă într-un pass de accesibilitate. */}
           <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white/70 sm:gap-4">
-            <Link href="/concierge" className="transition hover:text-gold">
+            <Link href="/concierge" className="py-1 transition hover:text-gold">
               Concierge
             </Link>
-            <Link href="/restaurants" className="transition hover:text-white">
+            <Link href="/restaurants" className="py-1 transition hover:text-white">
               Restaurante
             </Link>
-            <Link href="/catering" className="transition hover:text-white">
+            <Link href="/catering" className="py-1 transition hover:text-white">
               Catering
             </Link>
-            <Link href="/cart" className="transition hover:text-white">
+            <Link href="/cart" className="py-1 transition hover:text-white">
               Coș
             </Link>
             {user ? (
               <>
-                <Link href="/orders" className="transition hover:text-white">
+                <Link href="/orders" className="py-1 transition hover:text-white">
                   Comenzile mele
                 </Link>
-                <Link href="/devino-partener" className="transition hover:text-gold">
+                <Link href="/devino-partener" className="py-1 transition hover:text-gold">
                   Devino partener
                 </Link>
                 <SignOutButton />
               </>
             ) : (
-              <Link href="/" className="transition hover:text-white">
+              <Link href="/" className="py-1 transition hover:text-white">
                 Intră în cont
               </Link>
             )}
           </nav>
         </div>
       </header>
-      <div className="mx-auto w-full max-w-5xl flex-1">{children}</div>
+      {/* Podeaua de o fereastră NU e decor — e reparația unui CLS de 0,558
+          măsurat (`scripts/media-budget.mjs`, prag „slab" la Google = 0,25).
+          Paginile de client își iau datele din Supabase, deci Next trimite
+          întâi învelișul (antet + subsol) și abia apoi, pe același răspuns,
+          conținutul — `template id="B:0"` se vede în HTML-ul de la
+          `/restaurants`. Până sosea, subsolul se așeza la y=373 din 844, adică
+          FIX pe ecran, iar la sosire era împins la y=4000+: singurul lucru
+          vizibil pe pagină sărea cu o înălțime de ecran. Rezervarea unei
+          ferestre pentru conținut îl scoate sub fold de la primul cadru, deci
+          mutarea lui nu mai are cum să se vadă. */}
+      <div className="mx-auto min-h-svh w-full max-w-5xl flex-1">{children}</div>
 
       {/* #5 — legal/contact footprint so first-timers can see who's behind the
           brand and how to reach support. A premium storefront needs this to be

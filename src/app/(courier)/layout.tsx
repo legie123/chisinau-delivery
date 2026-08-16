@@ -17,14 +17,17 @@ export default function CourierLayout({ children }: { children: React.ReactNode 
         <Link href="/" className="font-semibold">
           <span className="text-gold">Dragons</span> Delivery — Curier
         </Link>
+        {/* Aceeași reparație ca pe client, dar aici contează mai mult: omul e în
+            stradă, cu o singură mână liberă (§3). Măsurate 20px; `py-1` le duce
+            la 28. Vezi comentariul din `(customer)/layout.tsx` pentru de ce nu 44. */}
         <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white/70">
-          <Link href="/deliveries" className="transition hover:text-white">
+          <Link href="/deliveries" className="py-1 transition hover:text-white">
             Livrările mele
           </Link>
-          <Link href="/deliveries/history" className="transition hover:text-white">
+          <Link href="/deliveries/history" className="py-1 transition hover:text-white">
             Istoric
           </Link>
-          <Link href="/earnings" className="transition hover:text-gold">
+          <Link href="/earnings" className="py-1 transition hover:text-gold">
             Câștiguri
           </Link>
           <SignOutButton />

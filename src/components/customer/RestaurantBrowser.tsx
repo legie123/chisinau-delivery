@@ -253,7 +253,7 @@ export function RestaurantBrowser({
             type="button"
             onClick={() => setCategory(c.key)}
             aria-pressed={category === c.key}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
+            className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
               category === c.key
                 ? "bg-primary-dark text-white"
                 : "bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10"
@@ -271,7 +271,7 @@ export function RestaurantBrowser({
           type="button"
           onClick={() => setOpenNowOnly((v) => !v)}
           aria-pressed={openNowOnly}
-          className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
+          className={`flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition ${
             openNowOnly
               ? "bg-gold text-zinc-900"
               : "bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10"

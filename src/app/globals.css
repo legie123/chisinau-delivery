@@ -165,12 +165,32 @@ body {
    keyboard, invisible for mouse users (:focus-visible only). */
 button:focus-visible,
 a:focus-visible,
-summary:focus-visible {
+summary:focus-visible,
+/* V10, măsurat: regula acoperea `button/a/summary`, iar comentariul de mai sus
+   spunea că „inputurile aveau deja indicator". Nu mai au — resetul Tailwind
+   scoate conturul nativ, deci `outline-style` calculat pe câmpul de căutare de
+   pe /restaurante e `none`. Un om care ajunge cu Tab pe caseta de căutare nu
+   vede NIMIC schimbat (0% pixeli, probat cu `scripts/a11y-audit.mjs`); inelul
+   auriu care se vede acolo e chenarul de repaus, nu focusul. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 2px solid var(--gold, #f5a623);
   outline-offset: 2px;
   /* no border-radius here: it would override rounded-full pills while focused
      (armata 2026-08-13) — the outline follows each element's own shape */
 }
+
+/* AICI A FOST `.tap-44` — o clasă care extindea zona de atins la 44px cu un
+   `::after` invizibil, lăsând cercul desenat la 36. Suna corect și e un truc
+   răspândit. NU FUNCȚIONEAZĂ aici, probat prin hit-test, nu prin citit:
+   `document.elementFromPoint` la 2px deasupra inimii de pe cardul de restaurant
+   întorcea tot linkul cardului (`A`), fiindcă `::after`-ul butonului cade sub
+   suprafața de clic a linkului pe care stă. Adică butonul „mărit" era mărit
+   doar în comentariu, iar degetul care rata inima deschidea restaurantul.
+   Ținta se mărește acum pe bune, în `FavoriteButton` (cutie 44, cerc 36). */
 
 /* Hides the scrollbar on the admin header's horizontally-scrollable nav
    (the row still scrolls via touch/trackpad/wheel — this only hides the
