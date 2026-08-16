@@ -10,7 +10,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   } = await supabase.auth.getUser();
 
   return (
-    <div className="flex flex-1 flex-col text-white">
+    <div className="flex flex-1 flex-col bg-[#0a0a14] text-white">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a14]/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
           <div className="flex items-center gap-5">

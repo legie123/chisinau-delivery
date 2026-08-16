@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AmbientVideo } from "@/components/marketing/AmbientVideo";
 import { masterDoorwayEnabled } from "@/lib/master/gate";
 
 // Central hub — patru porți (fiecare sector își începe experiența pe
@@ -45,7 +46,9 @@ export default function HubPage() {
   // (AmbientVideo) cade sub fundalul opac al lui <main> și video-ul devine
   // invizibil deși rulează (bug-ul „este identic" raportat de user).
   return (
-    <main className="relative flex min-h-screen flex-1 flex-col text-white">
+    <main className="relative isolate flex min-h-screen flex-1 flex-col bg-[#0a0a14] text-white">
+      {/* Ambient cinematic backdrop (audit design: primul contact = premium) */}
+      <AmbientVideo src="/videos/hero-sushi.mp4" poster="/videos/hero-sushi-poster.jpg" />
       {/* Brand */}
       <div className="flex flex-col items-center gap-1 px-6 pb-6 pt-12 text-center">
         <span className="text-5xl" aria-hidden>🐉</span>

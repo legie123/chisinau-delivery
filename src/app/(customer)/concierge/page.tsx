@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { AmbientVideo } from "@/components/marketing/AmbientVideo";
 import { VENUE_META, VENUE_ORDER, isVenueType, type VenueType } from "@/lib/concierge/venues";
 import { SITE_NAME, siteUrl } from "@/lib/seo/site";
 
@@ -55,9 +56,23 @@ export default async function ConciergePage({
   }
   const shownTypes = activeType ? [activeType] : VENUE_ORDER;
 
+  // Un fundal per lume; fără filtru rămâne lounge-ul, fiindcă sala de business
+  // e firul poveștii de concierge.
+  const BACKDROPS: Record<string, { src: string; poster: string }> = {
+    spa: { src: "/videos/hero-spa.mp4", poster: "/videos/hero-spa-poster.jpg" },
+    wellness_lounge: { src: "/videos/hero-spa.mp4", poster: "/videos/hero-spa-poster.jpg" },
+    sushi_bar: { src: "/videos/hero-sushi.mp4", poster: "/videos/hero-sushi-poster.jpg" },
+    restaurant: { src: "/videos/hero-flame.mp4", poster: "/videos/hero-flame-poster.jpg" },
+    business_lounge: { src: "/videos/hero-lounge.mp4", poster: "/videos/hero-lounge-poster.jpg" },
+  };
+  const backdrop = (activeType && BACKDROPS[activeType]) || BACKDROPS.business_lounge;
 
   return (
     <main className="relative isolate flex-1 px-5 pb-20 pt-8">
+      {/* Fundalul urmează sectorul ales (Higgsfield/Seedance): lounge de
+          business, aburi de spa sau bucătărie — filtrul nu schimbă doar lista,
+          ci și lumea în care intri. */}
+      <AmbientVideo src={backdrop.src} poster={backdrop.poster} />
 
       <div className="mx-auto w-full max-w-5xl">
         <header className="mb-8 text-center">
