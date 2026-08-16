@@ -52,4 +52,5 @@ Fiecare val scrie exact 3 rânduri: ce a livrat · cu ce dovadă · ce a văzut 
 
 ## Blocaje
 
-- (niciunul în V1 sau V2 — toate porțile au trecut)
+- V1, V2, V3: nicio poartă roșie — `npm run verify`, lint și build au trecut la fiecare val.
+- **Mecanica buclei, nu produsul (apărut în V3)**: patru muncitori `claude -p` au primit valul V3 în paralel și au scris în aceleași fișiere. Mutex-ul din `noapte-bucla.sh` e corect; comanda de repornire a supervizorului șterge lacătul înainte de pornire și trece peste el. Rezultatul comis e coerent și verificat cap-coadă, dar norocul nu e metodă — fix-ul e în `.bucla/issues.md`, o linie: repornirea să nu mai șteargă lacătul.
