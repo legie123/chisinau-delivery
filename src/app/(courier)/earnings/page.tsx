@@ -1,24 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   currentWeekRange,
+  formatShiftDuration,
+  shiftReachesTarget,
   summarizeEarnings,
   summarizeShifts,
   type EarningsOrder,
   type ShiftEarningsOrder,
 } from "@/app/(courier)/_lib/earnings";
 import type { CourierShift, Payout } from "@/lib/types/domain";
-
-// Faza 5 #5 go/no-go band for gross/shift ("tura") — 600-1000 MDL, Chișinău
-// modal interval from the audit (§Faza 5). Purely a display cue, not a limit.
-const SHIFT_TARGET_MIN = 600;
-const SHIFT_TARGET_MAX = 1000;
-
-function fmtDuration(startIso: string, endIso: string): string {
-  const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
-  const hours = Math.floor(ms / 3_600_000);
-  const minutes = Math.round((ms % 3_600_000) / 60_000);
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-}
 
 // "Câștiguri" — the courier's own money view: #3b canonical model — net after
 // commission, tips included, scoped to the current calendar week (same Mon-Sun
@@ -150,8 +140,9 @@ export default async function CourierEarningsPage() {
         )}
       </section>
 
-      {/* Faza 5 #5 — gross earnings PER SHIFT ("tura"). Band cue only (600-1000 MDL
-          audit target), never a limit — a short shift with few orders is expected. */}
+      {/* Faza 5 #5 — gross earnings PER SHIFT ("tura"). The 600 MDL audit target is
+          a FLOOR for the cue, never a limit and never a window — see
+          shiftReachesTarget: a shift above the band's top is a better shift. */}
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/60">Ture recente</h2>
       {shiftSummaries.length === 0 ? (
         <div className="mb-8 rounded-2xl bg-white/[0.04] px-4 py-8 text-center text-sm text-white/50 ring-1 ring-white/[0.06]">
@@ -160,7 +151,7 @@ export default async function CourierEarningsPage() {
       ) : (
         <ul className="mb-8 flex flex-col gap-2.5">
           {shiftSummaries.map((s) => {
-            const inBand = s.grossMdl >= SHIFT_TARGET_MIN && s.grossMdl <= SHIFT_TARGET_MAX;
+            const reachedTarget = shiftReachesTarget(s.grossMdl);
             return (
               <li
                 key={s.id}
@@ -169,13 +160,15 @@ export default async function CourierEarningsPage() {
                 <div>
                   <p className="text-sm font-medium text-white">
                     {new Date(s.startedAt).toLocaleDateString("ro-RO", { day: "numeric", month: "short" })} ·{" "}
-                    {fmtDuration(s.startedAt, s.endedAt)}
+                    {formatShiftDuration(s.startedAt, s.endedAt)}
                   </p>
                   <p className="mt-0.5 text-xs text-white/50">
                     {s.ordersCount} {s.ordersCount === 1 ? "livrare" : "livrări"}
                   </p>
                 </div>
-                <p className={`text-lg font-semibold ${inBand ? "text-gold" : "text-white/70"}`}>{s.grossMdl} MDL</p>
+                <p className={`text-lg font-semibold ${reachedTarget ? "text-gold" : "text-white/70"}`}>
+                  {s.grossMdl} MDL
+                </p>
               </li>
             );
           })}

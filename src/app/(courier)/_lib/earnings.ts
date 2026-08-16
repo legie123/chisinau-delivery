@@ -78,6 +78,31 @@ export type ShiftSummary = {
   grossMdl: number;
 };
 
+// Faza 5 #5 target band, 600-1000 MDL gross/tură (Chișinău modal interval from
+// the audit). For the ADMIN go/no-go table it is a band with two edges; on the
+// courier's own screen only the FLOOR may drive the visual cue. Highlighting
+// "inside 600-1000" and dropping the highlight above 1000 makes the best shift
+// of the month render dimmer than an average one — the money going up would
+// look like the money going down. The ceiling stays documented, not painted.
+export const SHIFT_TARGET_MIN = 600;
+export const SHIFT_TARGET_MAX = 1000;
+
+export function shiftReachesTarget(grossMdl: number): boolean {
+  return grossMdl >= SHIFT_TARGET_MIN;
+}
+
+// Round ONCE, to whole minutes, then split. Rounding hours and minutes
+// independently prints an impossible clock: a shift of 10h 59m 46s has
+// floor(h)=10 and round(59.76)=60, i.e. "10h 60m" — seen live on the seeded
+// courier's 13 aug. shift (659.76 min).
+export function formatShiftDuration(startIso: string, endIso: string): string {
+  const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+  const totalMinutes = Math.max(0, Math.round(ms / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
 export function summarizeShifts(
   shifts: { id: string; started_at: string; ended_at: string }[],
   orders: ShiftEarningsOrder[],
