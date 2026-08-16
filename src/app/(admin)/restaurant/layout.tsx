@@ -90,9 +90,17 @@ export default async function RestaurantPremiumLayout({ children }: { children: 
       {/* Slim crest strip — a wordmark accent, NOT a nav bar. */}
       <div className="pg-crest px-4 py-2 sm:px-6">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
-          <span className="pg-crest-mark text-sm font-semibold uppercase">
+          {/* La 390 px banda se rupea pe două rânduri („DRAGONS PARTENER" /
+              „RESTAURANT") și mânca ~120 px din primul ecran al unei suprafețe
+              căreia §4 al rubricii îi dă 20 de secunde de atenție. Cuvântul
+              „Restaurant" e cel redundant: pe telefon omul e deja pe panoul
+              restaurantului lui, iar bara de deasupra o spune. Rămâne întreg de
+              la sm în sus, unde încape fără să coste nimic. */}
+          <span className="pg-crest-mark min-w-0 truncate text-sm font-semibold uppercase">
             <span className="pg-gold-text pg-gold-text--live">Dragons</span>
-            <span className="ml-2 text-white/35">Partener Restaurant</span>
+            <span className="ml-2 text-white/35">
+              Partener<span className="hidden sm:inline"> Restaurant</span>
+            </span>
           </span>
           {/* Pastila de stare. Scria „Live" ca text fix, lângă un punct care
               pulsa din CSS — nimeni nu măsura nimic: la 07:22, cu Sakura Sushi

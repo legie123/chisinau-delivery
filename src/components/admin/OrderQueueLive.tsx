@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
+import { ReconnectNotice } from "@/components/shared/ReconnectNotice";
 import type { Order } from "@/lib/types/domain";
 
 const ALERT_TITLE = "🔴 Comandă nouă!";
@@ -197,20 +198,28 @@ export function OrderQueueLive({
   ) : null;
 
   if (!degraded) return pill;
-  // Ancorat jos, nu sus (2026-08-16): la `top-3` banda cădea exact peste bara de
-  // navigare a partenerului și scria peste „Program / Catering / Câștiguri" —
-  // două texte suprapuse, dovedit în captura 1440×900. Panoul partenerului nu are
-  // bară de jos, deci colțul de jos e liber la orice lățime, inclusiv pe telefon
-  // unde antetul are două rânduri.
+  // A treia plasare a acestei benzi, și de data asta măsurată, nu aleasă.
+  // Istoric: `fixed top-3` scria peste „Program / Catering / Câștiguri" (1440,
+  // V1), deci a fost mutată la `fixed bottom-4` — „colțul de jos e liber la
+  // orice lățime". Nu e: colțul de jos al FERESTREI e liber doar cât timp
+  // pagina nu se derulează. Pe coada partenerului se derulează, iar
+  // `scripts/overflow-audit.mjs` a găsit banda peste titlul „Ultimele 30 de
+  // zile" (195×12 px) și, cu coada goală, peste butonul „Activează
+  // notificările" — adică peste o ACȚIUNE.
+  //
+  // Plasarea `flow` a benzii comune e singura care nu poate acoperi nimic la
+  // nicio lățime, fiindcă stă în flux și își rezervă singură spațiul; e
+  // lecția câștigată pe ecranul curierului în V5. Wrapper-ul `w-full` o scoate
+  // pe propriul rând din rândul de titlu (părintele are `flex-wrap`).
+  //
+  // Fără pastilă: banda spune ACELAȘI lucru, mai complet. Cât timp banda
+  // plutea în colțul de jos, cele două semnale erau la două ecrane distanță și
+  // duplicarea nu se vedea; aduse una sub alta, captura arată „Reconectare…"
+  // de două ori în aceeași privire. Un singur semnal, cel care explică și ce
+  // se întâmplă mai departe.
   return (
-    <>
-      {pill}
-      <div
-        role="status"
-        className="fixed bottom-4 left-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full bg-amber-500/15 px-4 py-1.5 text-center text-xs font-medium text-amber-200 ring-1 ring-amber-400/30 backdrop-blur"
-      >
-        Reconectare la actualizări live… coada se reîmprospătează automat
-      </div>
-    </>
+    <div className="w-full">
+      <ReconnectNotice detail="coada se reîmprospătează automat" placement="flow" />
+    </div>
   );
 }

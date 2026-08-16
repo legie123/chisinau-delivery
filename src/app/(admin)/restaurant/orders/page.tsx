@@ -96,7 +96,11 @@ export default async function RestaurantOrdersPage() {
           de zile → invitația la notificări. Nimic șters, doar pus în ordinea în
           care se iau deciziile. */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+        {/* `flex-wrap` fiindcă `OrderQueueLive` randează aici DOUĂ lucruri: o
+            pastilă mică lângă titlu și, când legătura cade, banda de
+            reconectare pe toată lățimea. Fără dreptul de a se rupe, banda ar
+            strivi titlul în loc să coboare sub el. */}
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className="pg-gold-text font-serif text-2xl font-bold">Comenzi</h1>
           {/* Pastila „Live" era scrisă aici de mână, deci rămânea aprinsă și
               atunci când `OrderQueueLive` afișa în josul ACELEIAȘI pagini banda
@@ -111,7 +115,14 @@ export default async function RestaurantOrdersPage() {
           // 2026-08-16): valoarea și unitatea nu se mai despart niciodată, iar
           // pastila are voie să se așeze pe două rânduri fără să taie o cifră.
           <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-full bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70 ring-1 ring-white/10">
-            <span className="pg-live-dot" aria-hidden />
+            {/* Punct STATIC, nu `pg-live-dot`. Cifra de lângă el vine din
+                `get_prep_estimates`, adică o medie pe 28 de zile (sau pe ora
+                curentă) — o măsurătoare, nu un semnal viu. Un punct care
+                pulsează promite „acum", exact minciuna reparată în V11 pe
+                celelalte două pastile ale aceleiași pagini. Culoarea rămâne
+                ametistul casei, ca pastila să arate la fel; doar promisiunea
+                dispare. */}
+            <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-[color:var(--pg-amethyst-2)]" aria-hidden />
             ⏱ Timp de pregătire estimat:{" "}
             <span className="pg-gold-text whitespace-nowrap font-semibold">~{prepEstimate.prep_minutes} min</span>
             <span className="text-white/40">

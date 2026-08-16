@@ -73,17 +73,25 @@ export function OrderQueueRow({
     <li
       className={`pg-arrival flex flex-col gap-3 rounded-2xl p-5 ${isNew ? "pg-new" : "pg-card"}`}
     >
-      <div className="flex w-full items-center justify-between gap-4">
-      <div className="flex items-center gap-4">
+      {/* La 390×844 rândul ăsta măsura 502 px: coloana de text nu avea voie să
+          se strângă (`min-width: auto`, implicitul oricărui element de flex),
+          blocul de acțiuni era `shrink-0`, deci nimeni nu ceda și pagina se
+          trăgea lateral cu 112 px — „Refuză" ieșea ÎNTREG din ecran. Acum
+          coloana are dreptul să se strângă (`min-w-0`, pe ambele niveluri) și
+          rândul are dreptul să se rupă: la telefon butoanele coboară pe
+          propriul rând, la lățime de tabletă în sus se întorc lângă text, ca
+          înainte. */}
+      <div className="flex w-full flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
         <span
-          className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-xl ${
             isNew ? "bg-[color:var(--pg-gold-0)]/20 ring-1 ring-[color:var(--pg-gold-line)]" : "bg-white/10"
           }`}
           aria-hidden
         >
           {STATUS_EMOJI[order.status] ?? "📦"}
         </span>
-        <div>
+        <div className="min-w-0">
           <p className="font-semibold text-white">{order.order_number}</p>
           <p className="mt-0.5 text-sm text-white/50">
             {ORDER_STATUS_LABEL[order.status]} · <span className="pg-gold-text font-semibold">{order.total_mdl} MDL</span>
@@ -99,7 +107,7 @@ export function OrderQueueRow({
             </div>
           )}
           {order.status === "pending_restaurant" && (
-            <div className="mt-1.5 flex items-center gap-1.5">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <label htmlFor={`prep-${order.id}`} className="text-xs text-white/45">
                 ⏱ Timp de pregătire (min):
               </label>
@@ -129,14 +137,17 @@ export function OrderQueueRow({
           {error && <p className="mt-1 text-xs text-primary">{error}</p>}
         </div>
       </div>
-      <div className="flex shrink-0 gap-2">
+      {/* `w-full sm:w-auto` = pe telefon rândul propriu, deci butoanele stau în
+          treimea de jos a cardului, sub degetul mare (regula 2 a rubricii), în
+          loc să fie împinse în afara ferestrei. De la sm în sus, exact ce era. */}
+      <div className="flex w-full shrink-0 gap-2 sm:w-auto">
         {order.status === "pending_restaurant" && (
           <>
             <button
               type="button"
               onClick={handleAccept}
               disabled={pending}
-              className="pg-cta rounded-full px-5 py-2.5 text-sm disabled:opacity-50"
+              className="pg-cta flex-1 rounded-full px-5 py-2.5 text-sm disabled:opacity-50 sm:flex-none"
             >
               Acceptă
             </button>
@@ -144,7 +155,7 @@ export function OrderQueueRow({
               type="button"
               onClick={() => setRejecting((v) => !v)}
               disabled={pending}
-              className="rounded-full bg-white/5 px-5 py-2.5 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
+              className="flex-1 rounded-full bg-white/5 px-5 py-2.5 text-sm text-white/70 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50 sm:flex-none"
             >
               Refuză
             </button>
@@ -155,7 +166,7 @@ export function OrderQueueRow({
             type="button"
             onClick={handleReady}
             disabled={pending}
-            className="pg-cta rounded-full px-5 py-2.5 text-sm disabled:opacity-50"
+            className="pg-cta flex-1 rounded-full px-5 py-2.5 text-sm disabled:opacity-50 sm:flex-none"
           >
             <span className="pg-shimmer pointer-events-none absolute inset-0 rounded-full" aria-hidden />
             <span className="relative">🥡 Gata de ridicare</span>
