@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { BookingActions } from "@/components/customer/BookingActions";
 import { BookingConfirmedFocus } from "@/components/customer/BookingConfirmedFocus";
 import { BOOKING_STATUS_LABEL, PURPOSE_LABEL, type BookingPurpose } from "@/lib/concierge/venues";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 
 const formatWhen = new Intl.DateTimeFormat("ro-RO", {
   dateStyle: "medium",
@@ -72,6 +73,8 @@ export default async function ConciergeBookingsPage() {
           singură dată, la nivelul paginii, nu în rândul care l-a pornit:
           confirmarea e urmată de `router.refresh()`, iar rândul se re-randează
           din server sub el. */}
+      <SectorBackdrop sector="concierge" intensity="ambient" />
+
       <BookingConfirmedFocus />
 
       <div className="mb-6 flex items-baseline justify-between gap-3">

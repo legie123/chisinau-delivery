@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { OrderTracking } from "@/components/customer/OrderTracking";
 import type { DeliveryStatusEvent, Order, OrderItem, Rating } from "@/lib/types/domain";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ orderId: string }> }) {
   const { orderId } = await params;
@@ -51,7 +52,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   }
 
   return (
-    <main className="flex-1 px-6 py-10">
+    <main className="relative isolate flex-1 px-6 py-10">
+      {/* Aici omul AȘTEAPTĂ — e cel mai lung moment din tot fluxul și singurul
+          în care nu are ce face. `ambient` ține camera caldă cât se apropie
+          curierul; nu e ecran de lucru, e răbdare. */}
+      <SectorBackdrop sector="customer" intensity="ambient" />
       <div className="mb-6">
         {restaurantName && (
           <p className="text-sm font-medium uppercase tracking-wider text-white/50">{restaurantName}</p>

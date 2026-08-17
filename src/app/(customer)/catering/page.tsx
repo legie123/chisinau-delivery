@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 import {
   CateringRequestForm,
   type CateringPrefill,
@@ -90,7 +91,10 @@ export default async function CateringPage({
   }
 
   return (
-    <main className="flex-1 px-6 py-10">
+    <main className="relative isolate flex-1 px-6 py-10">
+      {/* `hero` MĂRGINIT: formularul începe la mai puțin de un ecran, iar
+          regula casei interzice film sub liste — atmosfera umple doar antetul. */}
+      <SectorBackdrop sector="concierge" intensity="hero" bounded />
       <h1 className="mb-1 text-2xl font-semibold">Catering pentru evenimente</h1>
       <p className="mb-8 max-w-xl text-sm text-white/50">
         Platouri și meniuri pentru evenimente, livrate de restaurantele partenere. Trimiți cererea,

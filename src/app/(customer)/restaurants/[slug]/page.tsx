@@ -17,6 +17,7 @@ import { formatPrepRange } from "@/lib/orders/eta";
 import { chisinauNow, isOpenNow, nextOpeningLabel, type HoursRow } from "@/lib/orders/hours";
 import { SITE_NAME, siteUrl } from "@/lib/seo/site";
 import type { Metadata } from "next";
+import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 
 const CUISINE_RO: Record<string, string> = {
   sushi: "Sushi",
@@ -181,7 +182,11 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
   };
 
   return (
-    <main className="flex-1 px-5 pb-24 pt-6">
+    <main className="relative isolate flex-1 px-5 pb-24 pt-6">
+      {/* `ambient`: pagina are deja un erou — fotografia de copertă a localului.
+          Atmosfera stă dedesubt ca să lege meniul de lumea din care ai intrat,
+          fără să concureze cu mâncarea (§: „mâncarea e eroul"). */}
+      <SectorBackdrop sector="customer" intensity="ambient" />
       <script
         type="application/ld+json"
         // eslint-disable-next-line react/no-danger -- JSON-LD generat de noi din date proprii
