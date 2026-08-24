@@ -1,0 +1,275 @@
+{
+  "generated_from": "repo source only, docs excluded, no overlap with set 1",
+  "questions": [
+    {
+      "id": "r01",
+      "question": "In development, does src/proxy.ts silently auto-authenticate anonymous visitors to role-gated sections using seeded test accounts, and how is that disabled?",
+      "ground_truth": "Yes — devAutoLoginEnabled() is true unless NODE_ENV==='production' or DISABLE_DEV_AUTOLOGIN=1 is set; it signs in with DEV_ACCOUNTS.",
+      "verify_cmd": "grep -n \"devAutoLoginEnabled\\|DISABLE_DEV_AUTOLOGIN\" src/proxy.ts",
+      "verify_output": "30://...(DISABLE_DEV_AUTOLOGIN=1). 40:function devAutoLoginEnabled(): boolean { 41: return process.env.NODE_ENV !== \"production\" && process.env.DISABLE_DEV_AUTOLOGIN !== \"1\"; 91/112: if (devAutoLoginEnabled()) {",
+      "why_it_matters": "A dev testing anonymous/unauthorized behavior on role-gated routes will silently see a logged-in seed account instead unless they set the env var.",
+      "category": "routing"
+    },
+    {
+      "id": "r02",
+      "question": "Why does src/proxy.ts run on every non-static route instead of just the role-gated ones?",
+      "ground_truth": "updateSession() there is what persists rotated Supabase refresh tokens back into cookies; Server Components can't write cookies themselves.",
+      "verify_cmd": "grep -n \"runs on EVERY\\|updateSession() is\" src/proxy.ts",
+      "verify_output": "8://This runs on EVERY non-static route — not just the gated ones — because 9://updateSession() is what persists rotated refresh tokens back into cookies.",
+      "why_it_matters": "Narrowing the proxy matcher to only gated paths would silently break token rotation and force logouts on other pages.",
+      "category": "routing"
+    },
+    {
+      "id": "r03",
+      "question": "Between packages/shared-api and packages/shared-types, which one declares @supabase/supabase-js as a peerDependency rather than a hard dependency, and which one is described as framework-free?",
+      "ground_truth": "shared-api has supabase-js as a peerDependency (by design); shared-types is described as platform-free (no React/Next/Expo).",
+      "verify_cmd": "grep -n \"peerDependencies\\|description\" packages/shared-api/package.json packages/shared-types/package.json",
+      "verify_output": "shared-api: \"description\": \"...supabase-js is a peerDependency by design.\", \"peerDependencies\": {...} | shared-types: \"description\": \"...Platform-free (no React/Next/Expo).\"",
+      "why_it_matters": "Adding supabase-js as a direct dependency of shared-api would risk a version mismatch with the app's own install.",
+      "category": "routing"
+    },
+    {
+      "id": "r04",
+      "question": "Is the PostGIS extension installed into the public schema or a dedicated one?",
+      "ground_truth": "A dedicated schema: `create extension if not exists postgis with schema extensions;` — never public.",
+      "verify_cmd": "grep -n \"create extension if not exists postgis\" supabase/migrations/20260717001900_ws3_postgis_geo.sql",
+      "verify_output": "8:create extension if not exists postgis with schema extensions;",
+      "why_it_matters": "Every PostGIS call in the codebase must be namespaced extensions.st_*; calling st_makepoint() bare will fail to resolve.",
+      "category": "db-security"
+    },
+    {
+      "id": "r05",
+      "question": "What SRID do the generated `geo` geography columns on restaurants/addresses use?",
+      "ground_truth": "4326 (WGS84) — via extensions.st_setsrid(extensions.st_makepoint(lng, lat), 4326).",
+      "verify_cmd": "grep -n \"st_setsrid\" supabase/migrations/20260717001900_ws3_postgis_geo.sql | head -3",
+      "verify_output": "20: then extensions.st_setsrid(extensions.st_makepoint(lng::float8, lat::float8), 4326)::extensions.geography",
+      "why_it_matters": "Mixing SRIDs (e.g. inserting a 3857 point) would make st_distance() silently return wrong/garbage distances.",
+      "category": "db-security"
+    },
+    {
+      "id": "r06",
+      "question": "Are the Moldova lat/lng bounds CHECK constraints on restaurants and addresses added as VALID or NOT VALID?",
+      "ground_truth": "NOT VALID — e.g. `add constraint restaurants_lat_bounds check (lat between 45.4 and 48.5) not valid`.",
+      "verify_cmd": "grep -n \"lat_bounds check\\|lng_bounds check\" supabase/migrations/20260717001900_ws3_postgis_geo.sql",
+      "verify_output": "13:...add constraint restaurants_lat_bounds check (lat is null or lat between 45.4 and 48.5) not valid; 15:...lng_bounds... not valid; (same pattern for addresses)",
+      "why_it_matters": "NOT VALID lets the migration apply without scanning/failing on pre-existing out-of-bounds rows; a plain VALID constraint would abort the migration if any stray demo row violated it.",
+      "category": "db-security"
+    },
+    {
+      "id": "r07",
+      "question": "Is the checkout-idempotency unique index on orders scoped per-customer, or is it a single global uniqueness on the key alone?",
+      "ground_truth": "Per-customer: unique index on (customer_id, idempotency_key) where idempotency_key is not null.",
+      "verify_cmd": "grep -n \"orders_idempotency_key_uidx\" -A1 supabase/migrations/20260726000000_checkout_idempotency.sql",
+      "verify_output": "15:create unique index if not exists orders_idempotency_key_uidx 16- on public.orders (customer_id, idempotency_key)",
+      "why_it_matters": "A global-only index would let two different customers who happen to generate the same client-side key collide and get rejected.",
+      "category": "money"
+    },
+    {
+      "id": "r08",
+      "question": "Does a courier_tariff_config weather surcharge change what the customer pays, or only what the courier is paid out?",
+      "ground_truth": "Only the courier payout — it's added into courier_fee_quoted_mdl/courier_fee_surcharge_mdl on the order, not into delivery_fee_mdl.",
+      "verify_cmd": "grep -n \"courier_fee_quoted_mdl\\s*=\\|courier_fee_surcharge_mdl\\s*=\" supabase/migrations/20260731000200_weather_surcharge.sql | head -3",
+      "verify_output": "83: set courier_fee_quoted_mdl = round(v_tariff.base_mdl + v_tariff.per_km_mdl * v_dist_km + v_tariff.weather_surcharge_mdl, 2), 84: courier_fee_surcharge_mdl = nullif(v_tariff.weather_surcharge_mdl, 0)",
+      "why_it_matters": "A dev could wrongly assume a weather surcharge raises the customer's bill; it's a courier-side incentive, not a customer charge.",
+      "category": "money"
+    },
+    {
+      "id": "r09",
+      "question": "Can the customer who placed an online-payment order call confirm_online_payment on their own order to mark it paid?",
+      "ground_truth": "No — rejects the caller unless jwt role='service_role' (PSP webhook) or has_role('platform_admin'); the ordering customer is never authorized, even for their own order.",
+      "verify_cmd": "grep -n \"v_caller_role <> 'service_role'\" supabase/migrations/20260726000300_confirm_online_payment_service_gate.sql",
+      "verify_output": "25: if v_caller_role <> 'service_role' and not has_role('platform_admin') then",
+      "why_it_matters": "The prior version let customers self-confirm and get free food while the platform still owed the restaurant commission — this migration was a fix for exactly that exploit.",
+      "category": "money"
+    },
+    {
+      "id": "r10",
+      "question": "The 1400 MDL cash-on-delivery checkout cap in place_order applies to which combination of order_type and payment_method — does catering fall under it?",
+      "ground_truth": "Only order_type='standard' AND payment_method='cash'; catering is not gated by this check at all.",
+      "verify_cmd": "sed -n '290,294p' supabase/migrations/20260813000400_cash_gate_fixes.sql",
+      "verify_output": "if p_order_type = 'standard' and p_payment_method = 'cash' and (v_subtotal + v_restaurant.delivery_fee_mdl) > 1400 then raise exception 'comenzile peste 1400 MDL se achită cu cardul la livrare';",
+      "why_it_matters": "Assuming this cap also blocks large catering cash orders would be wrong — the condition only fires for standard+cash.",
+      "category": "money"
+    },
+    {
+      "id": "r11",
+      "question": "After a courier's dispatch offer for an order expires unanswered, is that courier excluded from being offered the SAME order again forever, or only for a cooldown window?",
+      "ground_truth": "Only a 2-minute cooldown, then eligible again — unlike an explicit decline, which excludes that courier from that order forever.",
+      "verify_cmd": "grep -n \"excluded only for a 2-minute cooldown\\|excluded forever\" supabase/migrations/20260812000000_dispatch_cooldown.sql",
+      "verify_output": "9: declined -> excluded forever (an explicit no is respected...) 11: expired -> excluded only for a 2-minute cooldown, then eligible again",
+      "why_it_matters": "Treating an ignored/expired offer the same as a decline would permanently strand a single-courier order after one missed push.",
+      "category": "dispatch"
+    },
+    {
+      "id": "r12",
+      "question": "Was the original `dispatch_offers_order_courier_once` lifetime unique index kept or dropped by the 2026-08-12 dispatch-cooldown migration?",
+      "ground_truth": "Dropped — `drop index if exists public.dispatch_offers_order_courier_once;`, replaced by a plain (non-unique) lookup index.",
+      "verify_cmd": "grep -n \"drop index if exists public.dispatch_offers_order_courier_once\" supabase/migrations/20260812000000_dispatch_cooldown.sql",
+      "verify_output": "19:drop index if exists public.dispatch_offers_order_courier_once;",
+      "why_it_matters": "Code or docs still referencing that index name for 'lifetime once per courier' logic would be describing dead behavior.",
+      "category": "dispatch"
+    },
+    {
+      "id": "r13",
+      "question": "What enforces the 'one live offer per order, one live offer per courier' rule in dispatch_offers — application code, or database constraints?",
+      "ground_truth": "Database: two partial unique indexes, dispatch_offers_live_per_order and dispatch_offers_live_per_courier, both `where status = 'offered'`.",
+      "verify_cmd": "grep -n \"dispatch_offers_live_per_order\\|dispatch_offers_live_per_courier\" supabase/migrations/20260717001600_dispatch_offers.sql",
+      "verify_output": "29:create unique index if not exists dispatch_offers_live_per_order on public.dispatch_offers(order_id) where status = 'offered'; 30:create unique index if not exists dispatch_offers_live_per_courier on public.dispatch_offers(courier_id) where status = 'offered';",
+      "why_it_matters": "An RPC bug that tries to create two simultaneous 'offered' rows for the same order/courier will hit a DB constraint violation, not silently double-dispatch.",
+      "category": "dispatch"
+    },
+    {
+      "id": "r14",
+      "question": "Does tests/unit/realtimeHonesty.test.ts run the app and check runtime behavior, or does it statically read component source files and regex-match them?",
+      "ground_truth": "Static: it uses readFileSync + a stripComments() regex pass, then checks patterns like /subscribeTable\\(/ and /startJitteredPoll\\(|setInterval\\(/ against file text — no runtime execution.",
+      "verify_cmd": "grep -n \"readFileSync\\|stripComments\\|hasRecovery =\" tests/unit/realtimeHonesty.test.ts | head -5",
+      "verify_output": "1:import { readFileSync, readdirSync, statSync } from \"node:fs\"; 58:function stripComments(source: string) ... 82:...readFileSync(join(ROOT, path), \"utf8\")))",
+      "why_it_matters": "A dev 'fixing' this test by mocking runtime behavior would be solving the wrong problem — it only ever inspects source text.",
+      "category": "testing"
+    },
+    {
+      "id": "r15",
+      "question": "Does src/lib/realtime/pollJitter.ts schedule its retries with setInterval or a self-rescheduling setTimeout, and why was that choice made?",
+      "ground_truth": "setTimeout, rescheduled on every tick — so the cadence can change (jitter/backoff) between ticks, which a fixed setInterval cannot do.",
+      "verify_cmd": "grep -n \"setInterval\\|setTimeout\" src/lib/realtime/pollJitter.ts",
+      "verify_output": "3://...used to fall back to a bare `setInterval(fn, 8:// (not `setInterval`, so the cadence can actually change between ticks) 29: let timer: ReturnType<typeof setTimeout> | null = null; 40/43: timer = setTimeout(tick, jitteredDelay(...))",
+      "why_it_matters": "Swapping this back to setInterval for 'simplicity' would silently disable the backoff/jitter this module exists for.",
+      "category": "realtime"
+    },
+    {
+      "id": "r16",
+      "question": "For courier live-location tracking, why does the courier side broadcast over Realtime instead of writing straight to courier_locations on every GPS tick?",
+      "ground_truth": "To avoid hammering the DB every ~10s; a separate low-frequency UPSERT into courier_locations (much less often) keeps a last-known position for page loads that missed the broadcast.",
+      "verify_cmd": "grep -n \"every ~10s\\|low-frequency UPSERT\" src/lib/realtime/courierLocation.ts",
+      "verify_output": "20:// every ~10s. A separate low-frequency UPSERT into courier_locations keeps a",
+      "why_it_matters": "A dev adding a new consumer that reads only courier_locations expecting ~10s freshness would get stale data — the fast channel is broadcast-only.",
+      "category": "realtime"
+    },
+    {
+      "id": "r17",
+      "question": "In kyc-documents retention, do rejected, abandoned, and approved applications get purged on the same timer?",
+      "ground_truth": "No: rejected purges 90 days after review, abandoned-pending purges 180 days after creation, approved applications are deliberately retained (not purged).",
+      "verify_cmd": "sed -n '8,13p' supabase/migrations/20260806000300_kyc_retention.sql",
+      "verify_output": "- rejected applications: 90 days after review (dispute window passed); - abandoned pending applications: 180 days after creation. Approved applications are deliberately retained...",
+      "why_it_matters": "Applying a blanket 90-day purge to all statuses would delete an active, approved courier's KYC documents.",
+      "category": "storage"
+    },
+    {
+      "id": "r18",
+      "question": "Are delivery-proof photos in the private delivery-proof bucket kept indefinitely (since there's no client update/delete policy), or does something eventually delete them?",
+      "ground_truth": "They are deleted after 90 days by purge_expired_pii(), which also nulls the dangling orders.pod_photo_path — client-side append-only doesn't mean forever-retained.",
+      "verify_cmd": "grep -n \"bucket_id = 'delivery-proof'\" supabase/migrations/20260806000300_kyc_retention.sql",
+      "verify_output": "42: delete from storage.objects where bucket_id = 'delivery-proof' and created_at < now() - interval '90 days';",
+      "why_it_matters": "Assuming no client-facing delete policy means the photos live forever would be wrong for GDPR/audit reasoning — a scheduled job purges them server-side.",
+      "category": "storage"
+    },
+    {
+      "id": "r19",
+      "question": "What cron schedule expression runs purge_expired_pii(), and via which Postgres extension?",
+      "ground_truth": "`'15 3 * * *'` (03:15 daily) via pg_cron: `select cron.schedule('purge-expired-pii', '15 3 * * *', ...)`.",
+      "verify_cmd": "grep -n \"cron.schedule('purge-expired-pii'\" supabase/migrations/20260726000500_gdpr_retention.sql",
+      "verify_output": "69:select cron.schedule('purge-expired-pii', '15 3 * * *', $$select public.purge_expired_pii();$$);",
+      "why_it_matters": "Debugging why old PII vanished overnight requires knowing this runs once daily at 03:15, not continuously or on-demand.",
+      "category": "storage"
+    },
+    {
+      "id": "r20",
+      "question": "Does scripts/test-rpc.sh commit each tests/rpc/*.sql file's changes to the local DB, or wrap each file in a transaction that's always rolled back?",
+      "ground_truth": "Always rolled back — each file is piped as `BEGIN; <file>; ROLLBACK;` to psql, regardless of pass/fail.",
+      "verify_cmd": "grep -n 'echo \"BEGIN;\"\\|echo \"ROLLBACK;\"' scripts/test-rpc.sh",
+      "verify_output": "18: out=$( ( echo \"BEGIN;\"; cat \"$f\"; echo \"ROLLBACK;\" ) | docker exec -i ... psql ...)",
+      "why_it_matters": "A dev worried that running test:rpc against local data will leave junk rows behind can be confident it never commits.",
+      "category": "testing"
+    },
+    {
+      "id": "r21",
+      "question": "When the local Supabase Docker container isn't running, does scripts/check-type-drift.sh (part of `npm run verify`) fail the pipeline or silently pass with exit 0?",
+      "ground_truth": "It silently passes: prints \"SKIP: local Supabase not running\" and exits 0 — the opposite behavior of scripts/test-rpc.sh, which exits 1 in the same situation.",
+      "verify_cmd": "grep -n \"SKIP: local Supabase\\|exit 0\" scripts/check-type-drift.sh",
+      "verify_output": "14: echo \"SKIP: local Supabase not running (supabase start first)\"; exit 0",
+      "why_it_matters": "A green `npm run verify` with Docker down proves nothing about type drift — the two 'is Docker up' guards in this repo disagree on whether that's a pass or a fail.",
+      "category": "testing"
+    },
+    {
+      "id": "r22",
+      "question": "What exact four-step chain does the `npm run verify` script run, and in what order?",
+      "ground_truth": "bash scripts/check-type-drift.sh && bash scripts/check-doc-drift.sh && tsc --noEmit && vitest run.",
+      "verify_cmd": "grep -n '\"verify\"' package.json",
+      "verify_output": "14: \"verify\": \"bash scripts/check-type-drift.sh && bash scripts/check-doc-drift.sh && tsc --noEmit && vitest run\"",
+      "why_it_matters": "`verify` does NOT run tests/rpc — a dev relying on it alone would miss RPC-level regressions entirely.",
+      "category": "testing"
+    },
+    {
+      "id": "r23",
+      "question": "Where does scripts/dev-local.sh read the local master-doorway password from — .env.local, a hardcoded value, or a separate file?",
+      "ground_truth": "A separate gitignored file, scripts/.dev-local.env, holding `export MASTER_DOORWAY_PASS=...` — not .env.local and not hardcoded.",
+      "verify_cmd": "grep -n \"MASTER_DOORWAY_PASS\\|.dev-local.env\" scripts/dev-local.sh | head -5",
+      "verify_output": "# Secrets: the master password is NOT in git. It's read from scripts/.dev-local.env (gitignored). Create it once: echo 'export MASTER_DOORWAY_PASS=<your-password>' > scripts/.dev-local.env",
+      "why_it_matters": "Putting MASTER_DOORWAY_PASS in .env.local instead would mean dev-local.sh never picks it up, since it sources a different file.",
+      "category": "env"
+    },
+    {
+      "id": "r24",
+      "question": "What are the two Expo app package.json `name` fields under mobile/, and do they follow a shared naming prefix?",
+      "ground_truth": "\"dragons-couriers-client\" and \"dragons-couriers-driver\" — same `dragons-couriers-` prefix despite the repo being 'chisinau-delivery'.",
+      "verify_cmd": "grep -n '\"name\"' mobile/client/package.json mobile/driver/package.json",
+      "verify_output": "mobile/client/package.json:2: \"name\": \"dragons-couriers-client\", mobile/driver/package.json:2: \"name\": \"dragons-couriers-driver\",",
+      "why_it_matters": "Searching npm/expo registries or logs for 'chisinau' won't surface these two apps; they're branded differently from the web repo name.",
+      "category": "mobile"
+    },
+    {
+      "id": "r25",
+      "question": "Does mobile/client's package.json include expo-location as a dependency the same way mobile/driver's does?",
+      "ground_truth": "No — expo-location appears only in mobile/driver/package.json, not mobile/client/package.json.",
+      "verify_cmd": "grep -n \"expo-location\" mobile/client/package.json mobile/driver/package.json",
+      "verify_output": "mobile/driver/package.json:15: \"expo-location\": \"~19.0.8\", (no match in mobile/client/package.json)",
+      "why_it_matters": "The client app has no GPS dependency at all — location tracking only exists on the driver side, so a feature needing location on the client app requires adding this dependency first.",
+      "category": "mobile"
+    },
+    {
+      "id": "r26",
+      "question": "What hardcoded Chișinău-center coordinate constant does mobile/driver/src/lib/api.ts export, and what is it used for?",
+      "ground_truth": "`CHISINAU_CENTER = { lat: 47.0105, lng: 28.8638 }`, used as the map's synthetic/fallback center rather than real GPS.",
+      "verify_cmd": "grep -n \"CHISINAU_CENTER\" mobile/driver/src/lib/api.ts",
+      "verify_output": "62:export const CHISINAU_CENTER = { lat: 47.0105, lng: 28.8638 };",
+      "why_it_matters": "A demo relying on this constant is showing a fixed point, not the courier's real position — confusing it for live GPS would be a mistake before real location wiring lands.",
+      "category": "mobile"
+    },
+    {
+      "id": "r27",
+      "question": "How many .sql seed files exist directly under supabase/seeds/ (not counting migrations), and what naming pattern do most of them follow?",
+      "ground_truth": "8 files; 6 of them follow the pattern `rich_demo_0N_<topic>.sql`, plus local_secrets.sql and local_test_users.sql.",
+      "verify_cmd": "ls supabase/seeds/*.sql",
+      "verify_output": "local_secrets.sql local_test_users.sql rich_demo_01_restaurants_menu.sql rich_demo_02_people_fleet.sql rich_demo_03_orders.sql rich_demo_04_dispatch_ratings_ops.sql rich_demo_05_modifiers.sql rich_demo_06_showcase.sql (8 total)",
+      "why_it_matters": "seed.sql alone (in supabase/) doesn't populate the rich demo data — the numbered rich_demo_0N files under seeds/ must also run, in order.",
+      "category": "counts"
+    },
+    {
+      "id": "r28",
+      "question": "How many standalone .mjs verification/audit scripts live directly under scripts/ (a11y-audit, overflow-audit, etc.), separate from the .sh scripts?",
+      "ground_truth": "12 .mjs files.",
+      "verify_cmd": "ls scripts/*.mjs | wc -l",
+      "verify_output": "12",
+      "why_it_matters": "None of these 12 are wired into `npm run verify` or `npm test` — a dev must know to run them manually for visual/a11y regressions.",
+      "category": "counts"
+    },
+    {
+      "id": "r29",
+      "question": "How many file paths are listed in the MUST_ANNOUNCE array in tests/unit/realtimeHonesty.test.ts (surfaces required to visibly announce a dead realtime connection, not just recover)?",
+      "ground_truth": "5 — OffersLive.tsx, OrderQueueLive.tsx, DeliveryLive.tsx, CateringTracking.tsx, RestaurantPickupMap.tsx.",
+      "verify_cmd": "sed -n '/const MUST_ANNOUNCE = \\[/,/\\];/p' tests/unit/realtimeHonesty.test.ts",
+      "verify_output": "const MUST_ANNOUNCE = [ \"src/components/courier/OffersLive.tsx\", ... \"src/components/admin/RestaurantPickupMap.tsx\", ]; (5 entries)",
+      "why_it_matters": "Adding a new live-data consumer that a customer acts on (accepts/confirms) without adding it here means the test won't catch a silently frozen screen.",
+      "category": "counts"
+    },
+    {
+      "id": "r30",
+      "question": "How many separate landing-page directories exist under src/app/(marketing)/start/, and what audience does each one's directory name target?",
+      "ground_truth": "3 — restaurant/, curier/, client/ (partner-restaurant, courier, and customer onboarding funnels respectively).",
+      "verify_cmd": "find \"src/app/(marketing)/start\" -maxdepth 1 -type d",
+      "verify_output": "src/app/(marketing)/start src/app/(marketing)/start/restaurant src/app/(marketing)/start/curier src/app/(marketing)/start/client",
+      "why_it_matters": "A single generic 'start' page doesn't exist — each audience has its own dedicated onboarding route that must be updated separately.",
+      "category": "routing"
+    }
+  ]
+}

@@ -28,7 +28,7 @@ STOP-RULE first, then iterate Doer → Verifier → Improve.
 
 ```bash
 npm run build      # production build (Turbopack) — must pass before anything is "done"
-npm run verify     # type-drift check + tsc --noEmit + vitest
+npm run verify     # 4 steps: check-type-drift.sh -> check-doc-drift.sh -> tsc --noEmit -> vitest
 npm test           # vitest unit suite — ONLY tests/unit/**/*.test.ts, never the SQL sims
 npm run test:rpc   # SQL sims (tests/rpc) — the real behaviour gate. Needs the Docker container
                    # `supabase_db_chisinau-delivery` running, else it prints SKIP and exits 1.
