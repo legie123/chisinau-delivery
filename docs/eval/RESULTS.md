@@ -72,6 +72,19 @@ migration file, which is what produced that error. The other 15 were re-checked 
 later migrations for contradictions and none was found, but the set is not certified beyond
 that spot-check.
 
+**The C number is a floor, not a best case.** The bundle handed to arm C contained only
+`CLAUDE.md`, `docs/migrations.md` and `docs/history.md`. CLAUDE.md also points at
+`AGENTS.md`, `docs/GHID-OPERATIONAL.md` and `docs/plan/CONSTRANGERI-GAMIFICARE.md`, and
+those three were **not** in the bundle — the runs reported reaching for them and finding
+nothing. So arm C scored 60.0% with three of its pointers dead. Arm A was not handicapped
+the same way: it is self-contained apart from the same `@AGENTS.md` reference (327 bytes,
+about Next.js docs, no repo facts).
+
+**Verification of the clean room itself:** the set-3 author reported that no file from
+outside `/tmp/cleanroom/repo` entered its context, and the arm-C runs reported opening
+exactly the two bundle files and never `doc_A.md`. Self-reports, but they are consistent
+with the 0/180 verbatim-quote failures.
+
 ## Result — held-out set 2 (independence compromised, see warning above)
 
 | Arm | What it got | Score /30 | Wrong answers per run |
