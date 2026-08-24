@@ -1,0 +1,275 @@
+{
+  "generated_from": "/tmp/cleanroom/repo — source tree with all documentation removed",
+  "questions": [
+    {
+      "id": "s01",
+      "question": "What file replaces middleware.ts for route interception in this Next.js version, and what is the exported function named?",
+      "ground_truth": "src/proxy.ts, exporting `proxy` — Next.js 16 renamed the middleware.ts convention to proxy.ts",
+      "verify_cmd": "grep -n \"export async function proxy\" src/proxy.ts",
+      "verify_output": "76:export async function proxy(request: NextRequest) {",
+      "why_it_matters": "Anyone still creating middleware.ts will silently write dead code that never runs.",
+      "category": "routing"
+    },
+    {
+      "id": "s02",
+      "question": "Which env var disables the development auto-login bypass built into src/proxy.ts?",
+      "ground_truth": "DISABLE_DEV_AUTOLOGIN=1 (bypass otherwise active whenever NODE_ENV !== 'production')",
+      "verify_cmd": "grep -n \"DISABLE_DEV_AUTOLOGIN\" src/proxy.ts",
+      "verify_output": "30:// pornește serverul cu DISABLE_DEV_AUTOLOGIN=1).\\n41:  return process.env.NODE_ENV !== \"production\" && process.env.DISABLE_DEV_AUTOLOGIN !== \"1\";",
+      "why_it_matters": "Without knowing this flag, a dev can't tell why every gated route silently signs them in as a seeded test account instead of showing a login form.",
+      "category": "routing"
+    },
+    {
+      "id": "s03",
+      "question": "Which HTTP method must hit /enter/[role] to actually perform the demo sign-in (the other method just redirects home)?",
+      "ground_truth": "POST — GET is CSRF-able via link prefetch in production, so GET only 303-redirects to /",
+      "verify_cmd": "grep -n \"export async function GET\\|export async function POST\" \"src/app/enter/[role]/route.ts\"",
+      "verify_output": "21:export async function GET(request: NextRequest) {\\n25:export async function POST(request: NextRequest, { params }: { params: Promise<{ role: string }> }) {",
+      "why_it_matters": "A GET-based link or fetch to this doorway looks broken (redirects home) instead of signing anyone in — easy to misdiagnose as a bug.",
+      "category": "routing"
+    },
+    {
+      "id": "s04",
+      "question": "What technique fixed the '42P17 infinite recursion detected in policy' error between the orders and couriers RLS policies?",
+      "ground_truth": "SECURITY DEFINER helper functions (e.g. current_courier_id()) whose internal queries bypass RLS, breaking the cross-table policy evaluation cycle",
+      "verify_cmd": "grep -n \"security definer\" supabase/migrations/20260708001000_fix_rls_recursion.sql | head -5",
+      "verify_output": "10:security definer\\n20:security definer\\n33:security definer\\n48:security definer",
+      "why_it_matters": "Writing a new cross-table RLS policy that subqueries a table with its own policies on the same columns will reintroduce the same recursion error.",
+      "category": "db-security"
+    },
+    {
+      "id": "s05",
+      "question": "After the profile role-escalation fix (migration 20260717002300), which columns can an authenticated user update on their own profiles row via a direct client PATCH?",
+      "ground_truth": "Only full_name and phone — table-level UPDATE was revoked and re-granted column-scoped; role changes are reverted by a trigger regardless",
+      "verify_cmd": "grep -n \"grant update\" supabase/migrations/20260717002300_fix_profile_role_escalation.sql",
+      "verify_output": "16:grant update (full_name, phone) on public.profiles to authenticated;",
+      "why_it_matters": "Before this fix any authenticated customer could PATCH their own role to platform_admin — a full account takeover via one REST call.",
+      "category": "db-security"
+    },
+    {
+      "id": "s06",
+      "question": "What stops a courier from broadcasting a fake GPS position on an order they are not assigned to?",
+      "ground_truth": "The realtime.messages RLS 'courier_location_send' policy — broadcast insert is allowed only when orders.courier_id equals current_courier_id() for that order",
+      "verify_cmd": "grep -n \"courier_location_send\" -A8 supabase/migrations/20260717002100_ws3b_private_location_channel.sql",
+      "verify_output": "33:create policy \"courier_location_send\" on realtime.messages ... and o.courier_id = public.current_courier_id()",
+      "why_it_matters": "Realtime broadcast channels have no table-level RLS by default; this app-specific policy is the only thing preventing GPS spoofing.",
+      "category": "db-security"
+    },
+    {
+      "id": "s07",
+      "question": "The 'delivery-proof' storage bucket has INSERT and SELECT policies. What policy type is deliberately absent, and why?",
+      "ground_truth": "No UPDATE or DELETE policy at all — makes the bucket append-only by RLS default-deny (mirrors courier_cash_movements/geofence_events)",
+      "verify_cmd": "grep -n \"create policy\" supabase/migrations/20260727002000_pod_photo.sql",
+      "verify_output": "20:create policy \"delivery_proof_courier_write\" on storage.objects\\n31:create policy \"delivery_proof_read\" on storage.objects",
+      "why_it_matters": "Adding an update/delete policy 'to fix a bug' would silently break the append-only evidence guarantee used for dispute resolution.",
+      "category": "db-security"
+    },
+    {
+      "id": "s08",
+      "question": "How many failed attempts lock out an IP from /master/auth, and for how long?",
+      "ground_truth": "5 failed attempts → 15 minute lockout (in-memory Map, resets per serverless instance)",
+      "verify_cmd": "grep -n \"FAIL_LIMIT\\|LOCKOUT_MS\" src/app/master/auth/route.ts",
+      "verify_output": "16:const FAIL_LIMIT = 5;\\n17:const LOCKOUT_MS = 15 * 60 * 1000;\\n55:      lockedUntil: count >= FAIL_LIMIT ? Date.now() + LOCKOUT_MS : 0,",
+      "why_it_matters": "On serverless the counter resets whenever a new instance handles the request, so this brute-force guard is weaker than it looks — worth knowing before relying on it.",
+      "category": "db-security"
+    },
+    {
+      "id": "s09",
+      "question": "Which order field, not orders.created_at, determines which payout period an order's revenue is settled into?",
+      "ground_truth": "orders.delivered_at — using created_at dropped catering orders (quoted weeks ahead) out of the period they actually earned in",
+      "verify_cmd": "grep -n \"delivered_at\" supabase/migrations/20260725000100_money_integrity.sql | head -5",
+      "verify_output": "30:alter table public.orders add column if not exists delivered_at timestamptz; ... 59:-- 3. advance_delivery_status: stamp delivered_at + GATE prepaid delivery on payment.",
+      "why_it_matters": "A payout query keyed on created_at instead of delivered_at silently drops catering revenue from the correct settlement run.",
+      "category": "money"
+    },
+    {
+      "id": "s10",
+      "question": "Can advance_delivery_status move an online_gateway (prepaid) order to status 'delivered' while payment_status is not 'paid'?",
+      "ground_truth": "No — it raises an exception blocking the transition until payment_status='paid'",
+      "verify_cmd": "grep -n \"cannot be delivered before payment\" supabase/migrations/20260725000100_money_integrity.sql",
+      "verify_output": "95:    raise exception 'online order % cannot be delivered before payment is confirmed (payment_status=%)',",
+      "why_it_matters": "This is the single gate preventing prepaid orders from being handed over with zero payment confirmation — a revenue leak if bypassed.",
+      "category": "money"
+    },
+    {
+      "id": "s11",
+      "question": "When a customer changes their tip via set_order_tip, is orders.total_mdl recomputed from the subtotal or adjusted by the tip delta?",
+      "ground_truth": "Adjusted by delta only (total_mdl - old tip + new tip); recomputing from subtotal was the bug that destroyed catering's quoted total",
+      "verify_cmd": "grep -n \"v_new_total\" -A2 supabase/migrations/20260725000100_money_integrity.sql | head -6",
+      "verify_output": "134:  v_new_total := v_order.total_mdl - coalesce(v_order.tip_mdl, 0) + v_new_tip;",
+      "why_it_matters": "Recomputing total_mdl from subtotal on a catering order would overwrite the authoritative quoted_total_mdl-derived total with a wrong number.",
+      "category": "money"
+    },
+    {
+      "id": "s12",
+      "question": "What database constraint makes it structurally impossible to pay the same order out twice to the same recipient type (courier or restaurant)?",
+      "ground_truth": "payout_orders has PRIMARY KEY (order_id, recipient_type)",
+      "verify_cmd": "grep -n \"primary key (order_id, recipient_type)\" supabase/migrations/20260725000100_money_integrity.sql",
+      "verify_output": "50:  primary key (order_id, recipient_type)",
+      "why_it_matters": "This PK is what makes overlapping/re-run payout period generation safe instead of double-paying — removing it reopens a critical money bug.",
+      "category": "money"
+    },
+    {
+      "id": "s13",
+      "question": "In the courier cash-float system (v1 seed), what is the cash-in-hand cap that blocks a courier from going back online, and what is the reactivation threshold?",
+      "ground_truth": "cap 1500.00 MDL; reactivation threshold 1000.00 MDL",
+      "verify_cmd": "grep -n \"1500.00\\|1000.00\" supabase/migrations/20260727000800_cash_float.sql",
+      "verify_output": "46:select '2026-01-01T00:00:00Z', 1500.00, 1000.00,",
+      "why_it_matters": "These are policy values, not hardcoded constants elsewhere — changing courier cash-handling logic without knowing the actual cap/threshold risks contradicting the seeded policy.",
+      "category": "money"
+    },
+    {
+      "id": "s14",
+      "question": "How many live (status='offered') dispatch_offers rows can a single order or a single courier have at once?",
+      "ground_truth": "At most one each — enforced by two partial unique indexes (dispatch_offers_live_per_order, dispatch_offers_live_per_courier)",
+      "verify_cmd": "grep -n \"unique index.*live_per\" supabase/migrations/20260717001600_dispatch_offers.sql",
+      "verify_output": "29:create unique index if not exists dispatch_offers_live_per_order ... where status = 'offered';\\n30:create unique index if not exists dispatch_offers_live_per_courier ... where status = 'offered';",
+      "why_it_matters": "Any dispatch code path that inserts an offer without respecting this invariant will hit a unique-violation instead of silently double-offering.",
+      "category": "dispatch"
+    },
+    {
+      "id": "s15",
+      "question": "Does a courier's history of declining offers currently affect their dispatch_order() score?",
+      "ground_truth": "No — the acceptance-rate penalty term was deleted outright (structural removal, not zero-weighted) in migration 20260727001300",
+      "verify_cmd": "grep -n \"Anonymity invariant\" -A3 supabase/migrations/20260727001300_dispatch_anonymity.sql",
+      "verify_output": "48:  -- Anonymity invariant: score is ETA-to-restaurant only. No acceptance/\\n49-  -- decline history term — deleted, not zeroed (see header).",
+      "why_it_matters": "Re-adding a decline-rate term to dispatch scoring (even accidentally, e.g. via alpha1 retuning code) reintroduces a policy violation that was fixed structurally on purpose.",
+      "category": "dispatch"
+    },
+    {
+      "id": "s16",
+      "question": "Can the same order be offered to the same courier twice (e.g. in a later dispatch wave after they declined)?",
+      "ground_truth": "No — unique index dispatch_offers_order_courier_once(order_id, courier_id) forbids it permanently",
+      "verify_cmd": "grep -n \"order_courier_once\" supabase/migrations/20260717001600_dispatch_offers.sql",
+      "verify_output": "32:create unique index if not exists dispatch_offers_order_courier_once on public.dispatch_offers(order_id, courier_id);",
+      "why_it_matters": "A retry-dispatch loop that doesn't exclude previously-offered couriers will hit a unique-violation instead of re-offering, and must be coded to skip them.",
+      "category": "dispatch"
+    },
+    {
+      "id": "s17",
+      "question": "Which three tables are added to the supabase_realtime publication in the base schema migration (before dispatch/courier extensions)?",
+      "ground_truth": "public.orders, public.catering_details, public.delivery_status_events",
+      "verify_cmd": "grep \"alter publication\" supabase/migrations/20260708000700_realtime_publication.sql",
+      "verify_output": "alter publication supabase_realtime add table public.orders;\\nalter publication supabase_realtime add table public.catering_details;\\nalter publication supabase_realtime add table public.delivery_status_events;",
+      "why_it_matters": "A new table's postgres_changes subscription connects successfully but silently never receives events unless it's explicitly added to this publication.",
+      "category": "realtime"
+    },
+    {
+      "id": "s18",
+      "question": "Is the per-order courier location Realtime channel public or private, and what config flag sets that on mobile/driver's client?",
+      "ground_truth": "Private — the channel is created with { config: { private: true } }",
+      "verify_cmd": "grep -n \"private\" mobile/driver/src/lib/realtime/courierLocation.ts",
+      "verify_output": "16:  return supabase.channel(channelName(orderId), { config: { private: true } });",
+      "why_it_matters": "A channel opened without config.private:true bypasses the realtime.messages RLS authorization entirely and reverts to the public-broadcast GPS leak this migration fixed.",
+      "category": "realtime"
+    },
+    {
+      "id": "s19",
+      "question": "Besides broadcasting position over the private Realtime channel, what lower-frequency mechanism also records courier location for page loads that missed the broadcast?",
+      "ground_truth": "A separate low-frequency UPSERT into the courier_locations table",
+      "verify_cmd": "grep -n \"UPSERT\\|low-frequency\" mobile/driver/src/lib/realtime/courierLocation.ts",
+      "verify_output": "21:// to courier_locations on every tick. A separate low-frequency UPSERT into",
+      "why_it_matters": "Reading only courier_locations for a 'live' map misses the real-time broadcast ticks; reading only the broadcast misses initial page-load state.",
+      "category": "realtime"
+    },
+    {
+      "id": "s20",
+      "question": "What determines write access to the restaurant-photos storage bucket, and from where in the object path is the restaurant id read?",
+      "ground_truth": "public.has_restaurant_access() checked against the first path segment via storage.foldername(name)[1] — path convention {restaurantId}/...",
+      "verify_cmd": "grep -n \"foldername\" supabase/migrations/20260708000600_storage_buckets.sql",
+      "verify_output": "15:    and public.has_restaurant_access(((storage.foldername(name))[1])::uuid)",
+      "why_it_matters": "Uploading a photo to any path other than {restaurantId}/... as the first segment will always fail the write policy, regardless of the caller's access rights.",
+      "category": "storage"
+    },
+    {
+      "id": "s21",
+      "question": "Is the delivery-proof (POD photo) storage bucket public or private, and is a photo ever required to advance an order to 'delivered'?",
+      "ground_truth": "Private bucket; never required — advance_delivery_status has no dependency on pod_photo_path, it's soft evidence only",
+      "verify_cmd": "grep -n \"'delivery-proof'\" supabase/migrations/20260727002000_pod_photo.sql | head -3",
+      "verify_output": "6:-- Storage: new PRIVATE bucket 'delivery-proof', path-scoped {order_id}/... —\\n17:values ('delivery-proof', 'delivery-proof', false)",
+      "why_it_matters": "Building a UI that blocks the 'delivered' action until a photo uploads would add a requirement the backend explicitly and deliberately does not enforce.",
+      "category": "storage"
+    },
+    {
+      "id": "s22",
+      "question": "How does the RPC test runner (scripts/test-rpc.sh) achieve isolation so each tests/rpc/*.sql file leaves no trace in the local database?",
+      "ground_truth": "Each file is piped through psql wrapped in BEGIN; ... ROLLBACK; against the local Supabase docker container",
+      "verify_cmd": "grep -n 'BEGIN;\\|ROLLBACK;' scripts/test-rpc.sh",
+      "verify_output": "18:  out=$( ( echo \"BEGIN;\"; cat \"$f\"; echo \"ROLLBACK;\" ) | docker exec -i \"$DB_CONTAINER\" psql -U postgres -d postgres -v ON_ERROR_STOP=1 2>&1 )",
+      "why_it_matters": "A test file that issues its own explicit COMMIT would break this isolation and permanently mutate the local dev database.",
+      "category": "testing"
+    },
+    {
+      "id": "s23",
+      "question": "Which TypeScript file's ADVANCE_TRANSITIONS map is cross-checked by two separate test suites against the real advance_delivery_status SQL function, and must never be edited alone?",
+      "ground_truth": "packages/shared-types/src/transitions.ts — bound to supabase/migrations/20260725000100_money_integrity.sql via tests/rpc/10_transitions_contract.sql and tests/unit/transitions.test.ts",
+      "verify_cmd": "sed -n '1,15p' packages/shared-types/src/transitions.ts",
+      "verify_output": "// CONTRACT: this map is bound to the real RPC by TWO tests — tests/rpc/10_transitions_contract.sql ... tests/unit/transitions.test.ts ... Never edit one without the other",
+      "why_it_matters": "Editing the SQL transition matrix without updating this TS map (or vice versa) fails both test suites loudly instead of drifting silently.",
+      "category": "testing"
+    },
+    {
+      "id": "s24",
+      "question": "Why does scripts/facts.sh deliberately refuse to publish a test-CASE count, only a test-FILE count?",
+      "ground_truth": "it.each(...) expands at runtime so a static grep undercounts (170 via grep vs the real 206 from actually running vitest)",
+      "verify_cmd": "grep -n \"it.each\\|no test-CASE\" scripts/facts.sh",
+      "verify_output": "29:  # NOTE: no test-CASE count here on purpose. A static grep cannot produce it —\\n30:  # `it.each([...])` expands at runtime, so grep says 170 where vitest says 206.",
+      "why_it_matters": "Grepping for `it(` / `test(` to count unit tests in this repo gives a wrong, understated number — you have to actually run vitest for the real count.",
+      "category": "testing"
+    },
+    {
+      "id": "s25",
+      "question": "What must happen immediately before running scripts/check-type-drift.sh for its result to be meaningful, and why?",
+      "ground_truth": "`supabase db reset` must be run first so the local DB reflects every migration — otherwise the generated-vs-committed types diff is a false negative",
+      "verify_cmd": "grep -n \"AFTER \\`supabase db reset\\`\" scripts/check-type-drift.sh",
+      "verify_output": "5:# AFTER `supabase db reset` so the local DB reflects EVERY migration (otherwise the",
+      "why_it_matters": "Running the drift check against a stale/partially-migrated local DB gives a false 'no drift' pass even when generated-types are genuinely out of date.",
+      "category": "env"
+    },
+    {
+      "id": "s26",
+      "question": "What port does scripts/dev-local.sh serve the app on, and what is the default MASTER_DOORWAY_USER?",
+      "ground_truth": "Port 3007; default MASTER_DOORWAY_USER is 'dragon' (the password must still be supplied separately via scripts/.dev-local.env)",
+      "verify_cmd": "grep -n 'PORT=3007\\|MASTER_DOORWAY_USER:-' scripts/dev-local.sh",
+      "verify_output": "33:export MASTER_DOORWAY_USER=\"${MASTER_DOORWAY_USER:-dragon}\"\\n53:PORT=3007 nohup npm run dev -- -p 3007 > /tmp/chisinau-local-3007.log 2>&1 &",
+      "why_it_matters": "Trying the master login at the default port (3000) or expecting it to work with only the default username and no password file will fail.",
+      "category": "env"
+    },
+    {
+      "id": "s27",
+      "question": "How many Expo mobile apps live under mobile/, and what are their directory names?",
+      "ground_truth": "2 — mobile/client and mobile/driver",
+      "verify_cmd": "ls mobile",
+      "verify_output": "client\\ndriver",
+      "why_it_matters": "A change assumed to apply to 'the mobile app' needs to be checked against both, since they're separate Expo projects for different roles.",
+      "category": "mobile"
+    },
+    {
+      "id": "s28",
+      "question": "Which mobile app has a dedicated realtime location module (courierLocation.ts), and which one lacks it entirely?",
+      "ground_truth": "mobile/driver has src/lib/realtime/courierLocation.ts; mobile/client has no realtime/ directory at all",
+      "verify_cmd": "find mobile -path '*realtime*'",
+      "verify_output": "mobile/driver/src/lib/realtime\\nmobile/driver/src/lib/realtime/courierLocation.ts",
+      "why_it_matters": "Only the driver app broadcasts GPS; expecting a location-broadcast API in the client app's lib directory will come up empty.",
+      "category": "mobile"
+    },
+    {
+      "id": "s29",
+      "question": "How many SQL migration files exist in supabase/migrations, and how many distinct `create or replace function public.*` names do they define across the whole tree?",
+      "ground_truth": "98 migration files; 111 distinct public function names",
+      "verify_cmd": "ls supabase/migrations/*.sql | wc -l; grep -rhoE 'create or replace function public\\.[a-z_]+' supabase/migrations/*.sql | sed 's/.*public\\.//' | sort -u | wc -l",
+      "verify_output": "98\\n111",
+      "why_it_matters": "Sizes the schema's server-side logic surface — a lot of business logic lives in SQL functions, not in the app layer.",
+      "category": "counts"
+    },
+    {
+      "id": "s30",
+      "question": "How many tests/rpc/*.sql regression files and tests/unit/*.ts unit test files exist?",
+      "ground_truth": "66 tests/rpc/*.sql files; 23 tests/unit/*.ts files",
+      "verify_cmd": "ls tests/rpc/*.sql | wc -l; ls tests/unit/*.ts | wc -l",
+      "verify_output": "66\\n23",
+      "why_it_matters": "Sets expectations for how much of the RPC/business-logic surface has direct regression coverage before touching it.",
+      "category": "counts"
+    }
+  ]
+}
