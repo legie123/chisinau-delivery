@@ -40,8 +40,12 @@ gen_block() {
   printf -- '- Migrations: **%s** files (%s → %s), indexed in `docs/migrations.md` (**%s** entries).\n' \
     "$migrations" "$oldest" "$newest" "$index_entries"
   printf -- '- Distinct SQL functions: **%s**. Reporting/admin views: **%s**.\n' "$rpcs" "$views"
-  printf -- '- RPC sims: **%s** files in `tests/rpc/`. Unit test files: **%s** in `tests/unit/`.\n' \
+  # "files", never "sims": one .sql file usually holds several sims, and reading
+  # the file count as the sim count produced a measurably wrong answer in the
+  # 2026-08-25 A/B eval. Say what is actually counted.
+  printf -- '- Test FILES (not assertion counts): **%s** in `tests/rpc/`, **%s** in `tests/unit/`.\n' \
     "$sims" "$unit_files"
+  printf -- '  Each holds several assertions — run the suites for real counts.\n'
   printf -- '- Surfaces: web route groups `(customer) (courier) (admin) (marketing)` + 2 Expo apps in `mobile/`.\n'
   printf '%s\n' "$END"
 }

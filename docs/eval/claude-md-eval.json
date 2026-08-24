@@ -1,0 +1,275 @@
+{
+  "generated_from": "repo source only, docs excluded",
+  "questions": [
+    {
+      "id": "q01",
+      "question": "Which file provides the Next.js middleware for this app, and what is its exported handler function named?",
+      "ground_truth": "src/proxy.ts, exporting `async function proxy(request)` (Next 16 renamed the middleware.ts convention to proxy.ts).",
+      "verify_cmd": "grep -n '^export' src/proxy.ts",
+      "verify_output": "76:export async function proxy(request: NextRequest) {\n122:export const config = {",
+      "why_it_matters": "An agent looking for middleware.ts or writing an exported `middleware` function will silently create a second, dead routing file that never runs.",
+      "category": "routing"
+    },
+    {
+      "id": "q02",
+      "question": "How many top-level route groups exist under src/app, and what are they?",
+      "ground_truth": "4: (admin), (courier), (customer), (marketing).",
+      "verify_cmd": "ls -d 'src/app/(admin)' 'src/app/(courier)' 'src/app/(customer)' 'src/app/(marketing)'",
+      "verify_output": "src/app/(admin)\nsrc/app/(courier)\nsrc/app/(customer)\nsrc/app/(marketing)",
+      "why_it_matters": "Placing a new page in the wrong group changes which layout/auth wrapper it inherits, silently breaking role scoping.",
+      "category": "routing"
+    },
+    {
+      "id": "q03",
+      "question": "Does the POST handler at src/app/enter/[role]/route.ts (a passwordless role-login doorway) function in a production build?",
+      "ground_truth": "No — it checks NODE_ENV==='production' and redirects to /login instead, so the doorway is dev/staging-only by construction.",
+      "verify_cmd": "grep -n \"NODE_ENV === 'production'\" -A2 \"src/app/enter/[role]/route.ts\"",
+      "verify_output": "  if (process.env.NODE_ENV === \"production\") {\n    return NextResponse.redirect(new URL(\"/login\", request.url), 303);\n  }",
+      "why_it_matters": "An agent could assume this passwordless login path is reachable in prod and either rely on it or flag it as a live vulnerability when it's actually inert there.",
+      "category": "routing"
+    },
+    {
+      "id": "q04",
+      "question": "Is there an INSERT RLS policy on delivery_status_events that lets any client role write to it directly?",
+      "ground_truth": "No — every occurrence of an insert into delivery_status_events across the migrations is inside a SECURITY DEFINER function body, not a client-facing RLS policy.",
+      "verify_cmd": "grep -rn 'create policy' supabase/migrations/*.sql | grep -i delivery_status_events",
+      "verify_output": "supabase/migrations/20260708000500_status_events_and_rpcs.sql: create policy \"delivery_status_events_scoped_read\" ...\nsupabase/migrations/20260708001000_fix_rls_recursion.sql: (same, recreated) -- both are SELECT policies only, no INSERT policy exists",
+      "why_it_matters": "An agent trying to log a status change with a plain client .insert() will get a silent RLS rejection or, worse, will 'fix' it by adding an insert policy that lets clients forge order history.",
+      "category": "db-security"
+    },
+    {
+      "id": "q05",
+      "question": "In the order-lifecycle RPCs (e.g. accept_order), does the function check caller authorization in addition to the state-transition validity, given it runs as SECURITY DEFINER?",
+      "ground_truth": "Yes — e.g. accept_order explicitly checks has_restaurant_access(o.restaurant_id) before allowing the transition, on top of the status-guard exceptions.",
+      "verify_cmd": "grep -n 'has_restaurant_access\\|raise exception' supabase/migrations/20260708000500_status_events_and_rpcs.sql | head -5",
+      "verify_output": "27:          or has_restaurant_access(o.restaurant_id)\n69:    raise exception 'authentication required';\n73:    raise exception 'cart is empty';",
+      "why_it_matters": "SECURITY DEFINER bypasses RLS entirely; a new lifecycle RPC written by analogy without its own authorization check would let any authenticated user drive any order's state.",
+      "category": "db-security"
+    },
+    {
+      "id": "q06",
+      "question": "When an RPC needs 'the current courier', does it resolve identity from the profiles table or from a separate couriers table?",
+      "ground_truth": "From couriers — RPCs look up `select id from public.couriers where user_id = auth.uid()`, never `profiles.role`.",
+      "verify_cmd": "grep -n 'from public.couriers where user_id = auth.uid' supabase/migrations/20260717001600_dispatch_offers.sql | head -3",
+      "verify_output": "170:  select id into v_courier_id from public.couriers where user_id = auth.uid() and is_active;\n211:  select id into v_courier_id from public.couriers where user_id = auth.uid() and is_active;",
+      "why_it_matters": "Checking only profiles.role='courier' without a matching couriers row silently treats a role-only account as a valid courier, or the reverse check fails and locks out real couriers.",
+      "category": "db-security"
+    },
+    {
+      "id": "q07",
+      "question": "Once an order is inserted, can its delivery_fee_mdl column ever legitimately be changed by a later UPDATE?",
+      "ground_truth": "No — a BEFORE UPDATE trigger (guard_delivery_fee_floor) raises an exception on any change to delivery_fee_mdl once the row exists; it is write-once.",
+      "verify_cmd": "grep -n \"delivery_fee_mdl is distinct from\" -A3 supabase/migrations/20260727002100_public_transparency.sql",
+      "verify_output": "  if new.delivery_fee_mdl is distinct from old.delivery_fee_mdl then\n    raise exception\n      'delivery_fee_mdl este stabilit o singură dată...';",
+      "why_it_matters": "An agent trying to apply a retroactive fee correction via UPDATE will hit a hard DB exception instead of silently corrupting historical fee data (the trigger is the point).",
+      "category": "money"
+    },
+    {
+      "id": "q08",
+      "question": "For a standard (non-catering) cash-on-delivery order, is there any total-amount cap enforced at checkout, and does that cap also apply to catering orders?",
+      "ground_truth": "Standard cash orders over 1400 MDL are rejected at place_order; catering orders are explicitly exempt from any cash cap.",
+      "verify_cmd": "grep -n '1400' supabase/migrations/20260813000400_cash_gate_fixes.sql",
+      "verify_output": "164:--    standard + cash + total > 1400 MDL → respins cu îndrumare spre card.\n293:     and (v_subtotal + v_restaurant.delivery_fee_mdl) > 1400 then\n294:    raise exception 'comenzile peste 1400 MDL se achită cu cardul la livrare';",
+      "why_it_matters": "Applying the 1400 MDL cash cap to catering orders (which routinely run into the thousands) would make catering permanently unbookable as cash; assuming no cap exists at all would reopen a dispatch dead-end that was deliberately fixed.",
+      "category": "money"
+    },
+    {
+      "id": "q09",
+      "question": "Do the orders/order_items/catering_details money columns have database-level CHECK constraints preventing negative values, and is that true for every money column in the schema?",
+      "ground_truth": "Most money columns have `>= 0` CHECKs, but payouts.gross/net are deliberately excluded — a clawback net can be legitimately negative.",
+      "verify_cmd": "sed -n '1,20p' supabase/migrations/20260727000100_money_column_checks.sql",
+      "verify_output": "alter table public.orders\n  add constraint orders_subtotal_mdl_nonneg check (subtotal_mdl >= 0),\n  add constraint orders_delivery_fee_mdl_nonneg check (delivery_fee_mdl >= 0),\n... (payouts gross/net excluded per comment: 'a clawback net is legitimately negative')",
+      "why_it_matters": "Adding a blanket `>= 0` constraint to payouts would make legitimate clawback corrections fail at the database layer.",
+      "category": "money"
+    },
+    {
+      "id": "q10",
+      "question": "How are corrections applied to versioned config tables like pricing_config, cash_policy, and courier_tariff_config — in-place UPDATE or a new row?",
+      "ground_truth": "A new row — these tables are append-only/immutable-history; the setter functions insert a new version rather than updating the current one.",
+      "verify_cmd": "grep -n 'insert into public.cash_policy' supabase/migrations/20260815000000_cash_policy_new_courier.sql",
+      "verify_output": "77:  insert into public.cash_policy (cap_mdl, reactivation_threshold_mdl, offload_channel_text,",
+      "why_it_matters": "UPDATEing a row in place would erase the version that pricing_config_at(ts) and other historical-lookup functions depend on for correctly billing past orders.",
+      "category": "money"
+    },
+    {
+      "id": "q11",
+      "question": "After how many consecutive ignored (expired, un-responded) dispatch offers is a courier automatically set offline, and do explicit declines count toward that streak?",
+      "ground_truth": "3 consecutive ignored/expired offers auto-offlines the courier; declines never increment the streak, only expiry does.",
+      "verify_cmd": "grep -n 'v_streak >= 3\\|consecutive_ignored_offers = consecutive_ignored_offers + 1' supabase/migrations/20260727001400_ghost_auto_offline.sql",
+      "verify_output": "43:    set consecutive_ignored_offers = consecutive_ignored_offers + 1\n47:    if v_streak >= 3 then",
+      "why_it_matters": "Assuming declines count toward the ghost-offline streak would make an agent build a courier UI that discourages honest declines, which the design deliberately protects (declining is never penalized).",
+      "category": "dispatch"
+    },
+    {
+      "id": "q12",
+      "question": "Does the dispatch scoring function (dispatch_order) currently weight a courier's historical acceptance/decline rate at all, even at a low weight?",
+      "ground_truth": "No — the acceptance-rate term and its supporting lateral-join subquery were structurally removed from the function body, not just set to a zero weight.",
+      "verify_cmd": "grep -n 'STRUCTURAL, not a zero-weighting' -A3 supabase/migrations/20260727001300_dispatch_anonymity.sql",
+      "verify_output": "-- Fix is STRUCTURAL, not a zero-weighting: the (1 - acc.rate) * alpha1 term\n-- and its supporting `acc` lateral-join subquery (which aggregated each",
+      "why_it_matters": "An agent that 'restores' the acceptance-rate term (e.g. while refactoring dispatch_order) would reintroduce reject-penalty scoring, which the migration comments tie to an EU legal constraint on dispatch fairness, not just a tuning preference.",
+      "category": "dispatch"
+    },
+    {
+      "id": "q13",
+      "question": "For an order with a future requested_for time, when does dispatch_order() actually start offering it to couriers relative to that time?",
+      "ground_truth": "Only once requested_for is within 45 minutes (dispatch_order returns null and holds every dispatch path until requested_for - 45min).",
+      "verify_cmd": "grep -n \"requested_for > now() + interval '45 minutes'\" supabase/migrations/20260811000000_scheduled_orders_honesty.sql",
+      "verify_output": "75:  if v_order.requested_for is not null and v_order.requested_for > now() + interval '45 minutes' then",
+      "why_it_matters": "Assuming scheduled orders dispatch immediately (like ASAP orders) would make an agent 'fix' the apparent non-dispatch as a bug and remove a deliberate hold that prevents couriers picking up food far too early.",
+      "category": "dispatch"
+    },
+    {
+      "id": "q14",
+      "question": "In src/lib/realtime/subscribeTable.ts, is the channel name passed to supabase.channel() a fixed string or generated per call, and why does that matter?",
+      "ground_truth": "Generated per call as `${purpose}:${Date.now()}-${random}` — a static name breaks on React re-mounts ('cannot add postgres_changes callbacks after subscribe()').",
+      "verify_cmd": "grep -n 'channelName = ' src/lib/realtime/subscribeTable.ts",
+      "verify_output": "36:    const channelName = `${purpose}:${Date.now()}-${Math.random().toString(36).slice(2)}`;",
+      "why_it_matters": "Reusing a static channel name across component re-mounts (a natural first instinct) throws at runtime and silently kills realtime updates on hot-reload/navigation.",
+      "category": "realtime"
+    },
+    {
+      "id": "q15",
+      "question": "Is the courier's live-location broadcast channel (order:{id}:location) public or private, and does the client need to call anything besides subscribing?",
+      "ground_truth": "Private (`{config:{private:true}}`); the client must also call `supabase.realtime.setAuth()` to hand its JWT to the socket before it can send/receive on that channel.",
+      "verify_cmd": "grep -n 'private: true\\|setAuth' src/lib/realtime/courierLocation.ts",
+      "verify_output": "15:  return supabase.channel(channelName(orderId), { config: { private: true } });\n24:  void supabase.realtime.setAuth();\n40:  void supabase.realtime.setAuth();",
+      "why_it_matters": "Treating this channel as public (skipping setAuth or the private flag) either leaks a customer's live GPS trail to any subscriber or silently fails to deliver location updates to the intended parties.",
+      "category": "realtime"
+    },
+    {
+      "id": "q16",
+      "question": "Do customer/courier/partner-facing postgres_changes subscriptions filter by row (e.g. id=eq.X), or do any of them subscribe to the whole table?",
+      "ground_truth": "Row-filtered — subscribeTable requires a `filter` argument for all callers except the admin ops surface, which is the one sanctioned whole-table case.",
+      "verify_cmd": "sed -n '19,30p' src/lib/realtime/subscribeTable.ts",
+      "verify_output": "  filter: string | undefined,\n  // ... Omit ONLY for the sanctioned admin ops surface, where platform_admin\n  // RLS already scopes the whole table — never on customer/courier/partner surfaces",
+      "why_it_matters": "Omitting the row filter on a customer-facing subscription (copying the admin-ops pattern) would stream every other customer's order updates to that browser tab.",
+      "category": "realtime"
+    },
+    {
+      "id": "q17",
+      "question": "What determines whether a given file in the restaurant-photos storage bucket is readable/writable by a given restaurant's staff — a metadata column, or something about the file path itself?",
+      "ground_truth": "The file path — storage RLS is path-scoped by the first path segment ({restaurantId}/...), which storage.foldername(name) extracts.",
+      "verify_cmd": "sed -n '1,20p' supabase/migrations/20260708000600_storage_buckets.sql",
+      "verify_output": "create policy \"restaurant_photos_public_read\" on storage.objects\n  for select using (bucket_id = 'restaurant-photos');\ncreate policy \"restaurant_photos_staff_write\" on storage.objects ... bucket_id = 'restaurant-photos' ...",
+      "why_it_matters": "Uploading a menu photo under any path other than {restaurantId}/... (e.g. a flat filename) will pass the client-side compression step but then silently fail the storage RLS write policy.",
+      "category": "storage"
+    },
+    {
+      "id": "q18",
+      "question": "Does the private delivery-proof storage bucket have any UPDATE or DELETE policy for couriers, customers, or admins?",
+      "ground_truth": "No — only INSERT (assigned courier) and SELECT (order's customer + admin) policies exist; the absence of update/delete policies is itself the append-only enforcement (RLS default-deny).",
+      "verify_cmd": "grep -n \"on storage.objects\" supabase/migrations/20260727002000_pod_photo.sql",
+      "verify_output": "create policy \"delivery_proof_courier_write\" on storage.objects\n  for insert to authenticated ...\ncreate policy \"delivery_proof_read\" on storage.objects\n  for select to authenticated ...",
+      "why_it_matters": "An agent asked to let a courier 'retake' a proof-of-delivery photo by updating the existing storage object will find there's no policy allowing it — the design intentionally requires a new object, not an overwrite.",
+      "category": "storage"
+    },
+    {
+      "id": "q19",
+      "question": "Is a proof-of-delivery photo (in the delivery-proof bucket) ever used as a gate on advance_delivery_status, or kept indefinitely?",
+      "ground_truth": "Never a gate (soft evidence only, no coupling to advance_delivery_status), and it is purged after 90 days by purge_expired_pii().",
+      "verify_cmd": "grep -n \"90 days\\|delivery-proof\" supabase/migrations/20260727002000_pod_photo.sql | grep -i purge",
+      "verify_output": "125:  delete from storage.objects where bucket_id = 'delivery-proof' and created_at < now() - interval '90 days';",
+      "why_it_matters": "Building a delivery-confirmation flow that requires the photo before marking 'delivered' would block legitimate deliveries where the courier skips the optional photo; assuming it's retained forever misses a GDPR-driven purge job.",
+      "category": "storage"
+    },
+    {
+      "id": "q20",
+      "question": "Does `npm test` execute the SQL files under tests/rpc, or only the tests/unit suite?",
+      "ground_truth": "Only tests/unit — vitest.config.mts includes only `tests/unit/**/*.test.ts`; tests/rpc/*.sql is run by the separate `npm run test:rpc` script.",
+      "verify_cmd": "grep -n 'include' -A2 vitest.config.mts && grep -n '\"test' package.json",
+      "verify_output": "test: { include: [\"tests/unit/**/*.test.ts\"], environment: \"node\" }\n\"test\": \"vitest run\",\n\"test:rpc\": \"bash scripts/test-rpc.sh\",",
+      "why_it_matters": "Reporting 'tests pass' after only `npm test` skips the entire RLS/RPC/money-invariant SQL suite, which is where most of this repo's actual behavioral guarantees are proven.",
+      "category": "testing"
+    },
+    {
+      "id": "q21",
+      "question": "What are the prerequisites for `npm run test:rpc` to run successfully, and what happens if they're not met?",
+      "ground_truth": "Requires a running Docker container named `supabase_db_chisinau-delivery`; if absent, the script prints SKIP and exits 1 without running tests.",
+      "verify_cmd": "sed -n '1,15p' scripts/test-rpc.sh",
+      "verify_output": "DB_CONTAINER=\"supabase_db_chisinau-delivery\"\nif ! docker ps --format '{{.Names}}' | grep -q \"^${DB_CONTAINER}$\"; then\n  echo \"SKIP: ${DB_CONTAINER} not running (supabase start first)\" >&2\n  exit 1\nfi",
+      "why_it_matters": "An agent that runs test:rpc without `supabase start` first will get a nonzero exit and could misreport it as a real test failure rather than an unmet precondition.",
+      "category": "testing"
+    },
+    {
+      "id": "q22",
+      "question": "How does each tests/rpc/*.sql file signal a failing assertion to the test runner — a special test framework, or something else?",
+      "ground_truth": "The files are plain SQL wrapped in BEGIN/ROLLBACK; a failed assertion RAISEs a Postgres exception, which makes psql exit non-zero — there is no separate assertion framework.",
+      "verify_cmd": "sed -n '1,6p' scripts/test-rpc.sh",
+      "verify_output": "# RPC regression suite (audit #26/#27): every tests/rpc/*.sql file runs wrapped in\n# BEGIN/ROLLBACK against the LOCAL Supabase db (superuser; auth simulated via\n# request.jwt.claims). Tests self-assert: any FAIL raises an exception → non-zero",
+      "why_it_matters": "An agent adding a new RPC test who just prints 'FAIL: ...' without a RAISE EXCEPTION will get a test file that always reports success regardless of the actual assertion result.",
+      "category": "testing"
+    },
+    {
+      "id": "q23",
+      "question": "Can plain shell commands (e.g. `ls`, `npm test`) be assumed to work as-is on this machine's default shell, or is there a known quirk?",
+      "ground_truth": "There's a known quirk — plain commands can fail with `command not found: _lc`; commands need to be run wrapped in a clean env (e.g. `env -i HOME=\"$HOME\" PATH=... bash -c '<cmd>'`).",
+      "verify_cmd": "grep -n '_lc\\|env -i' scripts/dev-local.sh",
+      "verify_output": "WRAP=(env -i HOME=\"$HOME\" PATH=\"/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin\")",
+      "why_it_matters": "An agent hitting `command not found: _lc` on an unrelated command might assume the tool itself is missing/broken and go install/reconfigure things, instead of just wrapping the call.",
+      "category": "env"
+    },
+    {
+      "id": "q24",
+      "question": "What local Postgres port does the Supabase CLI use for this project's local DB, per supabase/config.toml?",
+      "ground_truth": "54422 (not the Supabase CLI's usual default of 54322).",
+      "verify_cmd": "grep -n -A2 '^\\[db\\]' supabase/config.toml",
+      "verify_output": "[db]\n# Port to use for the local database URL.\nport = 54422",
+      "why_it_matters": "An agent connecting with a hardcoded default port (54322) from Supabase docs/muscle memory will fail to reach this project's local database.",
+      "category": "env"
+    },
+    {
+      "id": "q25",
+      "question": "In development (NODE_ENV !== 'production'), does the /master doorway require a username+password by default, or does something bypass that?",
+      "ground_truth": "It bypasses the password by default in dev — masterPasswordRequired() only returns true in production or when DISABLE_DEV_AUTOLOGIN=1 is set; otherwise dev entry is passwordless.",
+      "verify_cmd": "sed -n '18,26p' src/lib/master/gate.ts",
+      "verify_output": "export function masterPasswordRequired(): boolean {\n  return process.env.NODE_ENV === \"production\" || process.env.DISABLE_DEV_AUTOLOGIN === \"1\";\n}",
+      "why_it_matters": "An agent asked to 'test that the master password gate works' in local dev will find it doesn't prompt at all unless DISABLE_DEV_AUTOLOGIN=1 is exported first, and might wrongly conclude the auth check is broken.",
+      "category": "env"
+    },
+    {
+      "id": "q26",
+      "question": "If a developer edits NEXT_PUBLIC_SUPABASE_URL in .env.local while the Next.js dev server is already running, does the running app pick up the new value on the next request?",
+      "ground_truth": "No — NEXT_PUBLIC_* variables are inlined into the client bundle at build time, so the process needs a rebuild/restart to see the change, not just a page refresh.",
+      "verify_cmd": "cat .env.local.example",
+      "verify_output": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321\nNEXT_PUBLIC_SUPABASE_ANON_KEY=replace-with-local-anon-key-from-supabase-start-output\n(server-only SUPABASE_SERVICE_ROLE_KEY listed separately below it)",
+      "why_it_matters": "An agent debugging a stale Supabase URL by only editing .env.local and refreshing the browser will keep seeing the old value and could misdiagnose it as a caching or code bug.",
+      "category": "env"
+    },
+    {
+      "id": "q27",
+      "question": "Is the code under mobile/ included in the root project's TypeScript/ESLint checks (tsc --noEmit, eslint), or does it have its own toolchain?",
+      "ground_truth": "It has its own toolchain — both tsconfig.json and eslint.config.mjs explicitly exclude the mobile/ directory.",
+      "verify_cmd": "grep -n 'mobile' tsconfig.json eslint.config.mjs",
+      "verify_output": "tsconfig.json:  \"exclude\": [\"node_modules\", \"mobile\"]\neslint.config.mjs:    // Expo apps — own toolchain, not part of the Next.js build/lint.\neslint.config.mjs:    \"mobile/**\",",
+      "why_it_matters": "Running `npm run typecheck`/`npm run lint` at the root will never catch a TypeScript or lint error introduced inside mobile/client or mobile/driver, so 'checks pass' doesn't cover the mobile apps.",
+      "category": "mobile"
+    },
+    {
+      "id": "q28",
+      "question": "How many separate Expo/React Native apps live under mobile/, and what does each one's package.json name it?",
+      "ground_truth": "2 — mobile/client (package name \"dragons-couriers-client\") for customers, and mobile/driver (package name \"dragons-couriers-driver\") for couriers.",
+      "verify_cmd": "grep -n '\"name\"' mobile/client/package.json mobile/driver/package.json",
+      "verify_output": "mobile/client/package.json:2:  \"name\": \"dragons-couriers-client\",\nmobile/driver/package.json:2:  \"name\": \"dragons-couriers-driver\",",
+      "why_it_matters": "Assuming there's a single unified mobile app (or that mobile/client serves couriers because of its package name) leads an agent to edit the wrong app for a given role's feature request.",
+      "category": "mobile"
+    },
+    {
+      "id": "q29",
+      "question": "How many .sql files currently exist under supabase/migrations/?",
+      "ground_truth": "98 files.",
+      "verify_cmd": "ls supabase/migrations/*.sql | wc -l",
+      "verify_output": "      98",
+      "why_it_matters": "Documentation can lag a fast-moving migrations folder (an older doc snapshot cited 67); an agent trusting a stale count when auditing 'is every migration applied/documented' will undercount and miss recent ones.",
+      "category": "counts"
+    },
+    {
+      "id": "q30",
+      "question": "How many .sql files exist under tests/rpc/, and does that number equal the number of individual test assertions ('sims') in the suite?",
+      "ground_truth": "66 files; not the same as the assertion count — most files contain multiple self-asserting sims/PASS lines, so file count is a lower bound on assertion count, not equal to it.",
+      "verify_cmd": "ls tests/rpc/*.sql | wc -l",
+      "verify_output": "      66",
+      "why_it_matters": "An agent asked to 'run all N sims' who equates file count with sim count will misreport coverage; and conflating this with the 23 tests/unit/*.test.ts files (a different suite, run by a different command) compounds the error.",
+      "category": "counts"
+    }
+  ]
+}

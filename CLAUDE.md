@@ -29,8 +29,9 @@ STOP-RULE first, then iterate Doer → Verifier → Improve.
 ```bash
 npm run build      # production build (Turbopack) — must pass before anything is "done"
 npm run verify     # type-drift check + tsc --noEmit + vitest
-npm test           # vitest unit suite (tests/unit)
-npm run test:rpc   # SQL sims against local DB (tests/rpc) — the real behaviour gate
+npm test           # vitest unit suite — ONLY tests/unit/**/*.test.ts, never the SQL sims
+npm run test:rpc   # SQL sims (tests/rpc) — the real behaviour gate. Needs the Docker container
+                   # `supabase_db_chisinau-delivery` running, else it prints SKIP and exits 1.
 npm run lint       # eslint
 npm run dev        # dev server
 bash scripts/check-doc-drift.sh   # every migration must have an entry in docs/migrations.md
@@ -44,8 +45,10 @@ bash scripts/check-doc-drift.sh   # every migration must have an entry in docs/m
   `/tmp/chisinau-delivery-server.log`. After a rebuild: `launchctl kickstart -k
   gui/501/com.chisinau-delivery.server`. Do not kill it ad hoc; kill by port, never by process name
   (stale `next-server` processes survive a name-based kill).
-- **:3007** — operational dev server, started by `scripts/dev-local.sh`, master doorway at `/master`
-  (env-gated). Self-hosted OSRM router on **:5010** via `OSRM_URL`.
+- **:3007** — operational dev server, started by `scripts/dev-local.sh`, master doorway at `/master`.
+  `masterPasswordRequired()` is true only in production or with `DISABLE_DEV_AUTOLOGIN=1`, so in dev
+  `/master` lets you in **without a password** by default. Self-hosted OSRM router on **:5010** via
+  `OSRM_URL`.
 - Local Supabase DB port is **54422**, not the 54322 default.
 - `NEXT_PUBLIC_*` vars are inlined at build time — changing `.env.local` needs rebuild + restart.
 - `.env.local` holds the real Supabase URL + anon key (gitignored). `SUPABASE_SERVICE_ROLE_KEY` is
@@ -100,9 +103,15 @@ Venue bookings are a second transaction shape on the same `restaurants` table
   `cash_policy`, `dispatch_scoring_config`. Corrections are new rows, never edits.
 - Paid payouts and their `payout_orders` lines are frozen by trigger — a correction is a new
   transaction.
-- Cash float: `courier_cash_movements` is an append-only ledger; the cap is `effective_cash_cap()`
-  (tenure-tiered), enforced in three places — `courier_has_capacity`, `set_courier_online_status`,
-  and the accrual trigger. Catering is exempt from the cap (a single order exceeds any plausible cap).
+- There are **two different cash caps — do not confuse them**:
+  1. **Checkout cap** — `place_order` rejects a `standard` + `cash` order whose total exceeds
+     **1400 MDL** ("comenzile peste 1400 MDL se achită cu cardul la livrare"). Catering is exempt.
+  2. **Courier float cap** — `effective_cash_cap()` (tenure-tiered) limits how much cash one courier
+     may carry; enforced in three places: `courier_has_capacity`, `set_courier_online_status`, and
+     the accrual trigger. Catering is exempt here too.
+  `courier_cash_movements` is the append-only ledger behind cap 2.
+- Money columns on `orders` / `order_items` / `catering_details` carry `>= 0` CHECK constraints.
+  `payouts.gross`/`net` are **deliberately excluded** — a clawback net is legitimately negative.
 - Business numbers (cash cap, courier tariff, ghost-offline N) are **PROVISIONAL, awaiting founder
   ratification** — treat them as tunable config, never as constants to hardcode.
 
@@ -125,8 +134,9 @@ Venue bookings are a second transaction shape on the same `restaurants` table
 
 - `postgres_changes` subscriptions are always row-filtered (`id=eq.X`), never whole-table. The only
   exception is the admin ops surface.
-- Channel names must be unique per mount (`purpose:timestamp-random`) — static names break on React
-  re-mounts.
+- `src/lib/realtime/subscribeTable.ts` generates the channel name per call
+  (`${purpose}:${Date.now()}-${random}`). Never pass a fixed string: on a React re-mount Supabase
+  throws "cannot add postgres_changes callbacks after subscribe()".
 - Courier live GPS is a **private** Broadcast channel `order:{id}:location` (~10s), plus a
   low-frequency upsert to `courier_locations` (~45s). Clients must set `private: true` and call
   `setAuth()`.
@@ -136,8 +146,10 @@ Venue bookings are a second transaction shape on the same `restaurants` table
 Path's FIRST segment drives the RLS policy.
 
 - `restaurant-photos` — public read, write gated by `has_restaurant_access`, path `{restaurantId}/…`
-- `delivery-proof` — private, path `{orderId}/…`, append-only (no update/delete policy at all)
-- `kyc-documents` — private
+- `delivery-proof` — private, path `{orderId}/…`. Append-only for clients (no update/delete policy
+  at all), but **not kept forever**: `purge_expired_pii()` deletes these photos after **90 days**.
+- `kyc-documents` — private. Rejected applications purged 90d after review, abandoned ones 180d
+  after creation; approved (active) ones deliberately retained.
 - Anything holding PII is purged on schedule by `purge_expired_pii()` — if you add a PII surface,
   add it to that function in the same migration.
 
@@ -163,6 +175,7 @@ Never import across `mobile/` ↔ `src/`. The driver app's map coordinates are s
 | Change | Also required |
 |---|---|
 | new migration | entry in `docs/migrations.md`; a sim in `tests/rpc/` that FAILS without the fix |
+| new sim in `tests/rpc/` | plain SQL, no assertion framework: `scripts/test-rpc.sh` wraps each file in `BEGIN;`/`ROLLBACK;` and pipes it to psql with `ON_ERROR_STOP=1`, so a failing assertion is just a `raise exception`. One file usually holds several sims |
 | new table | explicit `GRANT` + RLS policy (a new table is unreachable without both) |
 | new PII column/bucket | add it to `purge_expired_pii()` in the same migration |
 | recreate an RPC/view | copy the live body first, then apply one delta |
@@ -178,13 +191,16 @@ Generated by `scripts/facts.sh` — do not hand-edit. Stale numbers here fail `c
 <!-- FACTS:BEGIN -->
 - Migrations: **98** files (20260708 → 20260816), indexed in `docs/migrations.md` (**99** entries).
 - Distinct SQL functions: **111**. Reporting/admin views: **16**.
-- RPC sims: **66** files in `tests/rpc/`. Unit test files: **23** in `tests/unit/`.
+- Test FILES (not assertion counts): **66** in `tests/rpc/`, **23** in `tests/unit/`.
+  Each holds several assertions — run the suites for real counts.
 - Surfaces: web route groups `(customer) (courier) (admin) (marketing)` + 2 Expo apps in `mobile/`.
 <!-- FACTS:END -->
 
 ## Known debt
 
-- `/enter/[role]` — demo doorway with server-side auto-login. **Remove before public launch.**
+- `/enter/[role]` — passwordless role-login doorway. It is already production-gated (the route
+  checks `NODE_ENV === 'production'` and redirects to `/login`), so it is dev/staging-only by
+  construction — but still delete it before public launch rather than trusting one `if`.
 - Restaurant coordinates are demo values; verify real ones before launch.
 - Mobile driver map coordinates are synthetic.
 - Deploys happen only with explicit user confirmation.
