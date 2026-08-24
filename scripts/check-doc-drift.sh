@@ -21,10 +21,18 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CLAUDE_MD="$ROOT/CLAUDE.md"
+# Per-migration coverage moved out of CLAUDE.md on 2026-08-24 (it was ~75% of
+# the file's bytes). This gate is exactly what kept it there, so it moves too:
+# the index now lives in docs/migrations.md and coverage is checked against it.
+INDEX_MD="$ROOT/docs/migrations.md"
 MIGRATIONS_DIR="$ROOT/supabase/migrations"
 
 if [[ ! -f "$CLAUDE_MD" ]]; then
   echo "ERROR: $CLAUDE_MD not found" >&2
+  exit 2
+fi
+if [[ ! -f "$INDEX_MD" ]]; then
+  echo "ERROR: $INDEX_MD not found" >&2
   exit 2
 fi
 if [[ ! -d "$MIGRATIONS_DIR" ]]; then
@@ -38,6 +46,7 @@ REVIEW_COUNT=0
 
 echo "== doc-drift check =="
 echo "doc:        $CLAUDE_MD"
+echo "index:      $INDEX_MD"
 echo "migrations: $MIGRATIONS_DIR ($(ls "$MIGRATIONS_DIR"/*.sql 2>/dev/null | wc -l | tr -d ' ') files)"
 echo
 
@@ -82,7 +91,7 @@ else
 fi
 
 echo
-echo "--- 2. migrations with no mention in CLAUDE.md (undocumented) ---"
+echo "--- 2. migrations with no entry in docs/migrations.md (undocumented) ---"
 EARLIEST_DATE="$(ls "$MIGRATIONS_DIR" | grep -oE '^[0-9]{8}' | sort | head -1)"
 
 for f in "$MIGRATIONS_DIR"/*.sql; do
@@ -96,15 +105,15 @@ for f in "$MIGRATIONS_DIR"/*.sql; do
 
   documented=0
 
-  if grep -qF "$full_id" "$CLAUDE_MD"; then
+  if grep -qF "$full_id" "$INDEX_MD"; then
     documented=1
   # legacy shorthand only trusted for the earliest migration batch — later
   # batches always reused the same 6-digit tails on other dates too (e.g.
   # 000200 is both 20260708000200 AND 20260726000200), so shorthand match on
   # a later date would be a coin-flip; only accept it where it's unambiguous.
-  elif [[ "$date_prefix" == "$EARLIEST_DATE" ]] && grep -qE "migration[^0-9]{0,15}${short_id}" "$CLAUDE_MD"; then
+  elif [[ "$date_prefix" == "$EARLIEST_DATE" ]] && grep -qE "migration[^0-9]{0,15}${short_id}" "$INDEX_MD"; then
     documented=1
-  elif grep -qiE "$phrase_pattern" "$CLAUDE_MD"; then
+  elif grep -qiE "$phrase_pattern" "$INDEX_MD"; then
     documented=1
   fi
 
@@ -119,17 +128,29 @@ if [[ "$UNDOC_COUNT" -eq 0 ]]; then
 fi
 
 echo
+echo "--- 3. counted facts block in CLAUDE.md ---"
+FACTS_OUT="$(bash "$ROOT/scripts/facts.sh" --check 2>&1)"
+FACTS_RC=$?
+echo "$FACTS_OUT"
+if [[ "$FACTS_RC" -ne 0 ]]; then
+  FACTS_DRIFT=1
+else
+  FACTS_DRIFT=0
+fi
+
+echo
 echo "== summary =="
 echo "stale known-issue mentions (DRIFT): $STALE_COUNT"
 echo "undocumented migrations (DRIFT):    $UNDOC_COUNT"
 echo "flagged for manual review (info):   $REVIEW_COUNT"
+echo "stale counted-facts block (DRIFT):  $FACTS_DRIFT"
 
-if [[ "$STALE_COUNT" -eq 0 && "$UNDOC_COUNT" -eq 0 ]]; then
+if [[ "$STALE_COUNT" -eq 0 && "$UNDOC_COUNT" -eq 0 && "$FACTS_DRIFT" -eq 0 ]]; then
   echo
-  echo "PASS: no doc/migration drift detected."
+  echo "PASS: no doc/migration/facts drift detected."
   exit 0
 else
   echo
-  echo "DRIFT: doc/migration mismatch found — see above."
+  echo "DRIFT: doc/migration/facts mismatch found — see above."
   exit 1
 fi

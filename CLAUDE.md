@@ -1,170 +1,190 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Rules for working in this repo. Only things that change a decision live here.
+Per-migration detail: `docs/migrations.md`. Why a subsystem exists: `docs/history.md`.
+Operational runbook: `docs/GHID-OPERATIONAL.md`.
 
 @AGENTS.md
 
 ## Project
 
-Chișinău Delivery — food-delivery platform (sushi/fine-dining + catering) for Chișinău, Moldova. Currency MDL, UI in Romanian. Next.js 16 App Router + Supabase (Postgres/RLS/Realtime/Auth/Storage).
+Chișinău Delivery — concierge platform for Chișinău, Moldova: food delivery (sushi / fine-dining),
+catering, and venue bookings (spa / lounge). Currency MDL, UI in Romanian.
+Next.js 16 App Router + Supabase (Postgres / RLS / Realtime / Auth / Storage).
 
-## LOOP RULE (mandatory working mode)
+## Working mode (LOOP RULE — mandatory)
 
-Every non-trivial task in this repo runs as a loop, not a one-shot: define END-STATE (verifiable) + SCOPE + STOP-RULE up front, then iterate Doer → Verifier → Improve.
-- **Verifier for this repo** = `npm run build` + `npm run lint` + `npm test` + smoke-test routes over the launchd server (`launchctl kickstart -k gui/501/com.chisinau-delivery.server`, then curl the touched paths) — after EVERY iteration, not at the end. For large changes, add an adversarial review workflow before declaring done.
-- **Memory** = one git commit per iteration (atomic, descriptive).
-- **Stop** = end-state verified OR 3 iterations OR explicit user stop. Deploys still require explicit user OK.
+Every non-trivial task runs as a loop, not a one-shot: state END-STATE (verifiable) + SCOPE +
+STOP-RULE first, then iterate Doer → Verifier → Improve.
+
+- **Verifier** = `npm run verify` + `npm test` + `npm run build` + `npm run test:rpc` + smoke the
+  touched routes. After EVERY iteration, not at the end.
+- **Memory** = one atomic git commit per iteration. Commit is pre-authorized here; push and deploy
+  are NOT — they need explicit user OK every time.
+- **Stop** = end-state verified, OR 3 iterations, OR user says stop.
+- Loop state lives in `.bucla/` (gitignored) + `docs/LOOP_STATE.md`.
 
 ## Commands
 
 ```bash
-npm run build        # production build (Turbopack) — must pass before any phase is "done"
-npm run lint         # eslint
-npm test             # vitest unit suite (tests/unit) — part of the verifier
-npm run dev          # dev server
+npm run build      # production build (Turbopack) — must pass before anything is "done"
+npm run verify     # type-drift check + tsc --noEmit + vitest
+npm test           # vitest unit suite (tests/unit)
+npm run test:rpc   # SQL sims against local DB (tests/rpc) — the real behaviour gate
+npm run lint       # eslint
+npm run dev        # dev server
+bash scripts/check-doc-drift.sh   # every migration must have an entry in docs/migrations.md
 ```
 
-- Production server runs as a launchd agent on port 3000 (`com.chisinau-delivery.server`, log `/tmp/chisinau-delivery-server.log`). After a rebuild: `launchctl kickstart -k gui/501/com.chisinau-delivery.server`. Do not kill it ad hoc.
-- Verification = build + lint + `npm test` + manual flows in browser per role.
-- Shell quirk on this machine: plain commands can fail with `command not found: _lc` — run via `env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin" <cmd>`.
+## Environment (this machine)
 
-## Backend (Supabase)
+- **Shell quirk**: plain commands can fail with `command not found: _lc`. Wrap them:
+  `env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin" bash -c '<cmd>'`
+- **:3000** — production-ish server, launchd agent `com.chisinau-delivery.server`, log
+  `/tmp/chisinau-delivery-server.log`. After a rebuild: `launchctl kickstart -k
+  gui/501/com.chisinau-delivery.server`. Do not kill it ad hoc; kill by port, never by process name
+  (stale `next-server` processes survive a name-based kill).
+- **:3007** — operational dev server, started by `scripts/dev-local.sh`, master doorway at `/master`
+  (env-gated). Self-hosted OSRM router on **:5010** via `OSRM_URL`.
+- Local Supabase DB port is **54422**, not the 54322 default.
+- `NEXT_PUBLIC_*` vars are inlined at build time — changing `.env.local` needs rebuild + restart.
+- `.env.local` holds the real Supabase URL + anon key (gitignored). `SUPABASE_SERVICE_ROLE_KEY` is
+  deliberately absent until an admin invite flow needs it (`src/lib/supabase/admin.ts` throws without it).
+- Test account: `client@test.md` / `parola123`. Auth users created via SQL need token columns set to
+  `''`, not NULL, or GoTrue 500s on login.
 
-- Live project: `rdowjxnuyawhrjppxzuu` (shared with dormant Trade-AI tables — do NOT touch `poly_*`, `polymarket_*`, `gladiator*`, `equity_history`, `syndicate_audits`, etc.).
-- Schema lives in `supabase/migrations/` (67 numbered files, order matters: couriers before orders). Migrations applied locally via `supabase db reset`; remote sync (via MCP `apply_migration` or CLI) is a deliberate pre-launch step — keep local files authoritative.
+## Hard rules
 
-### Migrations index (terse — one line each; `scripts/check-doc-drift.sh` verifies every file is listed)
-- `20260708000000_roles_and_profiles` — profiles + role check + has_role helpers.
-- `20260708000100_couriers` — couriers + courier_locations + self-read RLS.
-- `20260708000200_restaurants_and_menu` — restaurants, menu, restaurant_staff, has_restaurant_access.
-- `20260708000300_addresses` — customer addresses (street/intercom/notes/geo).
-- `20260708000400_orders_and_catering` — orders, order_items, catering_details + scoped RLS.
-- `20260708000500_status_events_and_rpcs` — delivery_status_events + the lifecycle RPCs (place_order/accept/reject/ready/assign/advance/cancel/catering).
-- `20260708000600_storage_buckets` — restaurant-photos bucket + path-scoped storage RLS.
-- `20260708000700_realtime_publication` — adds tables to supabase_realtime publication.
-- `20260708000800_function_hardening` — revoke/grant tightening on the RPCs.
-- `20260708000900_courier_address_read` — courier reads the delivery address of its order.
-- `20260708001000_fix_rls_recursion` — de-recursed scoped-read policies (events/items/couriers).
-- `20260708001100_perf_indexes` — hot-path indexes (order_items(order_id), etc.).
-- `20260708001200_courier_catering_read` — courier read access for catering orders.
-- `20260708001300_state_machine_hardening` — transition guards + expire_stale_orders cron.
-- `20260717001400_dynamic_eta` — restaurant_prep_stats + get_prep_estimates + refresh cron.
-- `20260717001500_ratings` — ratings table + submit_rating + denormalized averages.
-- `20260717001600_dispatch_offers` — WS2 push dispatch: dispatch_offers, dispatch_order, accept/decline, expire cron, courier_has_capacity.
-- `20260717001700_ws10_gps_plausibility` — fraud_flags + GPS speed-plausibility trigger.
-- `20260717001800_admin_ops_views` — admin ops views + admin_update_payment_status.
-- `20260717001900_ws3_postgis_geo` — PostGIS geo columns + nearby_restaurants + location guards.
-- `20260717002000_backtest_hardening` — adversarial fixes (catering confirm guard, rating column guard, capacity locks).
-- `20260717002100_ws3b_private_location_channel` — private realtime GPS channel RLS.
-- `20260717002200_grants_parity` — grant parity across the RPC surface.
-- `20260717002300_fix_profile_role_escalation` — block self role-escalation on profiles.
-- `20260717002400_backtest2_hardening` — round-2 adversarial hardening.
-- `20260717002500_dispatch_plausible` — dispatch skips implausible/teleporting couriers.
-- `20260717002600_restaurant_courier_location` — restaurant reads assigned courier position for pickup.
-- `20260718000000_platform_foundation` — notifications/payments/onboarding/UX: push_subscriptions, payment_intents, payouts, onboarding_applications, kyc, start/confirm_online_payment.
-- `20260718000100_set_order_tip` — set_order_tip RPC.
-- `20260718000200_notification_outbox` — durable notification_outbox + drain cron.
-- `20260725000000_search_menu_items` — cross-restaurant search_menu_items RPC.
-- `20260725000100_money_integrity` — payout_orders ledger, delivery-payment gate, start_online_payment.
-- `20260725000200_restaurant_platform_columns_guard` — is_active guard on restaurant/platform columns.
-- `20260725000300_money_integrity_2` — clawback-on-refund, catering confirm tip-on-top.
-- `20260725000400_wave4_correctness` — hours gate in place_order, address ownership, atomic outbox claim.
-- `20260725000500_master_audit_remediation` — tip freeze after online capture, pending_capture escape, overnight hours, admin_update_payment_status matrix.
-- `20260725000600_wave9_backlog` — backlog fixes wave 9.
-- `20260725000700_wave9b_payout_lock` — advisory-locked payout generation (no double payout).
-- `20260726000000_checkout_idempotency` — place_order idempotency_key + frozen confirm amount.
-- `20260726000100_menu_modifiers` — menu_option_groups/options + order_items.selected_options + place_order recompute.
-- `20260726000200_customer_push_outbox` — delivery_status_events trigger → customer status pushes via outbox.
-- `20260726000300_confirm_online_payment_service_gate` — confirm_online_payment gated to service-role/admin (self-confirm exploit closed).
-- `20260726000400_admin_reassign_courier` — admin_reassign_courier RPC (honest rescue for a ghosting courier).
-- `20260726000500_gdpr_retention` — purge_expired_pii cron + erase_customer_pii (right to erasure).
-- `20260726000600_catering_requote` — partner can re-quote while quote_status in (requested,quoted) & order pending_restaurant.
-- `20260727000000_fk_covering_indexes` — 12 FK covering indexes + notification_outbox deny-all RLS note.
-- `20260727000100_money_column_checks` — `>= 0` CHECKs on orders/order_items/catering money columns.
-- `20260727000200_gdpr_retention_align` — GPS 2yr, dormant 3yr anonymize (orders kept 10yr fiscal), old order-note scrub.
-- `20260727000300_payout_immutability` — paid payouts + their payout_orders frozen by trigger (corrections = new transactions).
-- `20260727000400_pricing_config` — versioned immutable commission history + set_pricing_config (announces via outbox).
-- `20260727000500_courier_suspension` — EU 2024/2831 human-in-loop suspend/reinstate_courier + courier_suspensions.
-- `20260727000600_dispatch_scoring_config` — master-audit Faza 3 #3: versioned `dispatch_scoring_config` (alpha0/alpha1/alpha2, admin-only, immutable-history, mirrors `pricing_config`) + `dispatch_order` rewired to read alpha0/alpha1 live instead of hardcoded 1x/10x; alpha2 reserved for Faza 4 NSGA-II tuning.
-- `20260727000700_courier_pilot_kpis` — master-audit Faza 5 #5: `courier_shifts` (one row per online→offline session, RPC-only via extended `set_courier_online_status`) + `courier_satisfaction_surveys` (weekly 1-5 pulse, `submit_courier_satisfaction`, immutable/idempotent like ratings) + `close_stale_courier_shifts` safety-net cron (16h cap) + `admin_courier_pilot_kpis` view (satisfaction avg 4w, median gross/shift 14d) for the go/no-go KPI table.
-- `20260727000800_cash_float` — order 1 (pilot-critical): `cash_policy` versioned/immutable (mirrors `pricing_config`, seeded provisional cap 1500/reactivation 1000 MDL, `set_cash_policy` setter) + `courier_cash_movements` append-only ledger (RPC-only; CHECK enforces collected>0/offload<0) + accrual added to `advance_delivery_status` (ONLY `payment_method='cash'`, never `card_on_delivery`) + hard-cap gate added to `set_courier_online_status` (blocks going online at/above the LOWER reactivation threshold — hysteresis vs. the cap) + `enforce_cash_cap_offline` trigger (auto-offline + closes shift/declines live offer the instant a collection hits the cap) + `get_courier_cash_status`/`admin_courier_cash_status` read surfaces + `record_cash_offload` (admin-only, mirrors `suspend_courier`).
-- `20260727000850_cash_float_fix` — adversarial-review fix: `set_courier_online_status`'s reactivation gate guarded on `v_policy is not null` (whole composite row), which Postgres evaluates true only if EVERY field is non-null; `cash_policy.created_by` is a nullable FK and NULL on the seeded v1 row, so the gate silently never fired — a courier at/above the cap could always go back online. Fixed to guard on the scalar `v_policy.reactivation_threshold_mdl is not null` instead. (`enforce_cash_cap_offline` was unaffected — it already used a scalar.)
-- `20260727000900_courier_tariff` — order 2 (pilot-critical): `courier_tariff_config` versioned/immutable rate card (mirrors `pricing_config`, seeded provisional base 30 + 6/km + 1.50/min-wait-after-3min, `set_courier_tariff` setter announces via outbox) + `current_courier_tariff()` internal-only getter + `orders.courier_fee_quoted_mdl`/`courier_fee_mdl` columns — quote (a FLOOR) stamped in `mark_ready_for_pickup` (base + per_km × haversine restaurant→delivery), final stamped in `advance_delivery_status` at delivered (`greatest(quote, live-tariff recompute)` — wait accrual is 0 until `orders.courier_arrived_restaurant_at` ships) + `admin_generate_payouts` recreated with every courier-block `delivery_fee_mdl` reference swapped to `coalesce(courier_fee_mdl, delivery_fee_mdl)` (restaurant-block references deliberately untouched).
-- `20260727001000_arrival_clock` — order 3 (observe-only, NO auto-compensation — cut in review): `orders.courier_arrived_restaurant_at` + `courier_arrived_at_restaurant()` RPC (assigned courier only, idempotent, only in status `courier_assigned`); BUG-FIX — `admin_reassign_courier` recreated to NULL the clock on reassign (else the rescuing courier inherits a stale clock + idempotency lockout); `advance_delivery_status` verified unchanged (its wait-term is a hardcoded `0`, not a broken conditional — correct per this task's observe-only directive); `admin_order_board` gets 2 additive columns + new `admin_wait_metrics` view (avg_wait_minutes_7d, avoidable_wait_orders_7d) + one `/platform` KPI tile; courier UI: "Am ajuns la restaurant" button + client-side elapsed timer (no money).
-- `20260727001100_avoidable_wait` — order 4 (observe-only, NO auto-compensation): `platform_settings.avoidable_wait_grace_minutes` (default 5) + `current_avoidable_wait_grace_minutes()` SECURITY DEFINER reader granted to authenticated (MANDATORY fix — `platform_settings` RLS is admin-only, so a direct `security_invoker` read would silently return zero rows for partners); recreates `admin_wait_metrics` to use the real grace instead of a placeholder literal; `restaurant_wait_kpis` view (`security_invoker`, explicit `has_restaurant_access` scoping) — reject-rate, prep-accuracy, avg courier wait (from the arrival clock), avoidable-wait-orders, all 30d rolling; `set_prep_time_estimate()` merchant prep-time override editable ONLY pre-accept (Glovo model); `accept_order` recreated to prefer the override over `get_prep_estimates()`; UI: editable prep-time field on the restaurant order queue row (pre-accept) + KPI chip row on `/restaurant/orders` from `restaurant_wait_kpis`.
-- `20260727001200_geofence_events` — order 5 (soft hint only, NEVER delivery proof, zero coupling to `advance_delivery_status`): append-only `geofence_events` (order/courier/kind pickup|dropoff/lat/lng/dist_m), RLS courier-own-read + admin-read (no client write policies), append-only enforced by a trigger (update always blocked, delete blocked except for the purge's >2yr rows) mirroring `courier_cash_movements`; `record_geofence_event()` RPC (assigned-courier-only, reuses `haversine_km`/`current_courier_id()`, recomputes dist_m server-side against the order's restaurant/address point) — MANDATORY (phoenix): `purge_expired_pii()` recreated from its current body (`20260727000200`) adding a 2-year `geofence_events` delete (precise GPS PII, same class as `courier_locations`); UI: `DeliveryStatusControls` shows a discreet proximity chip (reusing `pickupPoint`/`dropoffPoint` already computed for `CourierRouteMap` + the shared `haversineM`) and fires the RPC (fire-and-forget, best-effort) on an arrive-press within 150m.
-- `20260727001300_dispatch_anonymity` — order 6: `dispatch_order()` recreated from its current body with the `(1-acceptance_rate)*alpha1` reject-penalty term AND its `acc` lateral-join subquery DELETED OUTRIGHT (structural removal, not zero-weighting) — score is now ETA-to-restaurant only (`alpha0`); `alpha1`/`alpha2` stay admin-tunable columns on `dispatch_scoring_config` but nothing reads `alpha1` anymore. `is_plausible` GPS filter and all wave/capacity/lock guards unchanged.
-- `20260727001400_ghost_auto_offline` — order 7: `couriers.consecutive_ignored_offers` (streak of consecutive EXPIRED/ignored offers — declines never touch it); `expire_dispatch_offers()` recreated to increment it per expiry and, at N=3, auto-demote the courier offline inline/SECURITY DEFINER (mirrors `set_courier_online_status('offline')`'s state changes exactly: close open shift, decline any live offer, status offline) + queues a `notification_outbox` row (`tag='dispatch'`); `accept_dispatch_offer`/`set_courier_online_status` recreated to reset the streak to 0 on a fresh accept or a manual online toggle respectively.
-- `20260727001500_kpi_median_filter` — order 11 closeout: `admin_courier_pilot_kpis` view recreated to exclude "blip" shifts (`orders_count=0`) from `median_gross_per_shift_14d`/`avg_orders_per_shift_14d` (via `FILTER (WHERE earn.orders_count > 0)` on the ordered-set/avg aggregates) while `shifts_14d` keeps counting them raw and a new `empty_shifts_14d` column surfaces the excluded count instead of hiding it.
-- `20260727001600_rls_fast_path` — RLS fast-path (measured 179ms→9ms in Supabase docs): EVERY RLS policy in `public` + `storage.objects` (80 total, from the live `pg_policies` catalog, not hand-retyped from old migration files) dropped and recreated with identical qual/with_check semantics plus two mechanical rewrites — (1) every bare `auth.uid()` wrapped `(select auth.uid())` so it's an initPlan evaluated once per statement instead of once per row; (2) every policy gets an explicit `TO authenticated`, or `TO authenticated, anon` on the 8 policies backing the anonymous restaurant/menu browse surface (`restaurants_public_read`, `restaurant_hours_public_read`, `prep_stats_public_read`, `menu_categories_public_read`, `menu_items_public_read`, `menu_option_groups_public_read`, `menu_options_public_read`, `storage.restaurant_photos_public_read` — verified against `src/app/(customer)/restaurants/**` and the `SECURITY INVOKER` RPCs `get_prep_estimates`/`search_menu_items`/`nearby_restaurants`). Helper functions (`has_role`/`has_restaurant_access`/`current_courier_id`/etc.) untouched. Verified: anon gets a planner-level `One-Time Filter: false` (zero qual execution) on protected tables; customer/courier/partner/admin scoping unchanged (`tests/rpc/29_rls_fast_path.sql`).
-- `20260727001700_outbox_prune_timeouts` — DB hygiene: `prune_notification_outbox()` weekly pg_cron prune of `notification_outbox` (sent OR dead-lettered attempts>=5 rows older than 30 days; rows still under the retry ceiling are kept regardless of age, modeled on `purge_expired_pii`'s shape) + `statement_timeout='30s'` via `ALTER FUNCTION` on every pg_cron-invoked function (`expire_stale_orders`, `expire_dispatch_offers`, `refresh_prep_stats`, `purge_expired_pii`, `close_stale_courier_shifts`, `claim_notification_outbox`, `prune_notification_outbox`) so a runaway iteration can't wedge a cron worker slot indefinitely; `drain-push-outbox`'s cron command is raw `net.http_post` SQL (no function to wrap) and no cash-reconciliation function runs on a schedule (`admin_update_payment_status` is admin-invoked, not cron) — both out of scope by design, not an oversight.
-- `20260727001800_eta_p90` — `get_prep_estimates()` gains `p90_prep_minutes` (additive column; required DROP+CREATE — Postgres refuses to append RETURNS TABLE columns via CREATE OR REPLACE FUNCTION, verified live; no catalog-tracked dependents so the drop was safe) — same hourly≥5→overall≥5→static fallback ladder, null-safe (static tier has no percentile data); `formatPrepRange()` (`src/lib/orders/eta.ts`) now takes the full estimate row: point=avg, upper bound=p90 floored at a 5-min minimum spread, falling back to the fixed `DELIVERY_BUFFER_MIN=15` buffer only when p90 is null or non-positive spread — bare-number calls (static-column fallbacks) still work unchanged. Callers updated: `restaurants/[slug]/page.tsx`, `RestaurantBrowser.tsx`.
-- `20260727001900_cash_ops_hardening` — directive 10 leftovers: `effective_cash_cap(courier_id)` (STABLE, internal-only) tiers the cap by tenure — couriers under 30 days get `least(cap, 1000)` instead of the flat cap (provizoriu — de ratificat) — now the single cap read used by ALL three cap checks: `courier_has_capacity()` recreated to fold in the cash-cap gate (structural change to SECURITY DEFINER, so dispatch itself stops offering to an at/over-cap courier — previously only the online toggle + accrual trigger gated it), `enforce_cash_cap_offline` (accrual trigger) and `set_courier_online_status` (online-toggle gate, now blocks at `least(reactivation_threshold, effective_cap)`) both recreated from their current bodies swapping the flat cap read for the fn. Plus `reconcile_cash_ledger()`: hourly pg_cron job (`statement_timeout=30s` like the other cron fns) comparing each courier's ledger balance (`courier_cash_balance`) against an independent recompute from `orders` (delivered + cash + paid) plus the ledger's own offload rows — drift > 50 MDL is signal-only (never blocks/mutates): one `fraud_flags` row (`kind='cash_ledger_drift'`) + a `notification_outbox` row per `platform_admin` (`tag='cash'`). `courier_cash_movements_courier_idx` (from `20260727000800`) already covers the ledger sum — verified, no new index needed.
-- `20260727002100_public_transparency` — order 9 (unblocked by order 6's dispatch anonymity): `orders.delivery_fee_mdl` write-once — `guard_delivery_fee_floor` BEFORE UPDATE trigger blocks ANY post-insert change (audited every UPDATE path across the schema first: none legitimately touches it, so the guard is the full write-once form, not decrease-only) + `public_pricing_history()`/`public_courier_tariff_history()` SECURITY DEFINER readers (exclude `created_by`, granted to anon) over `pricing_config`/`courier_tariff_config`; unauthenticated `/cum-functioneaza` page (marketing group) states the four now-true invariants (anonymous dispatch, refusal not penalized, fee is a floor, tariffs versioned+published) and renders both history tables via new `getPublicPricingHistory`/`getPublicCourierTariffHistory` shared-api wrappers; footer link added next to Termeni/Confidențialitate.
-- `20260727002200_dispatch_metrics` — vetted order 10 #1 (views-only, additive, no new instrumentation): `admin_dispatch_metrics` (`security_invoker=on` PLUS an explicit `has_role('platform_admin')` gate on its single output row — every metric is an uncorrelated scalar subquery, so the row always exists even over zero RLS-visible input, which the gate is what actually zeroes out for non-admins) computed live from `orders`+`delivery_status_events`+`dispatch_offers`, rolling 7d: `time_to_assign_avg_seconds` (ready_for_pickup→courier_assigned), `first_offer_acceptance_rate` (wave-1 accepted/total), `decline_cascade_depth_avg` (max wave per dispatched order), `restaurant_handover_avg_seconds` (ready→picked_up — INCLUDES courier travel, an UPPER BOUND on the true wait; true wait is `admin_wait_metrics`), `total_delivery_avg_minutes` (placed→delivered), `unfinished_order_rate` (cancelled-after-accept/accepted); UI: `/platform` gets a "Dispatch (7 zile)" KPI tile row (`DispatchTile`, mirrors the existing tile pattern) with a Romanian one-line tooltip/subtitle per metric, read via the existing admin `.from()` view pattern (no raw `.rpc()`, matches `admin_order_board`).
-- `20260803000000_restaurant_partner_column_guard` — Marele Audit RestPartnerAudit CRIT: `guard_restaurant_platform_columns` extended to also revert the money-/dispatch-critical columns (`delivery_fee_mdl` stamped onto orders by place_order, `min_order_amount_mdl`, `catering_min_amount_mdl`, `accept_sla_minutes`, `avg_prep_minutes`, `lat`/`lng`) for non-privileged writers — was reverting only is_active/slug, so a partner could rewrite their own delivery fee / SLA via a direct REST UPDATE. `accepting_orders` + storefront cosmetics stay partner-editable (sim 43).
-- `20260806000000_admin_low_ratings` — Marele Audit AdminOps P0: `admin_low_ratings` view (`security_invoker` + baked-in `has_role('platform_admin')`, stars<=3, joined to order_number + restaurant/courier name) backing the `/platform/ratings` complaint-triage page — ratings had admin read RLS but no admin UI queried them (sim 44).
-- `20260806000100_payout_versioned_commission` — Marele Audit Money P0: `pricing_config_at(ts)` temporal getter; `admin_generate_payouts` reads the commission per order from the `pricing_config` version in effect at that order's `delivered_at` instead of the mutable `platform_settings` cache (which set_pricing_config overwrites), so a retroactive payout can't apply the current rate to past deliveries; aggregate `payouts.commission_mdl` = SUM of per-order commissions (reconcilable across a version boundary). clawback untouched (reverses stored payout_orders). platform_settings kept as never-hit coalesce fallback (sim 45).
-- `20260806000200_admin_assign_cancel_stray_offer` — Marele Audit Dispatch P1: `admin_assign_courier`/`admin_reassign_courier` also cancel the target courier's live `dispatch_offers` for ANY order (`status='offered' and courier_id=target`), not just the assigned order — else a still-live 30s offer expires, bumps `consecutive_ignored_offers`, and ghost-auto-offlines the courier while they're out delivering (sim 46).
-- `20260806000500_pilot_kpi_margin` — Marele Audit Money #3 (P1): the go/no-go KPI "Cota curierului din tarif" (`avg(courier_fee/delivery_fee)`, a ratio of two structurally independent amounts that read pass/fail by distance not policy) replaced with the platform's direct delivery margin `avg(delivery_fee − courier_fee)` and a defensible floor target (≥ 0 MDL). Other 9 KPIs recreated verbatim from the live body (sim 50).
-- `20260806000400_cash_refund_reversal` — Marele Audit Money #2 (P1): new `refund_reversal` `courier_cash_movements` kind (amount<0); `clawback_settled_order_on_refund`, on refund of a CASH order, inserts a negative movement equal to the collected cash per collecting courier (idempotent) so the float balance isn't left inflated (false cap / permanent reconcile drift). Both CHECK constraints extended; `reconcile_cash_ledger` unchanged (a refunded order nets 0 on both sides) (sim 49).
-- `20260813000400_cash_gate_fixes` — Armata 2026-08-13 peste 70be2ae/4d01e62: (1) boundary `>=` la gate-ul cash (la EXACT cap oferta pleca și pedeapsa auto-offline tot venea); (2) catering EXEMPT de gate (9.200 MDL > orice plafon prin construcție → devenea permanent nedispecerizabil; predarea numerarului mare = proces/factură, decizie de business); (3) reconcile re-flag pe drift materialmente NOU (delta >50 față de flag-ul deschis — flag-ul stale nu mai înghite incidente noi); (4) **plafon COD în place_order**: standard+cash+total>1400 MDL → respins la checkout cu îndrumare spre card (altfel comanda murea nedispecerizabilă în anularea de 6h); traducere prietenoasă în CheckoutForm. Igienă simuri: neutralizare float `refund_reversal` în 7 fișiere + comenzile-mamut din testele de mecanică dispatch mutate pe card.
-- `20260815000300_concierge_venues_bookings` — Dragons Delivery Chișinău devine CONCIERGE: locațiile primesc `venue_type` (restaurant / sushi_bar / spa / wellness_lounge / business_lounge), ortogonal pe `cuisine_type`. Decizie de arhitectură: locațiile NU primesc tabel nou — `restaurants` are deja nume/slug/adresă/poze/program/rating/onboarding + tot stratul RLS testat, iar un tabel paralel ar dubla fiecare politică. Ce e nou e a doua formă de tranzacție: până acum totul era „comandă care se livrează", iar un spa sau o sală se REZERVĂ → `venue_bookings` cu ritmul de la catering (cerere → ofertă → confirmare), fiindcă prețul îl pune partenerul. RPC-only: request/quote/confirm/decline/cancel_venue_booking, RLS pe cele trei roluri (client propriu, `has_restaurant_access` pentru locație, admin). Plasă de siguranță găsită la prima probă în browser: o locație FĂRĂ personal înregistrat primea cereri pe care nu le vedea nimeni → `notify_venue_staff_or_admin` trimite adminului când lipsește staff-ul (sim 64: cerere+notificare, ofertă staff-only, confirmare doar de client, refuz cu motiv obligatoriu, izolare RLS sub `set local role`).
-- `20260816000000_prep_accuracy_truth` — bucla de noapte V2, cauza rădăcină a lui „Precizie pregătire: -24.9 min" din panoul partenerului. Semnul minus nu s-a ascuns; s-a reparat promisiunea față de care se măsura, fiindcă în două cazuri ea nu exista. (1) `accept_order` ștampila `estimated_ready_at = now() + prep` ȘI pentru comenzile programate, ignorând `requested_for` — dovadă vie: CHD-2026-000470, cerută pentru 12 aug 10:00, avea ținta 11 aug 20:23, cu 13,6 ore înaintea ferestrei. Efectul trecea de KPI pe încă două suprafețe: partenerul primea „⏱ Depășit — pregătește urgent" la 25 de minute după acceptare pentru o comandă de a doua zi, iar clientul citea „Gata în ~29 min" exact sub propria etichetă „Comandă programată pentru 12 aug.". Ancora e acum `requested_for - 45 min` — pragul la care `20260811000000` deschide dispecerizarea, deci momentul declarat de platformă ca început al livrării; `greatest(...)` face ca o fereastră apropiată sau trecută să degradeze onest la `now()+prep` (comanda ASAP rămâne bit-identică). (2) `restaurant_wait_kpis` măsura precizia și pe comenzile cancelled/rejected, deși CTE-ul `decisions` din ACELAȘI view le excludea deja — o comandă întreruptă n-a dus la capăt un ciclu de bucătărie, deci `min(ready_for_pickup)` de pe ea nu e semnal de finalizare (CHD-2026-000002, anulată pe 6 aug cu un eveniment de ready pe 13 aug, singură ducea Ciocana la „+10017.6 min"). (3) Media n-avea prag de eșantion — 5 din 11 restaurante raportau o „statistică pe 30 de zile" dintr-o singură comandă; pragul e ≥5, aceeași regulă a casei ca `get_prep_estimates`, iar noua coloană `prep_accuracy_orders` (apendată, fără drop) spune pe câte comenzi stă cifra sau de ce lipsește. UI: eticheta scrie sensul în cuvinte („23 min · mai devreme decât estimarea"), `formatTargetClock` adaugă ziua când ținta nu e azi, iar `PrepCountdown` trece de la numărătoare la oră peste 90 de minute (sim 65: ancorare programată, ASAP neschimbat, fereastră apropiată degradată, anulata exclusă, prag sub 5).
-- `20260816000100_dispatch_median_sample` — bucla de noapte R9, al doilea val adversarial pe suprafața ADMIN (ultima nematurată din lista lăsată deschisă de V11). `admin_dispatch_metrics` publica pentru durata de livrare DOAR media aritmetică, fără să spună vreodată pe câte livrări stă, iar `admin_pilot_go_no_go` o compara cu ținta „≤35–49 min" și scria **FAIL pe pagina pe care se ia decizia de lansare a pilotului**. Cele șase livrări reale din fereastra de 7 zile aveau duratele 10130,2 · 7071,7 · 15,1 · 7,2 · 5,4 · 0,0 minute: patru sub un sfert de oră, două rămase zile în conductă. Media 2871,6 (FAIL), mediana 11,15 (PASS) — două verdicte opuse de lansare din aceleași șase rânduri, după cum alegi măsura centrală. Regula casei exista deja de două ori și nu ajunsese aici: `get_prep_estimates` nu publică o statistică sub 5 observații, iar `20260727001500` a scos turele-scânteie din mediana KPI-urilor de curier PĂSTRÂND numărul lor vizibil (`empty_shifts_14d`). Aplicate aici: două coloane aditive (`total_delivery_median_minutes`, `total_delivery_orders`), verdictul se dă pe mediană și devine `no_data` sub 5 livrări, iar media **rămâne publicată și scrisă în celulă** când depășește mediana de ≥1,5× — o coloană ștearsă ar fi ascuns exact cozile lungi găsite. Corpurile luate din catalogul viu (`pg_get_viewdef`/`prosrc`), un singur delta fiecare. UI: tile-ul `/platform` devine „Livrare totală (mediană)" cu rândul de eșantion, `formatDeliveryDuration` (`src/lib/ops/dispatchMetrics.ts`) e singura regulă de citire (sim 66: sub prag → no_data, coadă lungă → mediana judecă și media rămâne scrisă, poarta de admin intactă pe view ȘI pe funcție).
-- `seed`/`restaurant_hours` — program de noapte până la **03:00** (cerere proprietar). Ambele straturi știau deja să citească un interval peste miezul nopții (`restaurant_open_at` în SQL, `isOpenNow` în client, prin `closes_at <= opens_at`); doar datele se opreau la 22:00 (sim 63: deschis la 02:00 și 23:30, închis la 04:00, comandă programată la 02:00 acceptată de `place_order`).
-- `20260815000200_delivery_contact_phone` — Armata SPOF (CRIT): pe comenzile STANDARD curierul nu avea cum să sune clientul — `addresses` n-avea coloană de telefon, `place_order` n-avea parametru, iar în DB toți cei 14 clienți aveau `profiles.phone` NULL (catering-ul avea contact_phone de la început, de-aia lipsa n-a sărit în ochi). Telefonul stă pe ADRESĂ, nu pe comandă: e proprietate a locului de livrare și refolosește exact granița de acces existentă (`addresses_courier_assigned_read`), fără cale nouă spre date personale. În aceeași mișcare, `courier_is_assigned_to_address` a fost îngustat de la „pe viață" la comandă în lucru + 24h după livrare (istoricul curierului nu citește `addresses`, deci nu se rupe nimic). UI: câmp obligatoriu la checkout ȘI prompt pentru adresele salvate înainte (altfel clienții vechi n-ar fi întrebați niciodată), buton „Sună clientul" pe pagina livrării. Sim 62 — capcană plătită: rulat ca `postgres`, RLS e ocolit și probele de vizibilitate trec fals; probele se fac sub `set local role authenticated`, ca în sim 29.
-- `20260815000100_catering_offline_and_sweeper` — Armata SPOF 2026-08-15, trei omisiuni în jurul plafonului: (1) CRIT `enforce_cash_cap_offline` nu avea excepția de catering pe care dispatch_order o primise în 20260813000400 → primul curier care livra o comandă catering-cash (4 în DB, medie 8.994 MDL) era trecut offline instant, cu tura închisă; distincția asumată: offline forțat = pedeapsă (doar numerar standard), courier_has_capacity = protecție (rămâne activă și pentru catering). (2) HIGH trecerea offline pe plafon era MUTĂ — acum scrie în notification_outbox cu suma și plafonul, ca ghost-offline-ul. (3) HIGH buclele sweeper-ului prindeau doar unique_violation/deadlock_detected → orice altă excepție (ex. query_canceled pe lock concurent) omora TOT tick-ul; acum `when others`, comanda problematică e sărită, restul rundei continuă. Corpul sweeper-ului a fost luat din DB-ul viu și modificat cu UN singur delta — rescrierea din memorie pierduse CTE-ul de expirare atomică, `responded_at`, streak-ul din `returning` și închiderea turei (sim 61).
-- `20260815000000_cash_policy_new_courier` — Simularea pilotului 5×5×15 (2026-08-15) a arătat că frâna #1 nu e capacitatea (utilizare 33-39%), ci NUMERARUL: la plafonul de probă (1000 MDL, hardcodat) pilotul pierde 5,9% din comenzi și curierii ard 24% din timpul ocupat în drumuri la sediu; la 1500 → 1,5%. (1) `new_courier_cap_mdl` + `new_courier_days` devin coloane VERSIONATE în `cash_policy` (valorile de azi păstrate ca implicit; `new_courier_days=0` = fără perioadă de probă) și `effective_cash_cap` le citește în loc de constantele din cod — reglarea riscului redevine decizie de business, nu migrație. Capcană: `create or replace` cu parametri noi lasă vechea semnătură în viață → apel ambiguu (prins de sim 22), deci `drop function` explicit. (2) `get_courier_cash_status`/`admin_courier_cash_status` raportau plafonul din POLITICĂ, nu pe cel EFECTIV — curierul nou vedea „740/1500" deși dispatch-ul îl tăia la 1000 (sim 60: S5/S6). UI: `CashOffloadControl` în `/platform/couriers` — `record_cash_offload` exista din iulie fără NICIUN apelant, deci un curier ajuns la plafon nu putea fi deblocat din aplicație (dovedit live: 1838 → 1000 MDL).
-- `20260814000000_admin_customers_view` — Consolidare CRM 2026-08-14: view `admin_customers` (house pattern `security_invoker` + gate `has_role('platform_admin')` copt în WHERE) — per client: total/delivered/cancelled orders și `spent_mdl` DOAR din delivered; sursa tabului Clienți din `/platform/crm` + drilldown `?customer=` pe `/platform/orders` (sim 59: agregate relative recalculate în același snapshot + gate non-admin 0 rânduri).
-- `20260813000300_restaurant_cancel_order` — Dezbatere 2026-08-12 GAP (P1): ieșirea partenerului post-accept. `restaurant_cancel_order(order, reason)` — staff-only, DOAR accepted/ready_for_pickup și niciodată după picked_up; omoară ofertele live, scrie evenimentul cu motivul, notifică clientul prin outbox cu motivul textual. UI: RestaurantCancelControl discret reason-first pe detaliul partener + wrapper shared-api (sim 58: RC1 happy+offer-kill+notify, RC2 blocat post-pickup, RC3 staff-only, RC4 motiv obligatoriu).
-- `20260813000200_payout_coverage` — Dezbatere 2026-08-12 BUG (P5): view `admin_unpaid_delivered_orders` (security_invoker + gate admin, pattern admin_low_ratings) — comenzi delivered+paid neacoperite de niciun rând payout_orders viu (per curier ȘI restaurant, cu courier_due coalesce) + banner ambră pe /platform care numără și duce la /platform/payouts (sim 57: P1 apare, P2 rularea pe perioadă o curăță, P3 admin-only).
-- `20260813000100_cash_aware_dispatch` — Dezbatere 2026-08-12 BUG (P4): `dispatch_order` nu mai oferă comenzi CASH care ar împinge float-ul curierului peste `effective_cash_cap` la livrare (înainte: oferta pleca, livrarea declanșa pedeapsa auto-offline). Card/POS neafectate (sim 56: C1 reținută, C2 mică trece, C3 card bypass).
-- `20260813000000_reconcile_idempotent_backfill` — Audit 2026-08-13 CRIT: `reconcile_cash_ledger` flag+push DOAR când nu există flag `cash_ledger_drift` nerevizuit pt curier (era un duplicat/oră: 54×2 flags + 108 push-uri în 6 zile pt aceleași 2 incidente); backfill regularizare istorică — perechi collected+offload net-zero pt comenzile cash livrate pre-ledger (drift real -772/-430 → 0); cele 108 flags duplicate auto-reviewed (sim 55: R1 idempotent, R2 re-flag după review, R3 ledger live curat; capcană sim: neutralizarea driftului sintetic se face cu `refund_reversal`, nu `offload` — offload-ul intră și în recompute).
-- `20260812000100_catering_quote_notification` — Audit A→Z 2026-08-11 HIGH: `submit_catering_quote` now inserts a `notification_outbox` row (first quote „Oferta ta de catering a sosit" / correction „actualizată", url `/catering/{id}`, tag `catering-quote-{id}`) — the customer used to learn about a quote only by revisiting the page (sim 16 N: quote + re-quote = 2 notifications).
-- `20260812000000_dispatch_cooldown` — Audit A→Z 2026-08-11 HIGH: single-courier dispatch dead-end. Lifetime exclusion (hard unique `dispatch_offers_order_courier_once`) → plain index + cooldown in `dispatch_order`'s candidate query: declines stay a permanent no, an EXPIRED (ignored) offer only sidelines the courier 2 min (ghost auto-offline at 3 still applies). COMPANION: `expire_stale_orders` gains a zombie-ready loop — ready_for_pickup + no courier + ready-state >6h (scheduled window+2h exempt) auto-cancels, else the sweeper rescue would hunt the courier with zombie offers every 2 min forever (sims 54 C1-C3+Z1-Z2; 41's rescue assert updated to cooldown semantics). Test hygiene: 15 sims' "first available item" pick made deterministic (priciest modifier-free — heap order proved unstable the moment menu rows were updated).
-- `20260811000000_scheduled_orders_honesty` — Audit A→Z 2026-08-11 CRIT: scheduled orders were live-ASAP end-to-end. `expire_stale_orders` anchors the accept-SLA clock at `greatest(created_at, requested_for - 60min)` (no more auto-cancel of tomorrow's order minutes after placement); `dispatch_order` gains a single choke-point gate (`requested_for > now()+45min` → return null) that holds every dispatch path (mark_ready, sweeper cascade AND rescue) until the window; the 15s sweeper rescue is what opens it on time. UI same wave: `src/lib/orders/scheduled.ts` + „Programată" badge on partner queue/detail, customer tracking + history; partner SLA countdown suppressed while `isScheduledStillAhead` (sim 53).
-- `20260806000300_kyc_retention` — Marele Audit Security HIGH (GDPR): `purge_expired_pii()` extended to purge KYC identity docs (storage object + `kyc_documents` row + a scrub of the `onboarding_applications` PII) for people NOT on the platform — rejected applications 90d after review, abandoned unreviewed applications 180d after creation; approved (active) applications deliberately retained. Reuses the POD `storage.allow_delete_query` guard (sim 48).
-- `20260731000500_security_hardening` — SecurityAudit adversarial (no exploit found; 2 LOW hardening): anon EXECUTE revoked from PUBLIC on admin_mark_payout_paid/admin_update_payment_status/review_onboarding_application/confirm_online_payment (confirm pinned to service_role first); 8 admin_* views wrapped with an explicit `where has_role(platform_admin)` (was implicit-via-RLS — now a non-admin gets 0 rows even if a base-table policy were broadened). Done programmatically from live viewdef, idempotent.
-- `20260731000400_dispatch_liveness` — DispatchAudit adversarial: #2 wave budget scoped to a 5-min ROUND window (was lifetime max(wave) → orders permanently stalled past wave 5; a courier who logs in after the burst now rescues them) + #1 deadlock_detected caught in accept/decline (→ calm "expirat" UX) & the sweeper cascades (no whole-tick rollback); + `admin_assign_courier` (SurfaceAudit P2 — assign a courier to a ready order that has none).
-- `20260731000300_money_audit_fixes` — MoneyAudit adversarial: CRIT — bypass-ul "Livrat, neîncasat"→admin-paid închis (admin_update_payment_status inserează rândul collected lipsă; trigger-ul de cap se aplică sincron și pe reconcilierea târzie); HIGH — admin_courier_pilot_kpis pe coalesce(courier_fee_mdl, delivery_fee_mdl) (KPI-ul go/no-go măsura fee-ul clientului); LOW — referral doar pe livrări paid.
-- `20260731000200_weather_surcharge` — Faza 5 #3: `courier_tariff_config.weather_surcharge_mdl` versionat+anunțat (rtrim pe quirk-ul to_char "7."); componenta se STAMPEAZĂ pe comandă la cotare (`orders.courier_fee_surcharge_mdl`, podea — fără surge retroactiv); `mark_ready`/`advance_delivery_status` recreate din corpurile LIVE; istoric public cu coloana de vreme; KPI #6 buget ≤10% viu prin `admin_pilot_go_no_go_surge_pct()`.
-- `20260731000100_courier_referral` — Faza 5 #4 signal-only: `couriers.referral_code` (unic, uman-citibil) + `referred_by`; `set_courier_referrer` (admin-only, write-once, fără self-referral); `admin_referral_progress` view (livrări în primele 30 zile vs 50, qualified/window_closed) — bonusul se plătește MANUAL prin payout, zero automatizare de bani.
-- `20260731000000_pilot_command` — Faza 5: `admin_pilot_go_no_go()` (10 KPI cu pass/fail/no_data/info: brut/tură+lună, cota curierului, așteptare, timp total, buget bonus, satisfacție, neasignate, km/tură + minute-în-livrare/tură §9 Q3) + `admin_scaling_triggers()` (4 declanșatoare Faza 6 cu query viu + armed; prag matching-global din simulatorul propriu) — ambele admin-only, READ-ONLY, om în buclă.
-- `20260728000000_restaurant_analytics` — analytics data layer for restaurant histograms: `restaurant_analytics_hourly` (`security_invoker=on`, `has_restaurant_access`-scoped, last 14d delivered orders bucketed by hour-of-day 0-23, zero-filled to 24 rows/restaurant) + `restaurant_analytics_daily` (same scoping, last 14 calendar days, zero-filled) + `restaurant_top_items` (last 28d, top 8 items/restaurant by qty, `item_name_snapshot`-based so a renamed/deleted item still shows) — all partner/admin-only (`authenticated`, not `anon`), mirrors `restaurant_wait_kpis`'s explicit-scoping precedent. Plus two anon-reachable, aggregate-only `SECURITY DEFINER` RPCs for the public restaurant page: `popular_hours(p_restaurant_id)` (24 zero-filled hour buckets, last 28d, raw count + 0-100 intensity normalized to that restaurant's own busiest hour — Google-"popular times" style) and `rating_breakdown(p_restaurant_id)` (5 zero-filled star buckets 1-5 + repeated `total_ratings`, restaurant-target ratings only, no PII columns). `getPopularHours`/`getRatingBreakdown` shared-api wrappers (discovery-style soft-fail to `[]`).
-- `20260727002000_pod_photo` — directive 12 (web pilot only, mobile excluded): private `delivery-proof` storage bucket, path-scoped `{order_id}/...` RLS (assigned courier INSERT via `current_courier_id()` joined against `orders.courier_id`; order's customer + admin SELECT; no update/delete policy at all — append-only by RLS default-deny) + `orders.pod_photo_path` + `attach_delivery_proof()` RPC (assigned courier only, valid only `en_route`/`delivered`, idempotent-overwrite allowed within 1h of `delivered_at`, path must be scoped under the order's own folder) — soft evidence only, `advance_delivery_status` untouched/has zero dependency on it (audit: no geofence/photo as delivery proof-gate); `purge_expired_pii()` recreated from its current body (`20260727001200`) adding a 90-day delivery-proof purge (needs `set_config('storage.allow_delete_query','true',true)` — `storage.objects` carries its own `protect_delete()` trigger blocking raw SQL deletes — plus re-stating the `20260727001700` `statement_timeout='30s'` hardening, since `CREATE OR REPLACE FUNCTION` does not retain a prior bare `ALTER FUNCTION ... SET`) + nulls any `pod_photo_path` left dangling by that delete; UI: courier `DeliveryStatusControls` shows an optional "Adaugă dovadă foto" file input once a `payment_method='cash'` order is `delivered` (uploads via `uploadDeliveryProofPhoto`, generalized out of `uploadMenuPhoto.ts`'s compression path, not duplicated), admin `/platform/orders/[id]` renders the photo via a signed URL when present.
-- `.env.local` holds `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (real, gitignored). `SUPABASE_SERVICE_ROLE_KEY` intentionally absent until needed by admin invite flows (`src/lib/supabase/admin.ts` throws without it).
-- `NEXT_PUBLIC_*` vars are inlined at build time — changing `.env.local` requires rebuild + server restart.
-- Test account: `client@test.md` / `parola123`. SQL-created auth users need token columns set to `''` not NULL, else GoTrue 500s on login.
+1. **RLS is the security boundary, not the proxy.** `src/proxy.ts` (Next 16 renamed
+   `middleware.ts` → `proxy.ts`; the export is `proxy`, not `middleware`) role-gates
+   `/deliveries/*`, `/restaurant/*`, `/platform/*` — that is UX only. Enforcement is Postgres RLS
+   via `has_role()` / `has_any_role()` / `has_restaurant_access()`.
+2. **Order status never changes via a client `.update()`.** Every transition goes through a
+   `security definer` RPC. `delivery_status_events` has deliberately no insert policy — only RPCs
+   write it. Simple flags (e.g. `menu_items.is_available`) may be direct writes under RLS.
+3. **A `security definer` function bypasses RLS, so it must check BOTH transition validity AND
+   caller authorization.** Skipping the auth check is the classic bug in this repo.
+4. **Cross-role writes go through `security definer` triggers/RPCs, never from the client.**
+5. **A courier is `profiles.role='courier'` AND a row in `couriers`.** RPCs look up `couriers`, not
+   `profiles` — checking the wrong one silently returns "not a courier".
+6. **PostGIS lives in the `extensions` schema** — always call `extensions.st_*`. Numeric `lat`/`lng`
+   stay the writable source; `geography` columns are generated.
+7. **Never touch the dormant Trade-AI tables** in the shared Supabase project `rdowjxnuyawhrjppxzuu`:
+   `poly_*`, `polymarket_*`, `gladiator*`, `equity_history`, `syndicate_audits`.
+8. **Migrations in `supabase/migrations/` are authoritative.** Applied locally via
+   `supabase db reset`; remote sync is a deliberate pre-launch step, never a side effect.
+   Order matters (couriers before orders). Every file needs an entry in `docs/migrations.md`.
+9. **Recreate a function from its LIVE body** (`pg_get_functiondef` / `pg_get_viewdef`), then apply
+   ONE delta. Rewriting from memory has silently dropped working logic here before.
 
-## Architecture — the rules that hold everything together
+## Order lifecycle
 
-**One app, three surfaces, RLS is the security boundary.** Route groups `(customer)`, `(courier)`, `(admin)` + `(marketing)` share one Supabase backend. `src/proxy.ts` (Next 16 renamed `middleware.ts` → `proxy.ts`; export is `proxy`) role-gates `/deliveries/*`, `/restaurant/*`, `/platform/*` — but that's UX only; Postgres RLS via `has_role()` / `has_any_role()` / `has_restaurant_access()` (SQL functions, migration 000000/000200) is the real enforcement.
+`pending_restaurant → accepted → ready_for_pickup → courier_assigned → picked_up → en_route →
+delivered` (+ `cancelled` / `rejected`).
 
-**Order status never changes via client `.update()`.** All transitions go through `security definer` RPCs (migration 000500): `place_order`, `accept_order`, `reject_order`, `mark_ready_for_pickup`, `assign_courier`, `advance_delivery_status`, `set_courier_online_status`, `cancel_order`, `submit_catering_quote`, `decline_catering_quote`, `confirm_catering_quote`. Every RPC must check BOTH transition validity AND caller authorization (security definer bypasses RLS — skipping the auth check is the classic bug here). Order lifecycle: `pending_restaurant → accepted → ready_for_pickup → courier_assigned → picked_up → en_route → delivered` (+ `cancelled`/`rejected`). Catering is quote-first (`catering_details.quote_status`), then joins the same pipeline. `delivery_status_events` has deliberately NO insert policy — only RPCs write it. Simple toggles (e.g. `menu_items.is_available`) are fine as direct writes under RLS.
+Transition RPCs: `place_order`, `accept_order`, `reject_order`, `mark_ready_for_pickup`,
+`assign_courier`, `advance_delivery_status`, `cancel_order`, `restaurant_cancel_order`,
+`set_courier_online_status`.
+Catering is quote-first (`catering_details.quote_status`: `submit_catering_quote` /
+`decline_catering_quote` / `confirm_catering_quote`), then joins the same pipeline.
+Venue bookings are a second transaction shape on the same `restaurants` table
+(`request_` / `quote_` / `confirm_` / `decline_` / `cancel_venue_booking`) — partner sets the price.
 
-**Roles**: `customer` (self-signup, trigger `handle_new_customer_signup` auto-creates profile), `courier` (needs `profiles.role='courier'` AND a `couriers` row — RPCs look up `couriers`, not `profiles`), `restaurant_partner` (+ `restaurant_staff` link), `platform_admin` (invites others via service-role in Server Actions).
+## Money invariants
 
-**Ultradeep research-driven subsystems (added 2026-07-17, all applied local+remote, verified via rolled-back JWT-claim sims):**
-- **WS2 dispatch** (migration `20260717001600`): push model over the pull model. `dispatch_offers` table (RPC-only writes; partial unique indexes = one live offer per order AND per courier, never re-offer same courier). Engine `dispatch_order()` scores candidates = haversine ETA-to-restaurant by vehicle speed + 14d acceptance penalty (missing GPS/geocode → 6km default). `accept_dispatch_offer` does the atomic claim (compare-and-set `WHERE status='ready_for_pickup' AND courier_id IS NULL`) — serializes vs pull `assign_courier`, no double-assign. `decline_dispatch_offer` cascades. `expire_dispatch_offers()` sweeper on pg_cron `'15 seconds'` (seconds-granularity confirmed on this project) expires 30s offers + cascades (max 5 waves) + rescues undispatched orders. `courier_has_capacity()` is the single capacity source (WS5 batching swaps only its body). `mark_ready_for_pickup`/`assign_courier`/`cancel_order` were recreated preserving WS1 bodies + offer hooks. `restaurants.lat/lng` added (nullable; PostGIS/WS3 later). Courier UI: `OfferCard` (30s countdown) + `OffersLive` (row-filtered realtime).
-- **WS4 dynamic ETA** (migration `20260717001400`): `restaurant_prep_stats` (rolling 28d avg/p90 accepted→ready, hour-of-day bucketed) refreshed by `refresh_prep_stats()` on pg_cron `'*/15 * * * *'`; `get_prep_estimates(uuid[])` security-invoker reader with hourly≥5→overall≥5→static fallback; `accept_order` stamps `orders.estimated_ready_at`. UI: `PrepCountdown`, `ReadyTargetBadge`, live estimates on browse/menu/queue.
-- **WS6 ratings** (migration `20260717001500`): `ratings` table (RPC-only writes, scoped-select RLS) + denormalized `rating_avg`/`rating_count` on `restaurants`+`couriers`; `submit_rating()` enforces caller=customer + delivered + 30d window + one-per-order-per-target + idempotent. UI: `RatingForm` on delivered tracking; real star avg on cards.
-- **WS8 accept-SLA UI**: `SlaCountdown` (partner pill + customer line) from `restaurants.accept_sla_minutes` (WS1).
-- **WS10 GPS fraud** (migration `20260717001700`): `fraud_flags` table (append-only from trigger, admin-read/review RLS). `check_gps_plausibility()` BEFORE UPDATE trigger on `courier_locations` flags >150 km/h haversine movement (signal only, never blocks; 0.3km + 5s floors, 5-min debounce). Also fixed a latent bug — `courier_locations.updated_at` never advanced on upsert (added the missing `set_updated_at` trigger). Admin UI at `/platform/fraud`.
-- **WS7 admin ops** (migration `20260717001800`): 5 `security_invoker` views (admin_order_board / admin_stuck_orders / admin_fleet_status / admin_restaurant_kpis / admin_payment_queue) — RLS is the boundary, so platform_admin needs read-all on every underlying table (added `restaurants_admin_read`). `admin_update_payment_status` RPC (guarded transition matrix + audit). couriers+courier_locations in the realtime publication. `subscribeTable` filter is optional ONLY for the admin ops surface. UI: `/platform` (KPI tiles + kanban `OrdersBoard` + `FleetPanel` + zero-dep SVG `OpsMap` + realtime `OpsLive` w/ 30s poll fallback), `/platform/queues` (stuck + payment disputes). proxy gates the exact `/platform` too.
-- **WS3 real geo** (migration `20260717001900`): PostGIS 3.3.7 in the `extensions` schema (always call `extensions.st_*`), generated `geography` columns + GiST on restaurants/addresses/courier_locations (numeric lat/lng stay the writable source). `nearby_restaurants` public RPC (distance-sorted browse); `courier_dispatch_distance_m` + `nearby_available_couriers` internal (revoked from anon/auth — location privacy). `courier_location_guard` trigger: Moldova-bounds hard-reject + `is_plausible` teleport flag. `assign_courier` got a fail-open >15km distance guard. Restaurants backfilled with demo coords (verify real ones before launch). Frontend: `useNearbyRestaurants` (soft geolocation, fail-open), distance badges.
-- **Hardening** (migration `20260717002000`, from adversarial backtest wf_a6f1042e): confirm_catering_quote transition guard; `guard_rating_columns` trigger (SECURITY INVOKER — reverts client writes to `restaurants/couriers.rating_avg/rating_count`, only the definer submit_rating may move them); courier-row FOR UPDATE lock in accept_dispatch_offer/assign_courier (capacity TOCTOU); unique_violation guards in the dispatch sweeper; admin_stuck_orders scoped to standard orders; in_state_since = entry-into-current-status.
-- **FIXED (shipped 2026-07-17, doc synced 2026-07-26)**: courier GPS channel `order:{id}:location` is PRIVATE — migration `20260717002100_ws3b_private_location_channel.sql` (`realtime.messages` RLS: only the order's customer / assigned courier / admin can receive; only the assigned courier can send) + `courierLocation.ts` sets `private: true` and calls `setAuth()` on both web and mobile clients. Browser E2E confirmation still pending (see `.bucla/issues.md`).
-- **Deferred**: WS5 batching (rewrites assign/advance/cancel — 3-way overlap with shipped WS2, post-MVP), WS9 NATIVE push only (FCM/APNs via EAS creds — Web Push already shipped: `web-push` dep + `public/sw.js` + `PushOptIn` + notification outbox migration `20260718000200` + `/api/push/drain`), checkout pin-drop UI. Remove `/enter/[role]` before launch.
+- `orders.delivery_fee_mdl` is **write-once** — a trigger blocks any post-insert change. It is a
+  FLOOR, never re-priced retroactively.
+- Payouts read the commission from the `pricing_config` version in effect at the order's
+  `delivered_at` (`pricing_config_at`), never the mutable `platform_settings` cache.
+- Config tables are **versioned and immutable**: `pricing_config`, `courier_tariff_config`,
+  `cash_policy`, `dispatch_scoring_config`. Corrections are new rows, never edits.
+- Paid payouts and their `payout_orders` lines are frozen by trigger — a correction is a new
+  transaction.
+- Cash float: `courier_cash_movements` is an append-only ledger; the cap is `effective_cash_cap()`
+  (tenure-tiered), enforced in three places — `courier_has_capacity`, `set_courier_online_status`,
+  and the accrual trigger. Catering is exempt from the cap (a single order exceeds any plausible cap).
+- Business numbers (cash cap, courier tariff, ghost-offline N) are **PROVISIONAL, awaiting founder
+  ratification** — treat them as tunable config, never as constants to hardcode.
 
-**Realtime** (`src/lib/realtime/`): postgres_changes subscriptions are always row-filtered (`id=eq.X`), never whole-table, and channel names must be unique per mount (`purpose:timestamp-random`) — static names break on React re-mounts. Courier live GPS uses Broadcast channel `order:{id}:location` (~10s ticks) + low-frequency UPSERT to `courier_locations` (~45s) for last-known position. `dispatch_offers` is in the realtime publication (courier offer feed).
+## Dispatch
 
-**Conventions**: Server Components fetch data; mutations are Server Actions (`actions.ts` per route) returning `{error: string|null}` for `useActionState`; hand-written domain types in `src/lib/types/domain.ts` mirror the schema (regenerate real types via `scripts/gen-types.sh` once local Supabase exists). Cart is Zustand + localStorage (`src/lib/orders/cart.ts`), one restaurant per cart. Menu photos: client-side canvas compression (`src/lib/storage/uploadMenuPhoto.ts`) → bucket `restaurant-photos`, path `{restaurantId}/...` (first path segment drives storage RLS). Brand palette (navy `#0d0d1f`, red `#e94560`, gold `#f5a623`) defined in `globals.css` tokens.
+- Push model: `dispatch_offers` (RPC-only writes; partial unique indexes = one live offer per order
+  and per courier). `dispatch_order()` scores candidates on ETA-to-restaurant only.
+- **Dispatch is anonymous by construction** — the reject-penalty term was structurally removed, not
+  zero-weighted. Do not reintroduce acceptance-rate scoring: it is an EU 2024/2831 legal constraint,
+  not a tuning choice (see `docs/plan/CONSTRANGERI-GAMIFICARE.md`).
+- Sweeper `expire_dispatch_offers()` runs on pg_cron every 15s: expires 30s offers, cascades waves,
+  rescues undispatched orders. A decline is permanent; an ignored (expired) offer only sidelines the
+  courier for 2 min. Three consecutive ignored offers auto-offline the courier.
+- Geofence events and POD photos are **soft signals only** — never delivery proof, never gates on
+  `advance_delivery_status`.
+- Scheduled orders: `dispatch_order` returns null until `requested_for - 45 min`. Anchor SLA and ETA
+  clocks on the scheduled window, never on `now()`.
 
-**`mobile/`** — two vendored Expo/React Native apps (client + driver), both LIVE on Supabase via each app's `src/lib/api.ts` adapter; own toolchain, excluded from Next.js tsconfig/eslint. Don't import between `mobile/` and `src/`.
+## Realtime
 
-## Status
+- `postgres_changes` subscriptions are always row-filtered (`id=eq.X`), never whole-table. The only
+  exception is the admin ops surface.
+- Channel names must be unique per mount (`purpose:timestamp-random`) — static names break on React
+  re-mounts.
+- Courier live GPS is a **private** Broadcast channel `order:{id}:location` (~10s), plus a
+  low-frequency upsert to `courier_locations` (~45s). Clients must set `private: true` and call
+  `setAuth()`.
 
-All surfaces functional on live data (web 3 surfaces + 2 mobile apps), Dragons Alliance Premium design system, full order+catering lifecycle proven E2E. Loop memory: `.bucla/` (scores with evidence) + `docs/LOOP_STATE.md` + `docs/architecture.md`. Known debt: `/enter/[role]` demo doorway — REMOVE before public launch. Deploys only with explicit user confirmation.
+## Storage
 
-**Pilot-hardening waves 2026-07-27 (audit-driven, 3 agent armies):** architecture RATIFIED as one-backend/surfaces-per-role (never split backends; courier-native trigger = >30-50 simultaneous couriers). Shipped: COD cash-float (versioned cash_policy, ledger, cap gates in online-toggle + `courier_has_capacity`, tenure-tiered cap, hourly reconciliation cron), versioned per-delivery courier tariff (quote = floor, `admin_generate_payouts` reads `coalesce(courier_fee_mdl, delivery_fee_mdl)`), arrival clock + avoidable-wait (OBSERVE-ONLY — no auto-compensation until real pilot data), geofence hints (never delivery proof), structural dispatch anonymity (no reject-penalty term in SQL), ghost auto-offline (3 consecutive EXPIRED offers; declines never count), courier shifts + weekly satisfaction + go/no-go KPI view (600-1000 MDL/tură median), POD photo for cash orders (optional, 90d purge), RLS fast-path (all 80 policies `(select auth.uid())` + explicit TO — Supabase-doc measured 179ms→9ms class win), p90-based ETA buffer, outbox prune + `statement_timeout` on all cron fns, LCP eager hero, Web Push urgency/TTL (offer=high/TTL40), iOS PWA install guidance, realtime worker/heartbeat + jittered polling + bfcache pause/resume, offline-queue age/attempt caps, mandatory menu-photo gate (3-5× conversion lever), gamification legal gate (`docs/plan/CONSTRANGERI-GAMIFICARE.md`, EU 2024/2831 Art. 7), public transparency page (`/cum-functioneaza`, write-once delivery fee floor + published versioned tariff histories). **Self-hosted OSRM** (Moldova extract) serves `:5010`, wired via `OSRM_URL` in `scripts/dev-local.sh` (operational dev server = `:3007`, master doorway at `/master`, env-gated). Verifier baseline: **34 RPC sims + 45 unit tests + type/doc-drift + `supabase db reset` reproducibility + smoke**. PROVISIONAL business numbers awaiting founder ratification: cash cap 1500/1000 MDL (tenure<30d: 1000), tariff 30 + 6/km + 1.5/min>3min, ghost N=3.
+Path's FIRST segment drives the RLS policy.
+
+- `restaurant-photos` — public read, write gated by `has_restaurant_access`, path `{restaurantId}/…`
+- `delivery-proof` — private, path `{orderId}/…`, append-only (no update/delete policy at all)
+- `kyc-documents` — private
+- Anything holding PII is purged on schedule by `purge_expired_pii()` — if you add a PII surface,
+  add it to that function in the same migration.
+
+## Frontend conventions
+
+- Server Components fetch; mutations are Server Actions in a per-route `actions.ts`, returning
+  `{ error: string | null }` for `useActionState`.
+- `params` / `searchParams` are Promises (Next 16).
+- Hand-written domain types in `src/lib/types/` mirror the schema; generated types land in
+  `packages/shared-types/src/generated.ts` via `npm run db:types`.
+- Cart is Zustand + localStorage persist (`src/lib/orders/cart.ts`), one restaurant per cart.
+- Menu photos: client-side canvas compression before upload (`src/lib/storage/`).
+- Every user-facing string is Romanian, including errors.
+
+## Mobile
+
+`mobile/client` and `mobile/driver` — two vendored Expo/React Native apps, live on Supabase through
+each app's own `src/lib/api.ts`. Separate toolchain, excluded from the Next tsconfig/eslint.
+Never import across `mobile/` ↔ `src/`. The driver app's map coordinates are still synthetic.
+
+## If you touch X, you must also do Y
+
+| Change | Also required |
+|---|---|
+| new migration | entry in `docs/migrations.md`; a sim in `tests/rpc/` that FAILS without the fix |
+| new table | explicit `GRANT` + RLS policy (a new table is unreachable without both) |
+| new PII column/bucket | add it to `purge_expired_pii()` in the same migration |
+| recreate an RPC/view | copy the live body first, then apply one delta |
+| new i18n string | Romanian, no English leakage into user-facing text |
+| new cron function | `statement_timeout` via `ALTER FUNCTION` (a `CREATE OR REPLACE` drops it) |
+| RPC signature change | `drop function` explicitly — `create or replace` leaves the old signature alive and calls become ambiguous |
+| touching money | a rolled-back sim proving the invariant, not just a build |
+
+## Counted facts
+
+Generated by `scripts/facts.sh` — do not hand-edit. Stale numbers here fail `check-doc-drift.sh`.
+
+<!-- FACTS:BEGIN -->
+- Migrations: **98** files (20260708 → 20260816), indexed in `docs/migrations.md` (**99** entries).
+- Distinct SQL functions: **111**. Reporting/admin views: **16**.
+- RPC sims: **66** files in `tests/rpc/`. Unit test files: **23** in `tests/unit/`.
+- Surfaces: web route groups `(customer) (courier) (admin) (marketing)` + 2 Expo apps in `mobile/`.
+<!-- FACTS:END -->
+
+## Known debt
+
+- `/enter/[role]` — demo doorway with server-side auto-login. **Remove before public launch.**
+- Restaurant coordinates are demo values; verify real ones before launch.
+- Mobile driver map coordinates are synthetic.
+- Deploys happen only with explicit user confirmation.
