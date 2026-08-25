@@ -12,7 +12,7 @@
 // alese ca să nu repete fotografia din spate — cardul are deja poza sectorului,
 // glifa e o marcă, nu o a doua ilustrație.
 
-type Glyph = "sushi" | "key" | "bag" | "cloche";
+type Glyph = "sushi" | "key" | "bag" | "cloche" | "panels";
 
 const PATHS: Record<Glyph, React.ReactNode> = {
   // Bețișoarele care ridică o rulou de maki. A treia formă pentru locul ăsta,
@@ -54,6 +54,18 @@ const PATHS: Record<Glyph, React.ReactNode> = {
       <path d="M5 19.2a7 7 0 0 1 14 0" />
       <path d="M12 12.2V9.6" />
       <circle cx="12" cy="8.2" r="1.2" />
+    </>
+  ),
+  // Panourile centrului operațional: o coloană înaltă la stânga, două plăci
+  // suprapuse la dreapta — așezarea unui tablou de bord, nu o grilă de 2×2
+  // (aia se citește „meniu de aplicații"). Trei dreptunghiuri și niciun arc,
+  // deci scutită structural de defectul descris mai sus la sushi: fără arc larg
+  // nu se pot naște ochi și gură, oricât ai micșora-o.
+  panels: (
+    <>
+      <rect x="3.4" y="4.4" width="7.4" height="15.2" rx="1.6" />
+      <rect x="13.2" y="4.4" width="7.4" height="6.4" rx="1.6" />
+      <rect x="13.2" y="13.2" width="7.4" height="6.4" rx="1.6" />
     </>
   ),
 };

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { localNoLoginActive } from "@/lib/local/noLogin";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
 import { SectorGlyph, type Glyph } from "@/components/marketing/SectorGlyph";
@@ -8,16 +10,27 @@ import { masterDoorwayEnabled } from "@/lib/master/gate";
 // pagina LUI de start) + intrarea de cont. Intrarea demonstrativă fără parolă
 // trăiește EXCLUSIV în spatele /master (poarta cu parolă a proprietarului) —
 // hub-ul public nu mai oferă nicio ușă passwordless (2026-08-14).
+//
+// Fiecare poartă are DOUĂ destinații, alese de modul în care rulează serverul:
+//   `href`      — pâlnia publică: pagina de start a sectorului, care explică și
+//                 convinge înainte de a cere ceva. Asta rămâne comportamentul
+//                 site-ului real și nu se schimbă.
+//   `panelHref` — panoul propriu-zis, folosit doar când login-ul e dezactivat
+//                 local (cerut 2026-08-25: „din pagina asta pot intra în toate
+//                 sectoarele fără login"). Un click = un sector.
 const DOORS: {
   href: string;
+  panelHref: string;
   title: string;
   subtitle: string;
   glyph: Glyph;
   image: string;
   tint: string;
+  localOnly?: true;
 }[] = [
   {
     href: "/start/client",
+    panelHref: "/restaurants",
     title: "Clienți",
     subtitle: "Comandă sushi & fine dining",
     glyph: "sushi",
@@ -26,6 +39,7 @@ const DOORS: {
   },
   {
     href: "/concierge",
+    panelHref: "/concierge",
     title: "Concierge",
     subtitle: "Spa, wellness & săli de business",
     glyph: "key",
@@ -34,6 +48,7 @@ const DOORS: {
   },
   {
     href: "/start/curier",
+    panelHref: "/deliveries",
     title: "Curieri",
     subtitle: "Livrări & câștiguri",
     glyph: "bag",
@@ -42,15 +57,35 @@ const DOORS: {
   },
   {
     href: "/start/restaurant",
+    panelHref: "/restaurant/orders",
     title: "Restaurante",
     subtitle: "Meniu, comenzi & catering",
     glyph: "cloche",
     image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=900&h=1200&fit=crop",
     tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#4a350f]/95",
   },
+  {
+    // A cincea poartă există DOAR local. Pe site-ul public nu apare niciun semn
+    // că există un panou de administrare — aceeași logică după care până și
+    // poarta /master se ascunde când nu e activată: o ușă pe care publicul n-o
+    // vede nu e o ușă pe care publicul o încearcă.
+    localOnly: true,
+    href: "/platform",
+    panelHref: "/platform",
+    title: "Sistem",
+    subtitle: "Centru operațional & dispecerat",
+    glyph: "panels",
+    image: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=900&h=1200&fit=crop",
+    tint: "from-[#0a0a14]/30 via-[#0a0a14]/55 to-[#2a1f3d]/95",
+  },
 ];
 
-export default function HubPage() {
+export default async function HubPage() {
+  // Modul local fără login se citește din antetul cererii, nu doar din mediu:
+  // flagul singur n-ar dovedi că cererea vine chiar de pe mașina asta.
+  const noLogin = localNoLoginActive((await headers()).get("host"));
+  const doors = noLogin ? DOORS : DOORS.filter((d) => !d.localOnly);
+
   // `isolate` e obligatoriu: fără stacking context propriu, copilul cu -z-10
   // (fundalul de sector) cade sub fundalul opac al lui <main> și video-ul
   // devine invizibil deși rulează (bug-ul „este identic" raportat de user).
@@ -59,6 +94,17 @@ export default function HubPage() {
       {/* Primul contact cu brandul: limbajul clientului (poftă, mâncare), în
           varianta sushi. `hero` fiindcă ecranul întreg e deschiderea. */}
       <SectorBackdrop sector="customer" intensity="hero" variant="sushi" />
+      {/* Banda spune ce e ANORMAL aici, ca o captură locală să nu poată fi luată
+          drept site-ul real. Fără ea, singurul semn că autentificarea e oprită
+          ar fi absența ei — adică nimic. */}
+      {noLogin && (
+        <div
+          role="status"
+          className="border-b border-amber-400/25 bg-amber-500/10 px-4 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200"
+        >
+          Login dezactivat · doar local · fiecare poartă intră cu contul sectorului
+        </div>
+      )}
       {/* Brand */}
       <div className="flex flex-col items-center gap-1 px-6 pb-6 pt-12 text-center">
         <BrandMark size="md" />
@@ -88,11 +134,15 @@ export default function HubPage() {
       </div>
 
       {/* Porțile pe rol */}
-      <div className="mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-2 lg:grid-cols-4">
-        {DOORS.map((s) => (
+      <div
+        className={`mx-auto grid w-full flex-1 grid-cols-1 gap-4 px-5 pb-10 sm:grid-cols-2 ${
+          noLogin ? "max-w-7xl lg:grid-cols-5" : "max-w-6xl lg:grid-cols-4"
+        }`}
+      >
+        {doors.map((s) => (
           <Link
             key={s.href}
-            href={s.href}
+            href={noLogin ? s.panelHref : s.href}
             className="group relative flex min-h-[320px] flex-col justify-end overflow-hidden rounded-3xl text-left ring-1 ring-gold/15 transition duration-300 hover:ring-gold/60 sm:min-h-[460px]"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -115,7 +165,7 @@ export default function HubPage() {
               </h2>
               <p className="mt-1 text-sm text-white/65">{s.subtitle}</p>
               <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-gold px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-900 transition group-hover:bg-gold-light">
-                Începe aici
+                {noLogin ? "Intră în sector" : "Începe aici"}
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5-5 5M6 12h12" />
                 </svg>
@@ -153,33 +203,14 @@ export default function HubPage() {
           </Link>
         )}
 
-        {/* Intrare directă în panouri, fără parolă și fără login (doar în
-            dezvoltare). Porțile de deasupra rămân experiența reală a fiecărui
-            rol; astea sunt scurtătura de lucru. */}
-        {process.env.NODE_ENV !== "production" && (
-          <div className="mt-6 w-full max-w-2xl rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
-            <p className="mb-3 text-center text-[10px] font-semibold uppercase tracking-[0.28em] text-white/60">
-              Intrare directă în sectoare
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {[
-                { href: "/restaurants", label: "Client" },
-                { href: "/deliveries", label: "Curier" },
-                { href: "/restaurant/orders", label: "Restaurant" },
-                { href: "/platform", label: "Platformă" },
-                { href: "/concierge", label: "Concierge" },
-              ].map((s) => (
-                <Link
-                  key={s.href}
-                  href={s.href}
-                  className="rounded-full bg-white/5 px-4 py-2 text-sm font-semibold text-white/75 ring-1 ring-white/10 transition hover:bg-gold/15 hover:text-gold hover:ring-gold/40"
-                >
-                  {s.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Aici stătea un al doilea rând, „Intrare directă în sectoare", cu
+            exact aceleași cinci destinații. Scos 2026-08-25 fiindcă în modul
+            local porțile DE DEASUPRA duc acum ele însele în panouri: două
+            rânduri cu aceleași nume, ducând în aceleași locuri, nu sunt o
+            comoditate în plus, ci o întrebare la fiecare click („care din ele
+            e cel adevărat?"). Când modul local e stins, porțile se întorc la
+            paginile de start și nu mai există nicio scurtătură — corect, fiindcă
+            acela e site-ul public. */}
       </div>
     </main>
   );
