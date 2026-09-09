@@ -73,7 +73,7 @@ export default async function RestaurantBookingsPage() {
                   <p className="mt-0.5 text-sm text-white/60">
                     {b.party_size} persoane · {PURPOSE_LABEL[b.purpose as BookingPurpose] ?? b.purpose}
                   </p>
-                  {b.notes && <p className="mt-1 text-sm text-white/45">„{b.notes}"</p>}
+                  {b.notes && <p className="mt-1 text-sm text-white/45">„{b.notes}&rdquo;</p>}
                   {b.contact_person && (
                     <p className="mt-1 text-sm text-white/55">
                       {b.contact_person}

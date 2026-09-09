@@ -88,7 +88,7 @@ export default async function ConciergeBookingsPage() {
                     {formatWhen.format(new Date(b.starts_at))} · {b.party_size} persoane ·{" "}
                     {PURPOSE_LABEL[b.purpose as BookingPurpose] ?? b.purpose}
                   </p>
-                  {b.notes && <p className="mt-1 text-sm text-white/45">„{b.notes}"</p>}
+                  {b.notes && <p className="mt-1 text-sm text-white/45">„{b.notes}&rdquo;</p>}
                   {b.decline_reason && (
                     <p className="mt-1 text-sm text-primary">Motiv: {b.decline_reason}</p>
                   )}

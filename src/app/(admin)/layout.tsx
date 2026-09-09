@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { RoleGate } from "@/components/auth/RoleGate";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { TrafficBar } from "@/components/admin/TrafficBar";
 import type { UserRole } from "@/lib/types/domain";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -136,6 +137,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </header>
       {children}
+      {/* Bara de trafic (cerere 2026-09-07): metrici live jos, pe TOATE
+          paginile /platform — doar pentru adminul de platformă. */}
+      {role === "platform_admin" && <TrafficBar />}
     </div>
   );
 }
