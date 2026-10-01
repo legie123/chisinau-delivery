@@ -4,6 +4,8 @@ Source of truth for **why** each migration exists. One line per file in `supabas
 `scripts/check-doc-drift.sh` fails if a migration file has no entry here.
 Moved out of CLAUDE.md on 2026-08-24 (it was ~60% of the file); content below is verbatim.
 
+- `20261002000100_cron_history_purge` — pg_cron `purge-cron-history` zilnic 04:30: șterge `cron.job_run_details` mai vechi de 3 zile (era 264k rânduri / 114 MB fără retenție; drain-ul la 2s adaugă ~43k/zi). Sim `67`.
+- `20261002000000_push_drain_fast` — cron `drain-push-outbox` 10s→2s (`cron.alter_job` by jobname): oferta de dispatch are 30s, un drain la 10s consuma o treime înainte ca push-ul să plece; corpul rulează doar când outbox-ul are rânduri nesent.
 - `20260708000000_roles_and_profiles` — profiles + role check + has_role helpers.
 - `20260708000100_couriers` — couriers + courier_locations + self-read RLS.
 - `20260708000200_restaurants_and_menu` — restaurants, menu, restaurant_staff, has_restaurant_access.

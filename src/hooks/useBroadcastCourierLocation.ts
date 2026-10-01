@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { broadcastCourierLocation } from "@/lib/realtime/courierLocation";
 
 const UPSERT_INTERVAL_MS = 45_000;
+// One broadcast per 10s is plenty for a map pin; per-fix sends (~1/s) burn battery + Realtime quota.
+const BROADCAST_INTERVAL_MS = 10_000;
 
 // Courier-side: while `active`, watches GPS position and broadcasts every
 // change over Realtime Broadcast (customer's map pin updates live), while
@@ -13,6 +15,7 @@ const UPSERT_INTERVAL_MS = 45_000;
 export function useBroadcastCourierLocation(orderId: string, courierId: string | null, active: boolean) {
   const [error, setError] = useState<string | null>(null);
   const lastUpsertRef = useRef(0);
+  const lastBroadcastRef = useRef(0);
 
   useEffect(() => {
     if (!active || !courierId || typeof navigator === "undefined" || !navigator.geolocation) return;
@@ -20,12 +23,25 @@ export function useBroadcastCourierLocation(orderId: string, courierId: string |
     const supabase = createClient();
     const broadcaster = broadcastCourierLocation(supabase, orderId);
 
+    // Keep the screen on during a delivery: a locked screen suspends the page and freezes the pin.
+    // Wake locks are released by the browser when the tab hides, so re-acquire on return.
+    let wakeLock: WakeLockSentinel | null = null;
+    const acquireWakeLock = () => {
+      navigator.wakeLock?.request("screen").then((l) => { wakeLock = l; }).catch(() => {});
+    };
+    const onVisible = () => { if (document.visibilityState === "visible") acquireWakeLock(); };
+    acquireWakeLock();
+    document.addEventListener("visibilitychange", onVisible);
+
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const point = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        broadcaster.send(point);
-
         const now = Date.now();
+        if (now - lastBroadcastRef.current >= BROADCAST_INTERVAL_MS) {
+          lastBroadcastRef.current = now;
+          broadcaster.send(point);
+        }
+
         if (now - lastUpsertRef.current > UPSERT_INTERVAL_MS) {
           lastUpsertRef.current = now;
           supabase
@@ -48,6 +64,8 @@ export function useBroadcastCourierLocation(orderId: string, courierId: string |
 
     return () => {
       navigator.geolocation.clearWatch(watchId);
+      document.removeEventListener("visibilitychange", onVisible);
+      wakeLock?.release().catch(() => {});
       broadcaster.stop();
     };
   }, [orderId, courierId, active]);

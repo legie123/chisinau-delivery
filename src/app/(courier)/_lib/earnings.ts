@@ -15,12 +15,8 @@
 // captured / disputed) and must be excluded from sums, never silently folded
 // into a number that looks final.
 //
-// courier_commission_pct lives in public.platform_settings, but that table's
-// only RLS policy is "platform_settings_admin" (has_role('platform_admin')) —
-// see supabase/migrations/20260718000000_platform_foundation.sql. A
-// courier-facing Server Component genuinely cannot read it (and adding a read
-// policy is a migration change, out of this fix's scope). COMMISSION_PCT
-// mirrors that table's default; keep it in sync if an admin ever changes it.
+// Fallback only: pages read the live rate from the courier-readable pricing config
+// (see deliveries/page.tsx, earnings/page.tsx); this mirrors its default if that read fails.
 export const COMMISSION_PCT = 15;
 
 export function round2(n: number): number {
