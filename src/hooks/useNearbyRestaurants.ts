@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { nearbyRestaurants } from "@chisinau/shared-api";
-import { createClient } from "@/lib/supabase/client";
 import type { Restaurant } from "@/lib/types/domain";
 
 export type RestaurantWithDistance = Restaurant & { distance_m: number | null };
@@ -23,8 +22,15 @@ export function useNearbyRestaurants(fallback: Restaurant[]) {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         if (cancelled) return;
-        const supabase = createClient();
-        const data = await nearbyRestaurants(supabase, pos.coords.latitude, pos.coords.longitude, 15, 50);
+        // Lazy: supabase-js only after a position arrives, not in /restaurants' first-load JS.
+        // A failed chunk load is fail-open like a denied permission.
+        let data: Awaited<ReturnType<typeof nearbyRestaurants>> | null = null;
+        try {
+          const { createClient } = await import("@/lib/supabase/client");
+          data = await nearbyRestaurants(createClient(), pos.coords.latitude, pos.coords.longitude, 15, 50);
+        } catch {
+          data = null;
+        }
         if (cancelled) return;
         setLocating(false);
         if (!data || data.length === 0) return;

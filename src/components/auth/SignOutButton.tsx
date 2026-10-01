@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 export function SignOutButton() {
   const router = useRouter();
@@ -12,7 +11,17 @@ export function SignOutButton() {
   function handleSignOut() {
     setFailed(false);
     startTransition(async () => {
-      const supabase = createClient();
+      // Lazy: this button sits in every sector header; a static import put
+      // supabase-js in the initial JS of every page that shows it. A failed
+      // chunk load (weak signal) is the same "retry" state as a network error.
+      let supabase;
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        supabase = createClient();
+      } catch {
+        setFailed(true);
+        return;
+      }
       // scope "local": sign out THIS browser only — the default "global"
       // would revoke the user's sessions on every device. Check the result:
       // on a network error auth-js returns {error} WITHOUT clearing the

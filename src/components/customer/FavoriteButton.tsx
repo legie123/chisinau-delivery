@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 // Heart toggle on a restaurant card. Cards are <Link>s, so every click
 // stopPropagation + preventDefault to keep the tap from navigating. Optimistic:
@@ -30,14 +29,22 @@ export function FavoriteButton({
     const next = !favorited;
     setFavorited(next); // optimistic
     setPending(true);
-    const supabase = createClient();
+    try {
+      // Lazy: only a tap needs supabase-js, not the restaurant list's first paint.
+      // The chunk load can fail on a weak connection — that rolls back like a write error.
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
 
-    const { error } = next
-      ? await supabase.from("favorites").insert({ customer_id: customerId, restaurant_id: restaurantId })
-      : await supabase.from("favorites").delete().eq("customer_id", customerId).eq("restaurant_id", restaurantId);
+      const { error } = next
+        ? await supabase.from("favorites").insert({ customer_id: customerId, restaurant_id: restaurantId })
+        : await supabase.from("favorites").delete().eq("customer_id", customerId).eq("restaurant_id", restaurantId);
 
-    if (error) setFavorited(!next); // roll back on failure
-    setPending(false);
+      if (error) setFavorited(!next); // roll back on failure
+    } catch {
+      setFavorited(!next);
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
