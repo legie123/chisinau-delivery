@@ -14,13 +14,13 @@
 //      Absent = oprit; nicio valoare implicită nu deschide nimic.
 //   2. Cererea vine de pe localhost — `isLocalRequestHost` de mai jos.
 //
-// A doua condiție e cea care face diferența dintre o convenție și o garanție.
-// Un flag singur e o promisiune că nimeni nu-l va seta din greșeală într-un
-// deploy; a doua condiție transformă promisiunea în imposibilitate structurală,
-// fiindcă un domeniu public nu poate trimite niciodată `Host: localhost` către
-// propriul server. Dacă flagul scapă vreodată într-un `.env` de producție,
-// bypass-ul rămâne închis — nu pentru că cineva și-a amintit, ci pentru că
-// antetul cererii nu poate minți în direcția asta.
+// ATENȚIE: antetul `Host` îl alege clientul. Oricine ajunge direct la socket
+// poate trimite `Host: localhost` — dovedit 2026-10-02: de pe Wi-Fi, cu serverul
+// legat pe toate interfețele, `curl -H "Host: localhost:3000" http://<ip-LAN>:3000`
+// intra ca admin. Garanția reală e ca serverul să asculte DOAR pe loopback
+// (`-H 127.0.0.1` în agentul launchd și în scripts/dev-local.sh); condiția 2 e
+// doar o a doua plasă pentru un deploy în spatele unui proxy care rutează după
+// domeniu. Nu porni niciodată un server cu `LOCAL_NO_LOGIN=1` pe 0.0.0.0.
 //
 // Ambele funcții sunt pure în raport cu cererea: predicatul primește host-ul,
 // nu-l citește singur, fiindcă apelanții au surse diferite pentru el —

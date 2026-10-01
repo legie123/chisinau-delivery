@@ -50,7 +50,10 @@ ENABLE_MASTER_DOORWAY="true" \
 MASTER_DOORWAY_USER="$MASTER_DOORWAY_USER" \
 MASTER_DOORWAY_PASS="${MASTER_DOORWAY_PASS:-}" \
 OSRM_URL="${OSRM_URL:-http://localhost:5010}" \
-PORT=3007 nohup npm run dev -- -p 3007 > /tmp/chisinau-local-3007.log 2>&1 &
+# Loopback only: in dev the proxy auto-logs-in every visitor and /master needs no password, so
+# binding all interfaces handed admin to anyone on the Wi-Fi. The pg_net push drain still reaches
+# it via host.docker.internal (colima forwards that to the host's loopback).
+PORT=3007 nohup npm run dev -- -p 3007 -H 127.0.0.1 > /tmp/chisinau-local-3007.log 2>&1 &
 disown
 
 echo "▸ Local operational server starting → http://localhost:3007"
