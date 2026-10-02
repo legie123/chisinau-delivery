@@ -42,6 +42,11 @@ fi
 lsof -ti :3007 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 1
 
+# Loopback only (-H 127.0.0.1): in dev the proxy auto-logs-in every visitor and /master needs no
+# password, so binding all interfaces handed admin to anyone on the Wi-Fi. The pg_net push drain
+# still reaches it via host.docker.internal (colima forwards that to the host's loopback).
+# NEVER put a comment line inside the backslash-continued env block below: it ends the command,
+# the assignments become plain shell vars, and npm starts without them (broke /master, 2026-10-02).
 NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-}" \
@@ -50,9 +55,6 @@ ENABLE_MASTER_DOORWAY="true" \
 MASTER_DOORWAY_USER="$MASTER_DOORWAY_USER" \
 MASTER_DOORWAY_PASS="${MASTER_DOORWAY_PASS:-}" \
 OSRM_URL="${OSRM_URL:-http://localhost:5010}" \
-# Loopback only: in dev the proxy auto-logs-in every visitor and /master needs no password, so
-# binding all interfaces handed admin to anyone on the Wi-Fi. The pg_net push drain still reaches
-# it via host.docker.internal (colima forwards that to the host's loopback).
 PORT=3007 nohup npm run dev -- -p 3007 -H 127.0.0.1 > /tmp/chisinau-local-3007.log 2>&1 &
 disown
 
