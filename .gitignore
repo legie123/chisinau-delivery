@@ -56,3 +56,6 @@ scripts/.dev-local.env
 .osrm/
 tools/simulator/.venv/
 tools/simulator/__pycache__/
+
+# agent worktrees (Workflow isolation: worktree)
+.claude/worktrees/
