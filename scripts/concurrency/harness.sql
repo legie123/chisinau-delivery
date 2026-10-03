@@ -7,7 +7,7 @@ declare v_rest uuid := '11111111-1111-1111-1111-111111111111';
 begin
   delete from restaurant_hours where restaurant_id = v_rest;
   insert into restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-    select v_rest, d, '00:00', '23:59', false from generate_series(0,6) d;
+    select v_rest, d, '00:00', '00:00', false from generate_series(0,6) d;
   update orders set status='cancelled' where status not in ('delivered','cancelled','rejected');
   update dispatch_offers set status='cancelled' where status='offered';
   insert into courier_cash_movements (courier_id, kind, amount_mdl, note)

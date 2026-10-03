@@ -18,7 +18,7 @@ begin
   -- Arrange: open hours, one online courier as the only candidate (05's pattern)
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   select mi.id, greatest(1, ceil(r.min_order_amount_mdl / mi.price_mdl))::int
     into v_item, v_qty
   from public.menu_items mi join public.restaurants r on r.id = mi.restaurant_id

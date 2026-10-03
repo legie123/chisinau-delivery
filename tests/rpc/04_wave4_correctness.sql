@@ -8,7 +8,7 @@ begin
   select r.id into v_rest from public.restaurants r where r.is_active and r.accepting_orders limit 1;
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   select mi.id into v_item from public.menu_items mi
   where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
     and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
@@ -78,7 +78,7 @@ begin
   select r.id into v_rest from public.restaurants r where r.is_active limit 1;
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   select mi.id into v_item from public.menu_items mi
   where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
     and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
@@ -130,7 +130,7 @@ begin
   order by mi.price_mdl desc limit 1;  -- deterministic: priciest modifier-free item (heap order is not stable)
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   select id into v_addr from public.addresses where customer_id = 'a0000000-0000-0000-0000-000000000001' limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000001','role','authenticated')::text, true);
   v_oid := public.place_order(v_rest, 'standard', 'card_on_delivery', jsonb_build_array(jsonb_build_object('menu_item_id', v_item, 'quantity', 10)), v_addr, null, null, null);

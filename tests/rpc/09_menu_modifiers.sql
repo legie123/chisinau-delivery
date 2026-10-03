@@ -10,7 +10,7 @@ begin
   select id into v_addr from public.addresses where customer_id = v_cust limit 1;
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   update public.restaurants set accepting_orders = true, is_active = true where id = v_rest;
 
   select o.id into v_soia from public.menu_options o join public.menu_option_groups g on g.id=o.group_id where g.menu_item_id=v_item and o.name='Soia clasică';

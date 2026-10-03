@@ -16,7 +16,7 @@ begin
   update public.restaurants set min_order_amount_mdl = 0 where id = v_rest; -- isolate the modifier check
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   select id into v_addr from public.addresses where customer_id = v_cust limit 1;
 
   -- an item with a REQUIRED option group + one of its options

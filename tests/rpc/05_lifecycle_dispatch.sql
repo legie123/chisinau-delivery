@@ -17,7 +17,7 @@ begin
   -- and ONLY this courier as a dispatch candidate (others parked offline).
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   select mi.id into v_item from public.menu_items mi
   where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
     and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
@@ -91,7 +91,7 @@ declare
 begin
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
-  select v_rest, d, '00:00'::time, '23:59'::time, false from generate_series(0,6) d;
+  select v_rest, d, '00:00'::time, '00:00'::time, false from generate_series(0,6) d;
   select mi.id into v_item from public.menu_items mi
   where mi.restaurant_id = v_rest and mi.is_available and not mi.is_catering_only
     and not exists (select 1 from public.menu_option_groups g where g.menu_item_id = mi.id and g.is_required)
