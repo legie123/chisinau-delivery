@@ -1,10 +1,11 @@
 #!/bin/sh
 # Runs INSIDE the db container (copied by run.sh). Each check raises on a broken invariant.
 set -e
-Q="psql -U postgres -q -At -v ON_ERROR_STOP=1 benchdb"
+BENCH_DB="${1:-benchdb}"
+Q="psql -U postgres -q -At -v ON_ERROR_STOP=1 $BENCH_DB"
 couriers() { $Q -c "select user_id from couriers where is_active"; }
 
-echo "▸ 1/3 claim race"
+echo "▸ 1/4 claim race"
 $Q -c "call bench_arrange()" -c "truncate bench_log" -c "call bench_place(20)" -c "call bench_partner(3)"
 $Q -c "update couriers set status='online' where is_active"
 ARR=$($Q -c "select array_agg(id order by created_at)::text from orders where status='ready_for_pickup'")
@@ -21,7 +22,7 @@ do $$ declare n_ok int; n_c int; n_dup int; n_multi int; begin
 end $$;
 SQL
 
-echo "▸ 2/3 burst load (60s budget)"
+echo "▸ 2/4 burst load (60s budget)"
 $Q -c "call bench_arrange()" -c "truncate bench_log" -c "update couriers set status='online' where is_active"
 T0=$($Q -c "select clock_timestamp()")
 for i in 1 2 3 4 5; do $Q -c "call bench_place(30)" & done
@@ -46,7 +47,7 @@ end $$;
 SQL
 } | $Q
 
-echo "▸ 3/3 accept-at-expiry race (6 rounds)"
+echo "▸ 3/4 accept-at-expiry race (6 rounds)"
 $Q -c "truncate bench_log"
 for round in 1 2 3 4 5 6; do
   $Q -c "call bench_arrange()" -c "update couriers set status='online' where is_active" -c "call bench_place(9)" -c "call bench_partner(2)"
@@ -64,6 +65,23 @@ do $$ declare won int; lost int; bad int; viol int; begin
     and exists (select 1 from dispatch_offers d where d.order_id=o.id and d.courier_id<>o.courier_id and d.status in ('offered','accepted'));
   if bad > 0 or viol > 0 then raise exception 'FAIL expiry race: % unexpected accept errors, % sweeper errors/violations', bad, viol; end if;
   raise notice 'PASS expiry race: % accepts won, % cleanly expired, 0 deadlocks', won, lost;
+end $$;
+SQL
+echo "▸ 4/4 direct claims vs sweeper re-dispatch (5 rounds)"
+$Q -c "truncate bench_log"
+for round in 1 2 3 4 5; do
+  $Q -c "call bench_arrange()" -c "call bench_place(20)" -c "call bench_partner(3)"
+  $Q -c "update couriers set status='online' where is_active"
+  ARR=$($Q -c "select array_agg(id order by created_at)::text from orders where status='ready_for_pickup'")
+  $Q -c "call bench_sweeper_fast(2500)" &
+  for u in $(couriers); do $Q -c "call bench_claim_all('$u'::uuid, '$ARR'::uuid[])" & done
+  wait
+done
+$Q <<'SQL'
+do $$ declare dl int; won int; begin
+  select count(*) filter (where err ilike '%deadlock%'), count(*) filter (where ok) into dl, won from bench_log where kind in ('claim','sweep');
+  if dl > 0 then raise exception 'FAIL claim-vs-sweeper: % deadlocks (courier lock mode must be compatible with FK KEY SHARE)', dl; end if;
+  raise notice 'PASS claim-vs-sweeper: % claims won, 0 deadlocks', won;
 end $$;
 SQL
 echo "CONCURRENCY: all green"
