@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { broadcastCourierLocation } from "@/lib/realtime/courierLocation";
+import { trailingThrottle } from "@/lib/realtime/trailingThrottle";
 
 const UPSERT_INTERVAL_MS = 45_000;
 // One broadcast per 10s is plenty for a map pin; per-fix sends (~1/s) burn battery + Realtime quota.
@@ -15,7 +16,6 @@ const BROADCAST_INTERVAL_MS = 10_000;
 export function useBroadcastCourierLocation(orderId: string, courierId: string | null, active: boolean) {
   const [error, setError] = useState<string | null>(null);
   const lastUpsertRef = useRef(0);
-  const lastBroadcastRef = useRef(0);
 
   useEffect(() => {
     if (!active || !courierId || typeof navigator === "undefined" || !navigator.geolocation) return;
@@ -25,22 +25,32 @@ export function useBroadcastCourierLocation(orderId: string, courierId: string |
 
     // Keep the screen on during a delivery: a locked screen suspends the page and freezes the pin.
     // Wake locks are released by the browser when the tab hides, so re-acquire on return.
+    // A sentinel can resolve AFTER cleanup (fast unmount, StrictMode double-mount): release it
+    // there, or it is held by a dead closure and the screen never sleeps again.
+    let disposed = false;
     let wakeLock: WakeLockSentinel | null = null;
     const acquireWakeLock = () => {
-      navigator.wakeLock?.request("screen").then((l) => { wakeLock = l; }).catch(() => {});
+      navigator.wakeLock
+        ?.request("screen")
+        .then((l) => {
+          if (disposed) return void l.release().catch(() => {});
+          void wakeLock?.release().catch(() => {});
+          wakeLock = l;
+        })
+        .catch(() => {});
     };
     const onVisible = () => { if (document.visibilityState === "visible") acquireWakeLock(); };
     acquireWakeLock();
     document.addEventListener("visibilitychange", onVisible);
 
+    // Scoped to this effect, so a new order never inherits the previous one's window.
+    const broadcast = trailingThrottle(broadcaster.send, BROADCAST_INTERVAL_MS);
+
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const point = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const now = Date.now();
-        if (now - lastBroadcastRef.current >= BROADCAST_INTERVAL_MS) {
-          lastBroadcastRef.current = now;
-          broadcaster.send(point);
-        }
+        broadcast.push(point);
 
         if (now - lastUpsertRef.current > UPSERT_INTERVAL_MS) {
           lastUpsertRef.current = now;
@@ -63,6 +73,8 @@ export function useBroadcastCourierLocation(orderId: string, courierId: string |
     );
 
     return () => {
+      disposed = true;
+      broadcast.cancel();
       navigator.geolocation.clearWatch(watchId);
       document.removeEventListener("visibilitychange", onVisible);
       wakeLock?.release().catch(() => {});

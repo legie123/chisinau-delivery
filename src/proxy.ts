@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { fetchRole, redirectWithSessionCookies, updateSession } from "@/lib/supabase/middleware";
-import { localNoLoginActive } from "@/lib/local/noLogin";
+import { isLocalRequestHost, localNoLoginActive } from "@/lib/local/noLogin";
 
 // Next.js 16 renamed the `middleware.ts` file convention to `proxy.ts` (the
 // exported function is `proxy`, not `middleware`).
@@ -69,7 +69,10 @@ const isUnder = (pathname: string, surfaces: string[]) =>
  */
 function devAutoLoginEnabled(request: NextRequest): boolean {
   if (process.env.DISABLE_DEV_AUTOLOGIN === "1") return false;
-  if (process.env.NODE_ENV !== "production") return true;
+  // Dev too: only for a request addressed to this machine. The server is bound to loopback,
+  // but processes in the Colima VM reach it via host.docker.internal, and a DNS-rebinding page
+  // would arrive with its own hostname — neither should get an auto-logged-in session.
+  if (process.env.NODE_ENV !== "production") return isLocalRequestHost(request.headers.get("host"));
   return localNoLoginActive(request.headers.get("host"));
 }
 

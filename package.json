@@ -11,7 +11,7 @@
     "test:rpc": "bash scripts/test-rpc.sh",
     "db:types": "supabase gen types typescript --local > packages/shared-types/src/generated.ts",
     "typecheck": "tsc --noEmit",
-    "verify": "bash scripts/check-type-drift.sh && bash scripts/check-doc-drift.sh && tsc --noEmit && vitest run"
+    "verify": "bash scripts/check-type-drift.sh && bash scripts/check-doc-drift.sh && bash scripts/check-local-exposure.sh && tsc --noEmit && vitest run"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

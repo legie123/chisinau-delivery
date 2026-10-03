@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { MASTER_COOKIE, masterCookieValue, masterDoorwayEnabled, masterPasswordRequired } from "@/lib/master/gate";
 import { MasterLogin } from "./MasterLogin";
@@ -31,7 +31,7 @@ export default async function MasterPage({
   const expected = masterCookieValue();
   const cookie = cookieStore.get(MASTER_COOKIE)?.value;
   // În dezvoltare poarta e deschisă: parola se cere doar în producție.
-  const authed = !masterPasswordRequired() || (expected !== null && cookie === expected);
+  const authed = !masterPasswordRequired((await headers()).get("host")) || (expected !== null && cookie === expected);
 
   if (!authed) {
     return <MasterLogin hasError={e === "1"} />;

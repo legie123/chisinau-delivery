@@ -62,3 +62,30 @@ describe("localNoLoginActive", () => {
     expect(localNoLoginActive("localhost:3000")).toBe(false);
   });
 });
+
+describe("masterPasswordRequired (poarta /master în dezvoltare)", () => {
+  const env = process.env as Record<string, string | undefined>;
+  const saved = { NODE_ENV: env.NODE_ENV, DISABLE: env.DISABLE_DEV_AUTOLOGIN };
+  afterEach(() => {
+    env.NODE_ENV = saved.NODE_ENV;
+    if (saved.DISABLE === undefined) delete env.DISABLE_DEV_AUTOLOGIN;
+    else env.DISABLE_DEV_AUTOLOGIN = saved.DISABLE;
+  });
+
+  it("în dev scutește de parolă DOAR cererea adresată mașinii ăsteia", async () => {
+    const { masterPasswordRequired } = await import("@/lib/master/gate");
+    env.NODE_ENV = "development";
+    delete env.DISABLE_DEV_AUTOLOGIN;
+    expect(masterPasswordRequired("localhost:3007")).toBe(false);
+    // procese din VM-ul Colima, DNS rebinding, header lipsă — toate cer parola
+    for (const host of ["host.docker.internal:3007", "evil.example", "192.168.1.34:3007", null]) {
+      expect(masterPasswordRequired(host), String(host)).toBe(true);
+    }
+  });
+
+  it("în producție cere parola mereu, inclusiv de pe localhost", async () => {
+    const { masterPasswordRequired } = await import("@/lib/master/gate");
+    env.NODE_ENV = "production";
+    expect(masterPasswordRequired("localhost:3000")).toBe(true);
+  });
+});

@@ -19,13 +19,28 @@ function makeChannel(supabase: SupabaseClient, orderId: string) {
 // than writing to courier_locations on every tick — avoids hammering the DB
 // every ~10s. A separate low-frequency UPSERT into courier_locations keeps a
 // last-known position for page loads that missed the broadcast.
+// A send before the channel has joined makes realtime-js fall back to a REST broadcast that
+// does not wait for setAuth() — the first pin could be rejected and, with the 10s throttle,
+// stay missing. So until SUBSCRIBED we only keep the latest position and send it on join.
 export function broadcastCourierLocation(supabase: SupabaseClient, orderId: string) {
   const channel = makeChannel(supabase, orderId);
+  let joined = false;
+  let queued: LatLng | null = null;
+  const sendNow = (position: LatLng) => channel.send({ type: "broadcast", event: "location", payload: position });
   void supabase.realtime.setAuth();
-  channel.subscribe();
+  channel.subscribe((status) => {
+    joined = status === "SUBSCRIBED";
+    if (joined && queued) {
+      void sendNow(queued);
+      queued = null;
+    }
+  });
 
   return {
-    send: (position: LatLng) => channel.send({ type: "broadcast", event: "location", payload: position }),
+    send: (position: LatLng) => {
+      if (joined) return void sendNow(position);
+      queued = position;
+    },
     stop: () => supabase.removeChannel(channel),
   };
 }

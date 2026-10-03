@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { isLocalRequestHost } from "@/lib/local/noLogin";
 
 // PRIVATE master doorway — a personal, local-only convenience that lets the app
 // owner drop straight into any role sector without per-sector credentials.
@@ -20,9 +21,15 @@ export function masterDoorwayEnabled(): boolean {
  * simplu în sectoare"). Producția rămâne neatinsă: acolo se cere în continuare
  * utilizator + parolă din variabilele de mediu, iar dacă lipsesc, poarta nu
  * există deloc. Ca să ceri parola și local: DISABLE_DEV_AUTOLOGIN=1.
+ * Scutirea de parolă e doar pentru o cerere adresată mașinii ăsteia (`host`):
+ * procesele din VM-ul Colima ajung la serverul de dev prin host.docker.internal.
  */
-export function masterPasswordRequired(): boolean {
-  return process.env.NODE_ENV === "production" || process.env.DISABLE_DEV_AUTOLOGIN === "1";
+export function masterPasswordRequired(host: string | null): boolean {
+  return (
+    process.env.NODE_ENV === "production" ||
+    process.env.DISABLE_DEV_AUTOLOGIN === "1" ||
+    !isLocalRequestHost(host)
+  );
 }
 
 // Length-checked, timing-safe string compare. The length check can leak length,

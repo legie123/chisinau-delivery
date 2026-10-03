@@ -25,7 +25,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // În dezvoltare sari peste dovada de parolă: poarta e deschisă (vezi gate.ts).
   const expected = masterCookieValue();
   const cookie = request.cookies.get(MASTER_COOKIE)?.value;
-  if (masterPasswordRequired() && (expected === null || cookie !== expected)) {
+  if (masterPasswordRequired(request.headers.get("host")) && (expected === null || cookie !== expected)) {
     return NextResponse.redirect(new URL("/master", request.url), 303);
   }
 
