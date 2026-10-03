@@ -4,7 +4,7 @@ import {
   shiftReachesTarget,
   SHIFT_TARGET_MIN,
   SHIFT_TARGET_MAX,
-} from "@/app/(courier)/_lib/earnings";
+} from "@chisinau/shared-domain";
 
 // R2 (val adversarial 2) — cele două minciuni de pe ecranul de bani al
 // curierului. Ambele au fost VĂZUTE în captură / DB, nu deduse din cod.

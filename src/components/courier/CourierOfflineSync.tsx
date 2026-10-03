@@ -31,19 +31,21 @@ export function CourierOfflineSync() {
     let cancelled = false;
 
     async function drain() {
-      const before = pendingQueueCount();
+      const before = await pendingQueueCount();
       if (before > 0) await drainPendingQueue(advanceStatus);
+      const [after, stuck] = await Promise.all([pendingQueueCount(), giveUpCount()]);
       if (cancelled) return;
-      const after = pendingQueueCount();
       setPending(after);
-      setGivenUp(giveUpCount());
+      setGivenUp(stuck);
       if (after < before) router.refresh(); // something drained → reflect the caught-up state
     }
 
     function syncCount() {
-      if (cancelled) return;
-      setPending(pendingQueueCount());
-      setGivenUp(giveUpCount());
+      void Promise.all([pendingQueueCount(), giveUpCount()]).then(([count, stuck]) => {
+        if (cancelled) return;
+        setPending(count);
+        setGivenUp(stuck);
+      });
     }
 
     function handleVisibilityChange() {
@@ -70,7 +72,7 @@ export function CourierOfflineSync() {
   }, [router]);
 
   function dismissGiveUp() {
-    clearGiveUpCount();
+    void clearGiveUpCount();
     setGivenUp(0);
   }
 

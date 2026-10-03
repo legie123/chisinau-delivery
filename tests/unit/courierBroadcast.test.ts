@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { trailingThrottle } from "@/lib/realtime/trailingThrottle";
+import { trailingThrottle } from "@chisinau/shared-domain";
 import { broadcastCourierLocation } from "@/lib/realtime/courierLocation";
 
 afterEach(() => vi.useRealTimers());

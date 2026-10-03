@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeEarnings, netForOrder, type EarningsOrder } from "@/app/(courier)/_lib/earnings";
+import { summarizeEarnings, netForOrder, type EarningsOrder } from "@chisinau/shared-domain";
 
 // DispatchCourierAudit #2 — /earnings showed the CURRENT commission in the banner
 // but computed Net/Comision with a hardcoded 15% default, so the two could

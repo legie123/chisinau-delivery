@@ -23,7 +23,9 @@ export function useOfflinePendingStatusQueue(orderId: string, advance: AdvanceFn
     // browser's online event; both routes update `queued` from the promise
     // callback rather than synchronously in the effect body.
     function drain() {
-      void drainPendingQueue(advance).then(() => setQueued(hasPendingChange(orderId)));
+      void drainPendingQueue(advance)
+        .then(() => hasPendingChange(orderId))
+        .then(setQueued);
     }
 
     drain();
@@ -37,7 +39,7 @@ export function useOfflinePendingStatusQueue(orderId: string, advance: AdvanceFn
     const entry: PendingStatusChange = { orderId, newStatus, paymentConfirmed, ts: Date.now() };
 
     if (typeof navigator !== "undefined" && "onLine" in navigator && !navigator.onLine) {
-      enqueueStatusChange(entry);
+      await enqueueStatusChange(entry);
       setQueued(true);
       return { error: null };
     }
@@ -46,7 +48,7 @@ export function useOfflinePendingStatusQueue(orderId: string, advance: AdvanceFn
       return await advance(orderId, newStatus, paymentConfirmed);
     } catch (err) {
       if (isNetworkError(err)) {
-        enqueueStatusChange(entry);
+        await enqueueStatusChange(entry);
         setQueued(true);
         return { error: null };
       }

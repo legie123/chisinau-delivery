@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@chisinau/shared-domain": ["./packages/shared-domain/src/index.ts"]
     }
   },
   "include": [

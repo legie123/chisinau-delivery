@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   // Workspace packages ship TS source; Next transpiles them (Master Council Phase 1).
-  transpilePackages: ["@chisinau/shared-types", "@chisinau/shared-api"],
+  transpilePackages: ["@chisinau/shared-types", "@chisinau/shared-api", "@chisinau/shared-domain"],
   // Directive 9: cacheComponents was tried and REVERTED — see commit message /
   // build report. Enabling it broke prerendering on every per-user page that
   // reads cookies() (createClient()) without a <Suspense> boundary — 32 files

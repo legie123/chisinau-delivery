@@ -5,7 +5,7 @@ import {
   nextOpeningAt,
   nextOpeningLabel,
   type HoursRow,
-} from "@/lib/orders/hours";
+} from "@chisinau/shared-domain";
 
 // Ora restaurantului nu e o decorațiune: pe ea stă singura întrebare a unui om
 // flămând în fața unei liste închise — „și atunci când?". Logica exista din

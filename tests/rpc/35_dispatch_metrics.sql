@@ -36,6 +36,10 @@ begin
   insert into public.courier_cash_movements (courier_id, kind, amount_mdl, note)
   select c, 'offload', -public.courier_cash_balance(c), 'sim baseline reset (rolled back)'
   from unnest(array[v_cA, v_cB]) c where public.courier_cash_balance(c) > 0;
+  if v_cA is null or v_cB is null then raise exception 'FAIL arrange: fixture couriers missing (a..02 / c..01)'; end if;
+  -- dispatch_order skips any courier holding a live offer: clear what the aged seed may hold
+  update public.dispatch_offers set status = 'cancelled', responded_at = now()
+  where courier_id in (v_cA, v_cB) and status = 'offered';
   update public.couriers set status = 'offline' where id not in (v_cA, v_cB);
   update public.couriers set status = 'online', is_active = true where id in (v_cA, v_cB);
   insert into public.courier_locations (courier_id, lat, lng, updated_at)
@@ -116,8 +120,15 @@ begin
   if not v_has_multiwave then
     raise exception 'FAIL: no multi-wave dispatched order in the 7-day window — the cascade path is not exercised';
   end if;
-  if v_cascade_depth <= 1 then
-    raise exception 'FAIL: a multi-wave dispatched order exists but decline_cascade_depth_avg (%) does not reflect it', v_cascade_depth;
+  -- compare against an independent recomputation, not a fixed bound: with 200+ single-wave orders
+  -- in the 7-day window the avg rounds back to 1.00 even though the 2-wave order is there
+  if v_cascade_depth is distinct from (
+    select round(avg(mw), 2) from (
+      select max(wave) as mw from public.dispatch_offers
+      where created_at >= now() - interval '7 days' group by order_id
+    ) x
+  ) then
+    raise exception 'FAIL: decline_cascade_depth_avg (%) differs from an independent recomputation', v_cascade_depth;
   end if;
 
   if v_handover is null or v_handover < 0 then

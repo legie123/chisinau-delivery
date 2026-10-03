@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeShifts, type ShiftEarningsOrder } from "@/app/(courier)/_lib/earnings";
+import { summarizeShifts, type ShiftEarningsOrder } from "@chisinau/shared-domain";
 
 // Faza 5 #5 — gross-per-shift is the go/no-go instrument (target 600-1000
 // MDL/tura); the window-bucketing logic is exactly the kind of off-by-one

@@ -5,7 +5,7 @@ import {
   formatClock,
   formatTargetClock,
   minutesUntil,
-} from "@/lib/orders/eta";
+} from "@chisinau/shared-domain";
 
 describe("formatPrepRange", () => {
   it("shows prep..prep+buffer with the en-dash and 'min'", () => {

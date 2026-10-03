@@ -1,0 +1,9 @@
+{
+  "name": "@chisinau/shared-domain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Platform-free domain logic shared by web (Next) and native (Expo): courier net-pay model, offline status queue (storage + RPC injected), trailing throttle, ETA and opening-hours helpers. Zero runtime deps; no browser/Next/React imports.",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false
+}

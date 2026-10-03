@@ -6,7 +6,7 @@ import {
   quotedNetMdl,
   summarizeEarnings,
   type EarningsOrder,
-} from "@/app/(courier)/_lib/earnings";
+} from "@chisinau/shared-domain";
 
 // R8 — al doilea val adversarial pe suprafața CURIERULUI.
 //
