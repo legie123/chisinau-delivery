@@ -36,11 +36,16 @@ if [ -z "${JWT_SECRET:-}" ]; then
   echo "✗ Refusing: could not read JWT_SECRET from 'supabase status'; cannot prove it was rotated." >&2
   exit 3
 fi
-case "$JWT_SECRET" in
-  super-secret-jwt-token-with-at-least-32-characters-long | your-super-secret-jwt-token-with-at-least-32-characters-long)
+# Any variant of the published default ("…-X", a prefix) or a short secret is still guessable.
+weak=""
+[ "${#JWT_SECRET}" -lt 32 ] && weak=1
+case "$JWT_SECRET" in *super-secret-jwt-token*) weak=1 ;; esac
+case "$weak" in
+  1)
     if [ "${TUNNEL_ACCEPT_DEFAULT_JWT_SECRET:-}" != "1" ]; then
       cat >&2 <<'MSG'
-✗ Refusing: the local Supabase uses the PUBLIC default JWT secret. Through a tunnel anyone could
+✗ Refusing: the local Supabase JWT secret is the PUBLIC default (or a variant of it, or shorter
+  than 32 characters). Through a tunnel anyone could
   mint a service_role token and read/write the whole database, bypassing RLS.
   Fix (once): set a random secret in supabase/config.toml under [auth]:
       jwt_secret = "env(SUPABASE_AUTH_JWT_SECRET)"

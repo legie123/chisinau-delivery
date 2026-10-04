@@ -57,8 +57,10 @@ The tunnel exposes the LOCAL Supabase **data plane only**, through an allowlist 
 It must never expose the Kong gateway (54421) wholesale: Kong routes `/pg/*` to postgres-meta, which
 runs **arbitrary SQL with no authentication** as role `postgres` (bypasses RLS) — verified on this
 stack (2026-10-04). The proxy normalizes the path before checking it (a raw-URL check let
-`/rest/v1/../../pg/query` through), refuses encoded slashes/backslashes, and is covered by
-`tests/unit/tunnelProxy.test.ts`.
+`/rest/v1/../../pg/query` through), refuses encoded slashes/backslashes, and lets only realtime
+upgrade to a websocket — the raw pipe exists only after Kong answers `101` (a raw pipe opened at
+connect time let a request pipelined behind an upgrade reach `/pg`). Covered by
+`tests/unit/tunnelProxy.test.ts`, which runs the real proxy in front of a fake Kong.
 
 Second risk: the local stack ships with Supabase's **published** default JWT secret, so anyone who
 finds the URL could sign a `service_role` token and bypass RLS through the data plane. `tunnel.sh`

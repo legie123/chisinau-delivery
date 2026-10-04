@@ -38,7 +38,12 @@ export function allowedTarget(rawUrl) {
   return u.pathname + u.search;
 }
 
-function start() {
+// Only realtime legitimately upgrades (supabase-js websocket).
+const UPGRADE_ALLOW = /^\/realtime\/v1(\/|\?|$)/;
+const MAX_HANDSHAKE = 16 * 1024;
+
+/** Starts the proxy; returns the http.Server. Exported for the test. */
+export function start(listen = LISTEN, upPort = UP_PORT) {
   const srv = http.createServer((req, res) => {
     const target = allowedTarget(req.url);
     if (!target) {
@@ -47,7 +52,7 @@ function start() {
       return;
     }
     const up = http.request(
-      { host: UP_HOST, port: UP_PORT, method: req.method, path: target, headers: req.headers },
+      { host: UP_HOST, port: upPort, method: req.method, path: target, headers: req.headers },
       (pr) => {
         res.writeHead(pr.statusCode || 502, pr.headers);
         pr.pipe(res);
@@ -60,13 +65,18 @@ function start() {
     req.pipe(up);
   });
 
+  // Until Kong answers 101 the connection is still HTTP. Splicing it raw at connect time let a
+  // second request pipelined behind an allowed upgrade (POST /pg/query) reach Kong unchecked —
+  // anonymous SQL as postgres, proven through this proxy (verifier, 2026-10-04). So: realtime
+  // only, no client bytes before the handshake, and the pipe exists only after a 101; any other
+  // answer is forwarded alone and the connection closed.
   srv.on("upgrade", (req, sock, head) => {
     const target = allowedTarget(req.url);
-    if (!target) {
+    if (!target || !UPGRADE_ALLOW.test(target) || (head && head.length)) {
       sock.end("HTTP/1.1 404 Not Found\r\n\r\n");
       return;
     }
-    const up = net.connect(UP_PORT, UP_HOST, () => {
+    const up = net.connect(upPort, UP_HOST, () => {
       up.write(
         `${req.method} ${target} HTTP/1.1\r\n` +
           Object.entries(req.headers)
@@ -74,17 +84,39 @@ function start() {
             .join("") +
           "\r\n",
       );
-      if (head && head.length) up.write(head);
+    });
+    let buf = Buffer.alloc(0);
+    const onHandshake = (chunk) => {
+      buf = Buffer.concat([buf, chunk]);
+      const end = buf.indexOf("\r\n\r\n");
+      if (end === -1) {
+        if (buf.length > MAX_HANDSHAKE) {
+          up.destroy();
+          sock.destroy();
+        }
+        return;
+      }
+      up.off("data", onHandshake);
+      if (!/^HTTP\/1\.[01] 101 /.test(buf.toString("latin1", 0, 13))) {
+        sock.end(buf.subarray(0, end + 4));
+        up.destroy();
+        return;
+      }
+      sock.write(buf); // the 101 plus any websocket frames already received
       sock.pipe(up);
       up.pipe(sock);
-    });
+    };
+    up.on("data", onHandshake);
     up.on("error", () => sock.destroy());
     sock.on("error", () => up.destroy());
+    sock.on("close", () => up.destroy());
   });
 
-  srv.listen(LISTEN, "127.0.0.1", () =>
+  return srv.listen(listen, "127.0.0.1");
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  start().on("listening", () =>
     console.error(`tunnel-proxy 127.0.0.1:${LISTEN} -> Kong ${UP_PORT} (data plane only)`),
   );
 }
-
-if (import.meta.url === `file://${process.argv[1]}`) start();
