@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { mapPgError } from "@chisinau/shared-api";
 import { requireOwnRestaurant } from "@/lib/auth/require";
 
 export type ActionState = { error: string | null };
@@ -37,7 +38,7 @@ export async function updateHours(_prev: ActionState, formData: FormData): Promi
     const { error } = await supabase
       .from("restaurant_hours")
       .upsert(rows, { onConflict: "restaurant_id,day_of_week" });
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
 
     revalidatePath("/restaurant/hours");
     return { error: null };
@@ -53,7 +54,7 @@ export async function toggleAcceptingOrders(accepting: boolean): Promise<ActionS
       .from("restaurants")
       .update({ accepting_orders: accepting })
       .eq("id", restaurantId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/restaurant/hours");
     return { error: null };
   } catch (err) {

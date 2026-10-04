@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { mapPgError } from "@chisinau/shared-api";
 import { requireOwnRestaurant } from "@/lib/auth/require";
 
 export type ActionState = { error: string | null };
@@ -24,7 +25,7 @@ export async function createCategory(_prev: ActionState, formData: FormData): Pr
     const { error } = await supabase
       .from("menu_categories")
       .insert({ restaurant_id: restaurantId, name, sort_order: sortOrder });
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
 
     revalidatePath("/restaurant/menu");
     return { error: null };
@@ -42,7 +43,7 @@ export async function deleteCategory(_prev: ActionState, formData: FormData): Pr
     // policy regression can't turn this into a cross-tenant delete (matches the
     // moveCategory/moveMenuItem pattern).
     const { error } = await supabase.from("menu_categories").delete().eq("id", categoryId).eq("restaurant_id", restaurantId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
 
     revalidatePath("/restaurant/menu");
     return { error: null };
@@ -135,7 +136,7 @@ export async function createMenuItem(_prev: ActionState, formData: FormData): Pr
       is_catering_only: isCateringOnly,
       sort_order: sortOrder,
     });
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
 
     revalidatePath("/restaurant/menu");
     return { error: null };
@@ -179,7 +180,7 @@ export async function updateMenuItem(_prev: ActionState, formData: FormData): Pr
       })
       .eq("id", itemId)
       .eq("restaurant_id", restaurantId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
 
     revalidatePath("/restaurant/menu");
     return { error: null };
@@ -228,7 +229,7 @@ export async function toggleItemAvailability(itemId: string, isAvailable: boolea
   try {
     const { supabase, restaurantId } = await requireOwnRestaurant();
     const { error } = await supabase.from("menu_items").update({ is_available: isAvailable }).eq("id", itemId).eq("restaurant_id", restaurantId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/restaurant/menu");
     return { error: null };
   } catch (err) {
@@ -249,11 +250,11 @@ export async function deleteMenuItem(_prev: ActionState, formData: FormData): Pr
       // ordered, deleting it fails permanently. Archive it instead of hard-failing.
       if (error.code === "23503") {
         const { error: archiveError } = await supabase.from("menu_items").update({ is_available: false }).eq("id", itemId).eq("restaurant_id", restaurantId);
-        if (archiveError) return { error: archiveError.message };
+        if (archiveError) return { error: mapPgError(archiveError) };
         revalidatePath("/restaurant/menu");
         return { error: "Produsul are comenzi istorice — a fost dezactivat în loc de șters." };
       }
-      return { error: error.message };
+      return { error: mapPgError(error) };
     }
 
     revalidatePath("/restaurant/menu");

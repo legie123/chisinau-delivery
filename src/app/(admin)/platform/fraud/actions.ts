@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { mapPgError } from "@chisinau/shared-api";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
@@ -20,7 +21,7 @@ export async function markFlagReviewed(flagId: string): Promise<ActionResult> {
     .from("fraud_flags")
     .update({ reviewed_at: new Date().toISOString(), reviewed_by: user.id })
     .eq("id", flagId);
-  if (error) return { error: error.message };
+  if (error) return { error: mapPgError(error) };
 
   revalidatePath("/platform/fraud");
   return { error: null };

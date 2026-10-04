@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { mapPgError } from "@chisinau/shared-api";
 import { requireOwnRestaurant } from "@/lib/auth/require";
 
 export type ActionState = { error: string | null };
@@ -48,7 +49,7 @@ export async function createOptionGroup(_prev: ActionState, formData: FormData):
       max_select: maxSelect,
       sort_order: 0,
     });
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/restaurant/menu");
     return { error: null };
   } catch (err) {
@@ -62,7 +63,7 @@ export async function deleteOptionGroup(_prev: ActionState, formData: FormData):
     const groupId = String(formData.get("group_id") ?? "");
     if (!(await ownsGroup(supabase, restaurantId, groupId))) return { error: "Grup invalid." };
     const { error } = await supabase.from("menu_option_groups").delete().eq("id", groupId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/restaurant/menu");
     return { error: null };
   } catch (err) {
@@ -85,7 +86,7 @@ export async function addOption(_prev: ActionState, formData: FormData): Promise
       is_available: true,
       sort_order: 0,
     });
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/restaurant/menu");
     return { error: null };
   } catch (err) {
@@ -99,7 +100,7 @@ export async function deleteOption(_prev: ActionState, formData: FormData): Prom
     const optionId = String(formData.get("option_id") ?? "");
     if (!(await ownsOption(supabase, restaurantId, optionId))) return { error: "Opțiune invalidă." };
     const { error } = await supabase.from("menu_options").delete().eq("id", optionId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/restaurant/menu");
     return { error: null };
   } catch (err) {

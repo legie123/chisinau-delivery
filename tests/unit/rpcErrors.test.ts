@@ -1,5 +1,7 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { mapPgError, RpcError } from "@chisinau/shared-api";
+import { authErrorText, mapPgError, RpcError } from "@chisinau/shared-api";
 
 const p0001 = (message: string) => ({ code: "P0001", message, details: "", hint: "", name: "PostgrestError" }) as never;
 
@@ -29,5 +31,42 @@ describe("diacritic-less Romanian admin texts keep their meaning", () => {
     expect(mapPgError(p0001("curierul nou nu este disponibil"))).toBe("Curierul nou nu este disponibil.");
     expect(mapPgError(p0001("ledger-ul de payout este imutabil — doar reversed_at poate fi setat post-decontare"))).toMatch(/decontată/);
     expect(mapPgError(p0001("curierul are deja o livrare activă"))).toBe("curierul are deja o livrare activă");
+  });
+});
+
+// Partner and admin actions returned `{ error: error.message }`: raw English Postgres/GoTrue text
+// ("new row violates check constraint …", "A user with this email address has already been
+// registered") on Romanian screens (client verifier, 2026-10-04). Class guard: no server action
+// hands a supabase error's .message to the user; it goes through mapPgError / authErrorText.
+describe("server actions never return a raw supabase error message", () => {
+  it("no `{ error: <x>Error.message }` in src/app/**/actions.ts", () => {
+    const root = path.join(__dirname, "../../src/app");
+    const hits: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/actions\.ts$/.test(e.name)) {
+          readFileSync(p, "utf8").split("\n").forEach((l, i) => {
+            if (/\{ error: \w*[eE]rror\.message \}/.test(l)) hits.push(`${path.relative(root, p)}:${i + 1}`);
+          });
+        }
+      }
+    };
+    walk(root);
+    expect(hits).toEqual([]);
+  });
+
+  it("GoTrue invite errors and constraint errors are Romanian", () => {
+    expect(authErrorText({ code: "email_exists", message: "A user with this email address has already been registered" })).toBe(
+      "Există deja un cont cu acest email.",
+    );
+    expect(authErrorText({ message: "A user with this email address has already been registered" })).toBe("Există deja un cont cu acest email.");
+    expect(authErrorText({ message: "Database error saving new user" })).toMatch(/^Invitația nu a putut fi trimisă/);
+    const pg = (code: string, message: string) => mapPgError({ code, message, details: "", hint: "", name: "PostgrestError" } as never);
+    expect(pg("23514", 'new row for relation "menu_items" violates check constraint "menu_items_price_mdl_check"')).toBe(
+      "Valoare invalidă — verifică câmpurile completate.",
+    );
+    expect(pg("23502", 'null value in column "name" violates not-null constraint')).toBe("Lipsește un câmp obligatoriu.");
   });
 });

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { mapPgError, authErrorText } from "@chisinau/shared-api";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { geocodeAddress } from "@/lib/geo/geocode";
@@ -43,7 +44,7 @@ export async function createRestaurant(_prev: ActionState, formData: FormData): 
       lng: geo?.lng ?? null,
     });
 
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
 
     revalidatePath("/platform/restaurants");
     return {
@@ -74,7 +75,7 @@ export async function invitePartner(_prev: ActionState, formData: FormData): Pro
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, role: "restaurant_partner" },
     });
-    if (inviteError) return { error: inviteError.message };
+    if (inviteError) return { error: authErrorText(inviteError) };
 
     const userId = invited.user.id;
 
@@ -83,12 +84,12 @@ export async function invitePartner(_prev: ActionState, formData: FormData): Pro
     const { error: profileError } = await admin
       .from("profiles")
       .insert({ id: userId, full_name: fullName, role: "restaurant_partner" });
-    if (profileError) return { error: profileError.message };
+    if (profileError) return { error: mapPgError(profileError) };
 
     const { error: staffError } = await admin
       .from("restaurant_staff")
       .insert({ restaurant_id: restaurantId, user_id: userId });
-    if (staffError) return { error: staffError.message };
+    if (staffError) return { error: mapPgError(staffError) };
 
     revalidatePath("/platform/restaurants");
     return { error: null };
@@ -141,7 +142,7 @@ export async function setRestaurantLocation(
     }
 
     const { error } = await supabase.from("restaurants").update({ lat, lng }).eq("id", restaurantId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
 
     revalidatePath("/platform/restaurants");
     return { error: null, notice };
@@ -159,7 +160,7 @@ export async function setRestaurantActive(restaurantId: string, isActive: boolea
   try {
     const { supabase } = await requirePlatformAdmin();
     const { error } = await supabase.from("restaurants").update({ is_active: isActive }).eq("id", restaurantId);
-    if (error) return { error: error.message };
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/platform/restaurants");
     return { error: null };
   } catch (err) {

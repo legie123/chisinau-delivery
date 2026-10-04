@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { recordCashOffload, reinstateCourier, RpcError, suspendCourier } from "@chisinau/shared-api";
+import { recordCashOffload, reinstateCourier, RpcError, suspendCourier, mapPgError, authErrorText } from "@chisinau/shared-api";
 import { asCourierId } from "@chisinau/shared-types";
 import { requirePlatformAdmin } from "@/lib/auth/require";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -26,19 +26,19 @@ export async function inviteCourier(_prev: ActionState, formData: FormData): Pro
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, role: "courier" },
     });
-    if (inviteError) return { error: inviteError.message };
+    if (inviteError) return { error: authErrorText(inviteError) };
 
     const userId = invited.user.id;
 
     const { error: profileError } = await admin
       .from("profiles")
       .insert({ id: userId, full_name: fullName, phone, role: "courier" });
-    if (profileError) return { error: profileError.message };
+    if (profileError) return { error: mapPgError(profileError) };
 
     const { error: courierError } = await admin
       .from("couriers")
       .insert({ user_id: userId, full_name: fullName, phone, vehicle_type: vehicleType });
-    if (courierError) return { error: courierError.message };
+    if (courierError) return { error: mapPgError(courierError) };
 
     revalidatePath("/platform/couriers");
     return { error: null };

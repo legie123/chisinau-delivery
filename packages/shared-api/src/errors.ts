@@ -108,7 +108,23 @@ export function mapPgError(error: PostgrestError): string {
       return romanianRaiseText(error.message) ?? "Acțiunea nu a putut fi efectuată.";
     case "PGRST301": // JWT expired
       return "Sesiunea a expirat — intră din nou în cont.";
+    case "23514": // check_violation — e.g. a negative price
+    case "22P02": // invalid_text_representation
+    case "22003": // numeric_value_out_of_range
+      return "Valoare invalidă — verifică câmpurile completate.";
+    case "23502": // not_null_violation
+      return "Lipsește un câmp obligatoriu.";
     default:
       return "A apărut o eroare. Încearcă din nou.";
   }
+}
+
+/** GoTrue (auth) errors, e.g. an admin invite: Romanian by code, never the raw English text. */
+export function authErrorText(error: { code?: string; message?: string }): string {
+  if (error.code === "email_exists" || /already (been )?registered/i.test(error.message ?? "")) {
+    return "Există deja un cont cu acest email.";
+  }
+  if (error.code === "email_address_invalid" || error.code === "validation_failed") return "Emailul nu pare valid.";
+  if (error.code === "over_email_send_rate_limit") return "Prea multe emailuri trimise — încearcă din nou peste câteva minute.";
+  return "Invitația nu a putut fi trimisă. Încearcă din nou.";
 }
