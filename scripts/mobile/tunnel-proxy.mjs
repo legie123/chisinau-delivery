@@ -97,8 +97,9 @@ export function start(listen = LISTEN, upPort = UP_PORT) {
         return;
       }
       up.off("data", onHandshake);
-      if (!/^HTTP\/1\.[01] 101 /.test(buf.toString("latin1", 0, 13))) {
-        sock.end(buf.subarray(0, end + 4));
+      // The reason phrase is optional ("HTTP/1.1 101\r\n" is legal).
+      if (!/^HTTP\/1\.[01] 101[ \r]/.test(buf.toString("latin1", 0, 13))) {
+        sock.end(buf); // that answer (and whatever of its body arrived), then close
         up.destroy();
         return;
       }

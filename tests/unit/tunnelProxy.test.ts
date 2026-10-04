@@ -62,6 +62,11 @@ describe("tunnel-proxy websocket upgrades", () => {
           seen.push(path);
           if (path.includes("/pg/")) s.write("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nPWNED");
           else if (path.startsWith("/realtime/v1/deny")) s.write("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n");
+          else if (path.startsWith("/realtime/v1/noreason")) {
+            s.write("HTTP/1.1 101\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n"); // reason phrase is optional
+            upgraded = true;
+            return;
+          }
           else if (path.startsWith("/realtime/v1/websocket")) {
             s.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n");
             upgraded = true;
@@ -118,6 +123,12 @@ describe("tunnel-proxy websocket upgrades", () => {
     expect(await raw(upgrade("/rest/v1/"))).toMatch(/^HTTP\/1\.1 404/);
     expect(await raw(upgrade("/realtime/v1/websocket") + sql)).toMatch(/^HTTP\/1\.1 404/);
     expect(seen).toEqual([]);
+  });
+
+  it("a 101 without a reason phrase is still an upgrade", async () => {
+    const out = await raw(upgrade("/realtime/v1/noreason"), "hi");
+    expect(out).toMatch(/^HTTP\/1\.1 101\r\n/);
+    expect(out).toContain("ECHO:hi");
   });
 
   it("the realtime websocket still works end to end", async () => {

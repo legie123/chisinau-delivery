@@ -39,7 +39,7 @@ fi
 # Any variant of the published default ("…-X", a prefix) or a short secret is still guessable.
 weak=""
 [ "${#JWT_SECRET}" -lt 32 ] && weak=1
-case "$JWT_SECRET" in *super-secret-jwt-token*) weak=1 ;; esac
+case "$(printf %s "$JWT_SECRET" | tr '[:upper:]' '[:lower:]')" in *super-secret-jwt-token*) weak=1 ;; esac
 case "$weak" in
   1)
     if [ "${TUNNEL_ACCEPT_DEFAULT_JWT_SECRET:-}" != "1" ]; then
