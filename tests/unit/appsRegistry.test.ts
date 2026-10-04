@@ -48,25 +48,33 @@ describe("appOrigin / foreignRedirect — keep the hostname, swap only the port"
     else process.env.APP_ORIGIN_CURIER = saved;
   });
 
+  it("client and courier are native: their web paths go to the monolith, never to 3001/3002", () => {
+    delete process.env.APP_ORIGIN_CURIER;
+    for (const app of ["client", "curier"] as const) {
+      expect(appOrigin(app, "localhost:3004")).toBe("http://localhost:3007");
+    }
+  });
+
   it("localhost stays localhost, 127.0.0.1 stays 127.0.0.1 (cookie jar is per host)", () => {
     delete process.env.APP_ORIGIN_CURIER;
-    expect(appOrigin("curier", "localhost:3001")).toBe("http://localhost:3002");
-    expect(appOrigin("curier", "127.0.0.1:3001")).toBe("http://127.0.0.1:3002");
+    expect(appOrigin("curier", "localhost:3003")).toBe("http://localhost:3007");
+    expect(appOrigin("curier", "127.0.0.1:3003")).toBe("http://127.0.0.1:3007");
     expect(appOrigin("master", null)).toBe("http://localhost:3004");
   });
 
   it("env override wins (production domains)", () => {
     process.env.APP_ORIGIN_CURIER = "https://curier.example.md/";
-    expect(appOrigin("curier", "localhost:3001")).toBe("https://curier.example.md");
+    expect(appOrigin("curier", "localhost:3003")).toBe("https://curier.example.md");
   });
 
   it("redirects a foreign path with path+search, never an owned or shared one", () => {
     delete process.env.APP_ORIGIN_CURIER;
     const u = (pathname: string, search = "") => ({ pathname, search, protocol: "http:" });
-    expect(foreignRedirect("client", u("/deliveries", "?x=1"), "localhost:3001")).toBe("http://localhost:3002/deliveries?x=1");
-    expect(foreignRedirect("client", u("/restaurants"), "localhost:3001")).toBeNull();
-    expect(foreignRedirect("curier", u("/login", "?next=/deliveries"), "localhost:3002")).toBeNull();
-    expect(foreignRedirect("curier", u("/"), "localhost:3002")).toBe("http://localhost:3001/");
-    expect(foreignRedirect("restaurant", u("/restaurants"), "localhost:3003")).toBe("http://localhost:3001/restaurants");
+    expect(foreignRedirect("restaurant", u("/deliveries", "?x=1"), "localhost:3003")).toBe("http://localhost:3007/deliveries?x=1");
+    expect(foreignRedirect("restaurant", u("/restaurant/orders"), "localhost:3003")).toBeNull();
+    expect(foreignRedirect("master", u("/login", "?next=/platform"), "localhost:3004")).toBeNull();
+    expect(foreignRedirect("master", u("/"), "localhost:3004")).toBe("http://localhost:3007/");
+    expect(foreignRedirect("restaurant", u("/restaurants"), "localhost:3003")).toBe("http://localhost:3007/restaurants");
+    expect(foreignRedirect("restaurant", u("/platform"), "localhost:3003")).toBe("http://localhost:3004/platform");
   });
 });

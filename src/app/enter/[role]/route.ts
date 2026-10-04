@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { isLocalRequestHost } from "@/lib/local/noLogin";
 
 // DEV/DEMO doorway (POST-only: GET would be executed by Link prefetch in
 // production and is trivially CSRF-able). The hub's three sectors enter WITHOUT a login
@@ -27,6 +28,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // production — real users go through /login (sign-in + sign-up). It stays fully
   // functional on local/dev/staging for testing.
   if (process.env.NODE_ENV === "production") {
+    return NextResponse.redirect(new URL("/login", request.url), 303);
+  }
+  // Dev too: only for a request addressed to this machine (same rule as the proxy autologin,
+  // 2026-10-02) — processes in the Colima VM reach dev servers via host.docker.internal and a
+  // DNS-rebinding page arrives with its own Host; neither may sign in as admin@test.md.
+  if (!isLocalRequestHost(request.headers.get("host"))) {
     return NextResponse.redirect(new URL("/login", request.url), 303);
   }
 

@@ -89,3 +89,14 @@ describe("masterPasswordRequired (poarta /master în dezvoltare)", () => {
     expect(masterPasswordRequired("localhost:3000")).toBe(true);
   });
 });
+
+describe("sameOriginPath (post-login redirect)", () => {
+  it("keeps same-origin paths and refuses every off-origin form", async () => {
+    const { sameOriginPath } = await import("@/components/auth/LoginForm");
+    const o = "http://localhost:3004";
+    expect(sameOriginPath("/platform/orders?x=1", o)).toBe("/platform/orders?x=1");
+    for (const bad of ["//evil.example", "/\\evil.example", "/\\/evil.example", "https://evil.example", "javascript:alert(1)", "", null]) {
+      expect(sameOriginPath(bad as string | null, o), String(bad)).toBeNull();
+    }
+  });
+});

@@ -12,6 +12,17 @@ const ROLE_HOME: Record<UserRole, string> = {
   platform_admin: "/platform",
 };
 
+/** `next` as a same-origin "path?query", or null. Exported for the test. */
+export function sameOriginPath(next: string | null, origin = typeof window === "undefined" ? "http://localhost" : window.location.origin): string | null {
+  if (!next || !next.startsWith("/")) return null;
+  try {
+    const u = new URL(next, origin);
+    return u.origin === origin ? u.pathname + u.search : null;
+  } catch {
+    return null;
+  }
+}
+
 export function LoginForm({ next }: { next: string | null }) {
   const router = useRouter();
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
@@ -52,9 +63,10 @@ export function LoginForm({ next }: { next: string | null }) {
         .single();
 
       const role = (profile?.role ?? "customer") as UserRole;
-      // Only follow same-origin relative paths — never an attacker-supplied
-      // absolute/protocol-relative URL (post-login open-redirect phishing).
-      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+      // Only follow same-origin paths — never an attacker-supplied absolute or protocol-relative
+      // URL (post-login open-redirect phishing). Resolved through URL, not string prefixes:
+      // browsers treat "/\evil.example" like "//evil.example", which a startsWith check passed.
+      const safeNext = sameOriginPath(next);
       router.push(safeNext ?? ROLE_HOME[role]);
       router.refresh();
     } catch (err) {

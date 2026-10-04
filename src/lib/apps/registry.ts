@@ -10,9 +10,16 @@
 
 export type AppId = "client" | "curier" | "restaurant" | "master";
 
+// Client and courier went NATIVE (decision 2026-10-03): no web shell runs on 3001/3002, and on
+// this machine :3001 is an unrelated process (obscura MCP) that would receive the Supabase cookie
+// (cookies ignore ports) if we redirected there. Their web pages still live in the monolith, so
+// client/curier paths go to the monolith's operational dev server (:3007). Production: set
+// APP_ORIGIN_CLIENT / APP_ORIGIN_CURIER to the real origin. Verifier finding 2026-10-04.
+export const MONOLITH_DEV_PORT = 3007;
+
 export const APP_PORTS: Record<AppId, number> = {
-  client: 3001,
-  curier: 3002,
+  client: MONOLITH_DEV_PORT,
+  curier: MONOLITH_DEV_PORT,
   restaurant: 3003,
   master: 3004,
 };
