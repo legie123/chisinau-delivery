@@ -792,6 +792,33 @@ export type Database = {
           },
         ]
       }
+      device_push_tokens: {
+        Row: {
+          created_at: string
+          expo_token: string
+          id: string
+          last_seen_at: string
+          platform: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expo_token: string
+          id?: string
+          last_seen_at?: string
+          platform: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expo_token?: string
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       dispatch_offers: {
         Row: {
           courier_id: string
@@ -3493,6 +3520,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_prep_stats: { Args: never; Returns: number }
+      register_device_push_token: {
+        Args: { p_platform: string; p_token: string }
+        Returns: undefined
+      }
       reinstate_courier: {
         Args: { p_courier_id: string; p_note?: string }
         Returns: undefined

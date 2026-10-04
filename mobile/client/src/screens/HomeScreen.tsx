@@ -8,71 +8,104 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
-  Dimensions,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SERIF, CARD_TINTS } from '../theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Restaurant } from '../types';
 import { fetchRestaurants } from '../lib/api';
-
-const { width } = Dimensions.get('window');
-
-const FOOD_IMAGES = [
-  'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&h=300&fit=crop',
-  'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop',
-  'https://images.unsplash.com/photo-1579584425555-c3ce17fd4351?w=400&h=300&fit=crop',
-  'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop',
-  'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop',
-];
+import { currentPosition } from '../lib/location';
+import { useCart } from '../lib/cart';
+import { cartCount } from '@chisinau/shared-domain';
 
 interface Props {
   navigation: any;
+}
+
+function ratingText(r: Restaurant): string {
+  return r.ratingCount > 0 && r.ratingAvg != null ? `${Number(r.ratingAvg).toFixed(1)} (${r.ratingCount})` : 'Nou';
+}
+
+function distanceText(m: number | null): string | null {
+  if (m == null) return null;
+  return m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1)} km`;
 }
 
 export default function HomeScreen({ navigation }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const cart = useCart();
+  const inCart = cartCount(cart.lines);
+
+  const load = async (withPosition: boolean) => {
+    try {
+      const position = withPosition ? await currentPosition() : null;
+      setRestaurants(await fetchRestaurants(position));
+      setLoadError(null);
+    } catch {
+      setLoadError('Nu am putut încărca restaurantele. Verifică conexiunea.');
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
-    fetchRestaurants()
-      .then(data => { if (!cancelled) { setRestaurants(data); setLoadError(null); } })
-      .catch(() => { if (!cancelled) setLoadError('Nu am putut încărca restaurantele. Verifică conexiunea.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+    // Alphabetical list first (fast), then re-sorted by distance once a position exists.
+    load(false).finally(() => {
+      if (cancelled) return;
+      setLoading(false);
+      load(true);
+    });
     return () => { cancelled = true; };
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load(true);
+    setRefreshing(false);
+  };
+
+  const q = searchQuery.trim().toLowerCase();
   const filteredRestaurants = restaurants.filter(r =>
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.category.toLowerCase().includes(searchQuery.toLowerCase())
+    !q || r.name.toLowerCase().includes(q) || r.category.toLowerCase().includes(q)
   );
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+      >
         {/* Header / Logo */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Text style={styles.logoIcon}>🐉</Text>
             <View>
               <Text style={styles.logoTitle}>DRAGONS DELIVERY</Text>
-              <Text style={styles.logoSubtitle}>PREMIUM FOOD DELIVERY</Text>
+              <Text style={styles.logoSubtitle}>CHIȘINĂU · PREMIUM</Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Ionicons name="notifications-outline" size={22} color={COLORS.white} />
-            <View style={styles.notificationBadge}>
-              <Text style={styles.badgeText}>3</Text>
-            </View>
+          <TouchableOpacity
+            style={styles.notificationBtn}
+            accessibilityLabel="Coșul meu"
+            onPress={() => navigation.navigate('Cart')}
+          >
+            <Ionicons name="bag-handle-outline" size={22} color={COLORS.white} />
+            {inCart > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.badgeText}>{inCart}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.tagline}>PREMIUM FOOD DELIVERY</Text>
+        <Text style={styles.tagline}>LIVRARE · CATERING · CONCIERGE</Text>
 
         {/* Search Bar */}
         <View style={styles.searchRow}>
@@ -80,23 +113,27 @@ export default function HomeScreen({ navigation }: Props) {
             <Ionicons name="search" size={20} color={COLORS.textMuted} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for restaurants or dishes..."
+              placeholder="Caută un restaurant..."
               placeholderTextColor={COLORS.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
-          <TouchableOpacity style={styles.filterBtn}>
-            <Ionicons name="options-outline" size={20} color={COLORS.primary} />
+        </View>
+
+        <View style={styles.shortcutRow}>
+          <TouchableOpacity style={styles.shortcut} onPress={() => navigation.navigate('Catering')}>
+            <Ionicons name="people-outline" size={18} color={COLORS.gold} />
+            <Text style={styles.shortcutText}>Catering</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.shortcut} onPress={() => navigation.navigate('Concierge')}>
+            <Ionicons name="key-outline" size={18} color={COLORS.gold} />
+            <Text style={styles.shortcutText}>Concierge</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Featured Restaurants */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Featured Restaurants</Text>
-          <TouchableOpacity>
-            <Text style={styles.viewAll}>View all {'>'}</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Restaurante</Text>
         </View>
 
         {/* Restaurant Cards */}
@@ -105,41 +142,56 @@ export default function HomeScreen({ navigation }: Props) {
         {!loading && !loadError && filteredRestaurants.length === 0 && (
           <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginTop: 32 }}>Niciun restaurant disponibil.</Text>
         )}
-        {filteredRestaurants.map((restaurant, index) => (
-          <TouchableOpacity
-            key={restaurant.id}
-            activeOpacity={0.85}
-            onPress={() => navigation.navigate('Restaurant', { restaurant, imageUrl: restaurant.coverUrl ?? FOOD_IMAGES[index % FOOD_IMAGES.length] })}
-          >
-            <LinearGradient
-              colors={CARD_TINTS[restaurant.cuisine] ?? CARD_TINTS.other}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.luxCard}
+        {filteredRestaurants.map(restaurant => {
+          const closed = !restaurant.openNow || !restaurant.acceptingOrders;
+          const distance = distanceText(restaurant.distanceM);
+          return (
+            <TouchableOpacity
+              key={restaurant.id}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('Restaurant', { restaurant })}
             >
-              <View style={styles.cardContent}>
-                <View style={styles.cardTextArea}>
-                  <Text style={styles.luxName}>{restaurant.name}</Text>
-                  <Text style={styles.restaurantCategory}>{restaurant.category}</Text>
-                  <View style={styles.cardMeta}>
-                    <Text style={styles.rating}>★ {restaurant.rating}</Text>
-                    <Text style={styles.metaSeparator}>·</Text>
-                    <Text style={styles.deliveryTime}>{restaurant.deliveryTime}</Text>
+              <LinearGradient
+                colors={CARD_TINTS[restaurant.cuisine] ?? CARD_TINTS.other}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.luxCard, closed && { opacity: 0.6 }]}
+              >
+                <View style={styles.cardContent}>
+                  <View style={styles.cardTextArea}>
+                    <Text style={styles.luxName}>{restaurant.name}</Text>
+                    <Text style={styles.restaurantCategory}>{restaurant.category}{distance ? ` · ${distance}` : ''}</Text>
+                    <View style={styles.cardMeta}>
+                      <Text style={styles.rating}>★ {ratingText(restaurant)}</Text>
+                      <Text style={styles.metaSeparator}>·</Text>
+                      <Text style={styles.deliveryTime}>{restaurant.prepLabel}</Text>
+                    </View>
+                    {closed ? (
+                      <View style={styles.feePill}>
+                        <Text style={styles.feePillText}>
+                          {restaurant.nextOpening ? `ÎNCHIS · ${restaurant.nextOpening.toUpperCase()}` : 'ÎNCHIS ACUM'}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.feePill, restaurant.deliveryFee === 0 && styles.feePillGold]}>
+                        <Text style={[styles.feePillText, restaurant.deliveryFee === 0 && styles.feePillTextGold]}>
+                          {restaurant.deliveryFee === 0 ? 'LIVRARE GRATUITĂ' : `LIVRARE ${restaurant.deliveryFee} MDL`}
+                        </Text>
+                      </View>
+                    )}
                   </View>
-                  <View style={[styles.feePill, restaurant.deliveryFee === '0' && styles.feePillGold]}>
-                    <Text style={[styles.feePillText, restaurant.deliveryFee === '0' && styles.feePillTextGold]}>
-                      {restaurant.deliveryFee === '0' ? 'LIVRARE GRATUITĂ' : `LIVRARE ${restaurant.deliveryFee} MDL`}
-                    </Text>
-                  </View>
+                  {restaurant.coverUrl ? (
+                    <Image source={{ uri: restaurant.coverUrl }} style={styles.cardImage} />
+                  ) : (
+                    <View style={[styles.cardImage, styles.cardImageEmpty]}>
+                      <Text style={{ fontSize: 40 }}>🍣</Text>
+                    </View>
+                  )}
                 </View>
-                <Image
-                  source={{ uri: restaurant.coverUrl ?? FOOD_IMAGES[index % FOOD_IMAGES.length] }}
-                  style={styles.cardImage}
-                />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        ))}
+              </LinearGradient>
+            </TouchableOpacity>
+          );
+        })}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -366,5 +418,33 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 16,
+  },
+  cardImageEmpty: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shortcutRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: -12,
+    marginBottom: 24,
+  },
+  shortcut: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245,166,35,0.3)',
+    backgroundColor: COLORS.surface,
+  },
+  shortcutText: {
+    color: COLORS.gold,
+    fontWeight: '700',
+    fontSize: 14,
   },
 });

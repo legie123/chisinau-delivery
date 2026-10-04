@@ -1,5 +1,17 @@
+import {
+  getPopularHours,
+  getPrepEstimates,
+  getRatingBreakdown,
+  nearbyRestaurants,
+  searchMenuItems,
+  RpcError,
+} from "@chisinau/shared-api";
+import { chisinauNow, formatPrepRange, isOpenNow, nextOpeningLabel, type HoursRow } from "@chisinau/shared-domain";
 import { supabase } from "./supabase";
-import type { MenuItem, Restaurant } from "../types";
+import type { MenuItem, OptionGroup, Restaurant } from "../types";
+
+// Reads for the customer app. Every RPC goes through @chisinau/shared-api (the same
+// typed call-site the web uses); plain table reads are RLS-scoped selects.
 
 export const CUISINE_LABEL: Record<string, string> = {
   sushi: "Sushi · Japonez",
@@ -7,103 +19,152 @@ export const CUISINE_LABEL: Record<string, string> = {
   other: "Restaurant",
 };
 
-// Maps backend rows (supabase/migrations schema) into the UI types the
-// screens already render — the screens stay untouched by schema details.
-export async function fetchRestaurants(): Promise<Restaurant[]> {
-  const { data, error } = await supabase
-    .from("restaurants")
-    .select("*")
-    .eq("is_active", true)
-    .order("name");
-  if (error) throw new Error(error.message);
+export const VENUE_LABEL: Record<string, string> = {
+  business_lounge: "Sală de business",
+  spa: "Spa",
+  wellness_lounge: "Lounge wellness",
+  sushi_bar: "Sushi bar",
+  restaurant: "Restaurant",
+};
 
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    cuisine: r.cuisine_type as string,
-    name: r.name,
-    address: r.address,
-    lat: "0",
-    lng: "0",
-    phone: r.phone,
-    logoUrl: r.logo_url,
-    coverUrl: r.cover_photo_url,
-    category: CUISINE_LABEL[r.cuisine_type] ?? r.cuisine_type,
-    rating: "Nou",
-    deliveryTime: `${r.avg_prep_minutes}-${r.avg_prep_minutes + 15} min`,
-    deliveryFee: String(r.delivery_fee_mdl),
-    isOpen: r.accepting_orders ? 1 : 0,
-    createdAt: Date.parse(r.created_at),
-  }));
+/** Message for the user from any thrown error (RpcError carries the Romanian one). */
+export function errorText(err: unknown, fallback: string): string {
+  return err instanceof RpcError ? err.userMessage : fallback;
 }
 
-export async function fetchMenu(restaurantId: string): Promise<{ items: MenuItem[]; categories: string[] }> {
-  const [{ data: items, error: itemsError }, { data: cats, error: catsError }] = await Promise.all([
-    supabase
-      .from("menu_items")
-      .select("*")
-      .eq("restaurant_id", restaurantId)
-      .eq("is_available", true)
-      .eq("is_catering_only", false)
-      .order("sort_order"),
+type RestaurantRow = {
+  id: string; slug: string; name: string; cuisine_type: string; venue_type: string; address: string;
+  lat: number | null; lng: number | null; logo_url: string | null; cover_photo_url: string | null;
+  rating_avg: number | null; rating_count: number; avg_prep_minutes: number; delivery_fee_mdl: number;
+  min_order_amount_mdl: number; accepting_orders: boolean; accepts_catering: boolean; catering_min_amount_mdl: number | null;
+};
+
+const RESTAURANT_COLS =
+  "id, slug, name, cuisine_type, venue_type, address, lat, lng, logo_url, cover_photo_url, rating_avg, rating_count, avg_prep_minutes, delivery_fee_mdl, min_order_amount_mdl, accepting_orders, accepts_catering, catering_min_amount_mdl";
+
+/** Restaurants that DELIVER (spa/lounges are booked, not ordered — same as the web list).
+ *  With a position, nearby_restaurants sorts them by distance (fail-open to alphabetical). */
+export async function fetchRestaurants(position?: { lat: number; lng: number } | null): Promise<Restaurant[]> {
+  const [{ data, error }, { data: hours }, nearby] = await Promise.all([
+    supabase.from("restaurants").select(RESTAURANT_COLS).eq("is_active", true).in("venue_type", ["restaurant", "sushi_bar"]).order("name"),
+    supabase.from("restaurant_hours").select("restaurant_id, day_of_week, opens_at, closes_at, is_closed"),
+    position ? nearbyRestaurants(supabase, position.lat, position.lng, 15, 50) : Promise.resolve([]),
+  ]);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as RestaurantRow[];
+  const estimates = await getPrepEstimates(supabase, rows.map((r) => r.id));
+  const byId = new Map(estimates.map((e) => [e.restaurant_id, e]));
+  const distance = new Map(nearby.map((n) => [n.id, n.distance_m]));
+  const hoursBy = new Map<string, HoursRow[]>();
+  for (const h of (hours ?? []) as HoursRow[]) hoursBy.set(h.restaurant_id, [...(hoursBy.get(h.restaurant_id) ?? []), h]);
+  const { dow, time } = chisinauNow();
+
+  const list = rows.map((r) => toRestaurant(r, byId.get(r.id), hoursBy.get(r.id), distance.get(r.id) ?? null, dow, time));
+  if (distance.size === 0) return list;
+  return list.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
+}
+
+function toRestaurant(
+  r: RestaurantRow,
+  estimate: { prep_minutes: number; p90_prep_minutes: number | null } | undefined,
+  hours: HoursRow[] | undefined,
+  distanceM: number | null,
+  dow: number,
+  time: string,
+): Restaurant {
+  // No hours rows at all = no schedule configured; place_order is then the judge.
+  const openNow = !hours || hours.length === 0 ? true : isOpenNow(hours, dow, time);
+  return {
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    cuisine: r.cuisine_type,
+    venueType: r.venue_type,
+    category: CUISINE_LABEL[r.cuisine_type] ?? VENUE_LABEL[r.venue_type] ?? "Restaurant",
+    address: r.address,
+    lat: r.lat,
+    lng: r.lng,
+    logoUrl: r.logo_url,
+    coverUrl: r.cover_photo_url,
+    ratingAvg: r.rating_avg,
+    ratingCount: r.rating_count,
+    prepLabel: formatPrepRange(estimate ?? r.avg_prep_minutes),
+    deliveryFee: Number(r.delivery_fee_mdl),
+    minOrder: Number(r.min_order_amount_mdl),
+    acceptingOrders: r.accepting_orders,
+    openNow,
+    nextOpening: openNow || !hours ? null : nextOpeningLabel(hours, dow, time),
+    distanceM,
+    acceptsCatering: r.accepts_catering,
+    cateringMin: r.catering_min_amount_mdl,
+  };
+}
+
+export async function fetchMenu(
+  restaurantId: string,
+  opts: { catering?: boolean } = {},
+): Promise<{ items: MenuItem[]; categories: string[]; groups: Record<string, OptionGroup[]> }> {
+  let itemsQuery = supabase
+    .from("menu_items")
+    .select("id, restaurant_id, name, description, price_mdl, photo_url, category_id, catering_min_qty")
+    .eq("restaurant_id", restaurantId)
+    .eq("is_available", true);
+  if (!opts.catering) itemsQuery = itemsQuery.eq("is_catering_only", false);
+  const [{ data: items, error }, { data: cats }] = await Promise.all([
+    itemsQuery.order("sort_order"),
     supabase.from("menu_categories").select("id, name").eq("restaurant_id", restaurantId).order("sort_order"),
   ]);
-  if (itemsError) throw new Error(itemsError.message);
-  if (catsError) throw new Error(catsError.message);
-
-  const categoryName = new Map((cats ?? []).map((c) => [c.id, c.name]));
-
+  if (error) throw new Error(error.message);
+  const catName = new Map((cats ?? []).map((c) => [c.id, c.name]));
   const mapped: MenuItem[] = (items ?? []).map((i) => ({
     id: i.id,
     restaurantId: i.restaurant_id,
     name: i.name,
     description: i.description ?? "",
-    price: String(i.price_mdl),
+    priceMdl: Number(i.price_mdl),
     imageUrl: i.photo_url,
-    category: categoryName.get(i.category_id) ?? "Meniu",
-    isAvailable: i.is_available ? 1 : 0,
-    createdAt: Date.parse(i.created_at),
+    category: (i.category_id && catName.get(i.category_id)) || "Meniu",
+    cateringMinQty: i.catering_min_qty,
   }));
 
-  const categories = [...new Set(mapped.map((i) => i.category))];
-  return { items: mapped, categories };
+  const groups: Record<string, OptionGroup[]> = {};
+  if (mapped.length > 0 && !opts.catering) {
+    const { data: rawGroups, error: groupsError } = await supabase
+      .from("menu_option_groups")
+      .select("id, menu_item_id, name, is_required, min_select, max_select, menu_options(id, name, price_delta_mdl, is_available, sort_order)")
+      .in("menu_item_id", mapped.map((i) => i.id))
+      .order("sort_order")
+      .order("sort_order", { referencedTable: "menu_options" });
+    // Without the groups a required-option item can't be ordered correctly — fail
+    // loudly rather than let place_order reject the whole cart later.
+    if (groupsError) throw new Error(groupsError.message);
+    for (const g of rawGroups ?? []) {
+      (groups[g.menu_item_id] ??= []).push({
+        id: g.id,
+        menuItemId: g.menu_item_id,
+        name: g.name,
+        is_required: g.is_required,
+        min_select: g.min_select,
+        max_select: g.max_select,
+        options: (g.menu_options ?? []).filter((o) => o.is_available).map((o) => ({ ...o, price_delta_mdl: Number(o.price_delta_mdl) })),
+      });
+    }
+  }
+  return { items: mapped, categories: [...new Set(mapped.map((i) => i.category))], groups };
 }
 
-// ---------- Search ----------
-
-export interface DishSearchResult {
-  itemId: string;
-  itemName: string;
-  itemDescription: string;
-  priceMdl: string;
-  photoUrl: string | null;
-  restaurantId: string;
-  restaurantName: string;
-  cuisineType: string;
+export async function fetchInsights(restaurantId: string) {
+  const [hours, breakdown] = await Promise.all([getPopularHours(supabase, restaurantId), getRatingBreakdown(supabase, restaurantId)]);
+  return { hours, breakdown };
 }
 
-// Cross-restaurant dish search via the search_menu_items RPC (anon-safe,
-// server-side — see supabase/migrations/20260725000000_search_menu_items.sql).
-// The RPC itself requires length(trim(query)) >= 2, so short queries short-circuit here.
-export async function searchMenuItems(query: string): Promise<DishSearchResult[]> {
+export async function searchDishes(query: string) {
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
-
-  const { data, error } = await supabase.rpc("search_menu_items", { p_query: trimmed });
-  if (error) throw new Error(error.message);
-
-  return (data ?? []).map((d: any) => ({
-    itemId: d.item_id,
-    itemName: d.item_name,
-    itemDescription: d.item_description ?? "",
-    priceMdl: String(d.price_mdl),
-    photoUrl: d.photo_url,
-    restaurantId: d.restaurant_id,
-    restaurantName: d.restaurant_name,
-    cuisineType: d.cuisine_type,
-  }));
+  return searchMenuItems(supabase, trimmed);
 }
 
-// ---------- Auth + ordering (customer) ----------
+// ---------- Auth ----------
 
 export async function signIn(email: string, password: string): Promise<string | null> {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -119,15 +180,13 @@ export async function signUp(email: string, password: string, fullName: string):
   return error ? error.message : null;
 }
 
-export async function isSignedIn(): Promise<boolean> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return !!session;
+export async function currentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id ?? null;
 }
 
-export async function signOut(): Promise<void> {
-  await supabase.auth.signOut();
+export async function isSignedIn(): Promise<boolean> {
+  return (await currentUserId()) !== null;
 }
 
 // ---------- Profile ----------
@@ -140,23 +199,17 @@ export interface CustomerProfile {
   favoriteCount: number;
 }
 
-// Returns null when there is no active session — screens use that to show
-// the sign-in prompt instead of a profile.
 export async function fetchMyProfile(): Promise<CustomerProfile | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-
-  const [{ data: profile, error: profileError }, { count: orderCount }, { count: favoriteCount }] = await Promise.all([
+  const [{ data: profile, error }, { count: orderCount }, { count: favoriteCount }] = await Promise.all([
     supabase.from("profiles").select("full_name, phone").eq("id", user.id).single(),
-    supabase.from("orders").select("id", { count: "exact", head: true }),
-    supabase.from("favorites").select("customer_id", { count: "exact", head: true }),
+    supabase.from("orders").select("id", { count: "exact", head: true }).eq("customer_id", user.id),
+    supabase.from("favorites").select("customer_id", { count: "exact", head: true }).eq("customer_id", user.id),
   ]);
-  if (profileError) throw new Error(profileError.message);
-
+  if (error) throw new Error(error.message);
   return {
-    fullName: profile?.full_name ?? "Client Dragons",
+    fullName: profile?.full_name || user.email || "Client",
     phone: profile?.phone ?? null,
     email: user.email ?? null,
     orderCount: orderCount ?? 0,
@@ -164,67 +217,60 @@ export async function fetchMyProfile(): Promise<CustomerProfile | null> {
   };
 }
 
-export interface PlaceOrderInput {
-  restaurantId: string;
-  items: { menuItemId: string; quantity: number }[];
-  streetAddress: string;
-  notes: string;
+// ---------- Addresses ----------
+
+export type SavedAddress = { id: string; street_address: string; contact_phone: string | null; notes: string | null };
+
+export async function fetchMyAddresses(): Promise<SavedAddress[]> {
+  const userId = await currentUserId();
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from("addresses")
+    .select("id, street_address, contact_phone, notes")
+    .eq("customer_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  if (error) throw new Error(error.message);
+  return data ?? [];
 }
 
-// Creates the address then places the order through the place_order RPC —
-// the same validated path the web checkout uses.
-export async function placeOrder(input: PlaceOrderInput): Promise<{ orderNumber: string | null; error: string | null }> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { orderNumber: null, error: "Trebuie să fii autentificat." };
-
-  const { data: address, error: addressError } = await supabase
+export async function createAddress(input: {
+  street_address: string;
+  contact_phone: string;
+  notes?: string;
+  lat?: number;
+  lng?: number;
+}): Promise<string> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("Trebuie să fii autentificat.");
+  const { data, error } = await supabase
     .from("addresses")
-    .insert({ customer_id: user.id, street_address: input.streetAddress, notes: input.notes || null })
+    .insert({ customer_id: userId, ...input, notes: input.notes || null })
     .select("id")
     .single();
-  if (addressError) return { orderNumber: null, error: addressError.message };
-
-  const { data: orderId, error: rpcError } = await supabase.rpc("place_order", {
-    p_restaurant_id: input.restaurantId,
-    p_order_type: "standard",
-    p_payment_method: "cash",
-    p_items: input.items.map((i) => ({ menu_item_id: i.menuItemId, quantity: i.quantity })),
-    p_delivery_address_id: address.id,
-    p_notes: input.notes || null,
-  });
-  if (rpcError) return { orderNumber: null, error: rpcError.message };
-
-  const { data: order } = await supabase.from("orders").select("order_number").eq("id", orderId).single();
-  return { orderNumber: order?.order_number ?? "—", error: null };
+  if (error) throw new Error(error.message);
+  return data.id;
 }
 
-const ORDER_STATUS_RO: Record<string, string> = {
-  pending_restaurant: "În așteptare",
-  accepted: "Acceptată",
-  ready_for_pickup: "Gata de ridicare",
-  courier_assigned: "Curier atribuit",
-  picked_up: "Ridicată",
-  en_route: "Pe drum",
-  delivered: "Livrată",
-  cancelled: "Anulată",
-  rejected: "Refuzată",
-};
+// ---------- Orders ----------
 
 export interface CustomerOrder {
   id: string;
   orderNumber: string;
   status: string;
-  statusLabel: string;
-  total: string;
+  orderType: string;
+  restaurantName: string;
+  totalMdl: number;
   createdAt: string;
 }
 
 export async function fetchMyOrders(): Promise<CustomerOrder[]> {
+  const userId = await currentUserId();
+  if (!userId) return [];
   const { data, error } = await supabase
     .from("orders")
-    .select("id, order_number, status, total_mdl, created_at")
+    .select("id, order_number, status, order_type, total_mdl, created_at, restaurants(name)")
+    .eq("customer_id", userId)
     .order("created_at", { ascending: false })
     .limit(50);
   if (error) throw new Error(error.message);
@@ -232,8 +278,67 @@ export async function fetchMyOrders(): Promise<CustomerOrder[]> {
     id: o.id,
     orderNumber: o.order_number,
     status: o.status,
-    statusLabel: ORDER_STATUS_RO[o.status] ?? o.status,
-    total: `${o.total_mdl} MDL`,
-    createdAt: new Date(o.created_at).toLocaleString("ro-RO"),
+    orderType: o.order_type,
+    restaurantName: (o.restaurants as { name: string } | null)?.name ?? "",
+    totalMdl: Number(o.total_mdl),
+    createdAt: o.created_at,
+  }));
+}
+
+// ---------- Catering + concierge ----------
+
+export type CateringRestaurant = { id: string; name: string; cateringMin: number | null };
+
+export async function fetchCateringRestaurants(): Promise<CateringRestaurant[]> {
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("id, name, catering_min_amount_mdl")
+    .eq("is_active", true)
+    .eq("accepts_catering", true)
+    .eq("accepting_orders", true)
+    .order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({ id: r.id, name: r.name, cateringMin: r.catering_min_amount_mdl }));
+}
+
+export type Venue = { id: string; name: string; venueType: string; sector: string | null; description: string | null; coverUrl: string | null };
+
+/** Every active venue is bookable (spa/lounge/business AND restaurants for a table). */
+export async function fetchVenues(): Promise<Venue[]> {
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select("id, name, venue_type, sector, description, cover_photo_url")
+    .eq("is_active", true)
+    .order("name");
+  if (error) throw new Error(error.message);
+  return (data ?? [])
+    .filter((v) => v.venue_type in VENUE_LABEL)
+    .map((v) => ({ id: v.id, name: v.name, venueType: v.venue_type, sector: v.sector, description: v.description, coverUrl: v.cover_photo_url }));
+}
+
+export type Booking = {
+  id: string; startsAt: string; endsAt: string; partySize: number; purpose: string; status: string;
+  quotedPriceMdl: number | null; declineReason: string | null; venueName: string;
+};
+
+/** RLS (venue_bookings_customer_read) returns only the caller's rows. */
+export async function fetchMyBookings(): Promise<Booking[]> {
+  if (!(await isSignedIn())) return [];
+  const { data, error } = await supabase
+    .from("venue_bookings")
+    .select("id, starts_at, ends_at, party_size, purpose, status, quoted_price_mdl, decline_reason, restaurants(name)")
+    .order("starts_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    startsAt: b.starts_at,
+    endsAt: b.ends_at,
+    partySize: b.party_size,
+    purpose: b.purpose,
+    status: b.status,
+    quotedPriceMdl: b.quoted_price_mdl,
+    declineReason: b.decline_reason,
+    venueName: (b.restaurants as { name: string } | null)?.name ?? "",
   }));
 }

@@ -1,23 +1,26 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar, ScrollView, RefreshControl } from 'react-native';
+import type { EarningsSummary } from '@chisinau/shared-domain';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { fetchDeliveryHistory, DeliveredRow } from '../lib/api';
+import { fetchDeliveryHistory, userMessage, DeliveredRow } from '../lib/api';
 
 export default function OrdersHistoryScreen() {
   const [rows, setRows] = useState<DeliveredRow[]>([]);
-  const [todayCount, setTodayCount] = useState(0);
-  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [today, setToday] = useState<EarningsSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const h = await fetchDeliveryHistory();
       setRows(h.rows);
-      setTodayCount(h.todayCount);
-      setTodayEarnings(h.todayEarnings);
-    } catch {}
+      setToday(h.today);
+      setError(null);
+    } catch (err) {
+      setError(userMessage(err, 'Istoricul nu s-a putut încărca.'));
+    }
   }, []);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -34,8 +37,9 @@ export default function OrdersHistoryScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Istoric Livrări</Text>
         <Text style={styles.subtitle}>
-          Azi · {todayCount} {todayCount === 1 ? 'livrare completată' : 'livrări completate'} ·{' '}
-          <Text style={{ color: COLORS.gold, fontWeight: '700' }}>{todayEarnings} MDL</Text>
+          Azi · {today?.ordersCount ?? 0} {today?.ordersCount === 1 ? 'livrare încasată' : 'livrări încasate'} ·{' '}
+          <Text style={{ color: COLORS.gold, fontWeight: '700' }}>{today?.netMdl ?? 0} MDL net</Text>
+          {today && today.pendingCount > 0 ? ` · ${today.pendingCount} ${today.pendingCount === 1 ? 'neîncasată' : 'neîncasate'}` : ''}
         </Text>
       </View>
 
@@ -43,7 +47,10 @@ export default function OrdersHistoryScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
       >
-        {rows.length === 0 && (
+        {error && (
+          <Text style={{ color: COLORS.primary, textAlign: 'center', marginTop: 16 }}>{error}</Text>
+        )}
+        {rows.length === 0 && !error && (
           <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginTop: 48 }}>
             Nicio livrare finalizată încă.
           </Text>
@@ -62,7 +69,9 @@ export default function OrdersHistoryScreen() {
                 </View>
               </View>
             </View>
-            <Text style={styles.orderEarnings}>{order.feeMdl} MDL</Text>
+            <Text style={[styles.orderEarnings, order.netMdl === null && { color: COLORS.textMuted }]}>
+              {order.netMdl === null ? 'neîncasat' : `${order.netMdl} MDL`}
+            </Text>
           </View>
         ))}
       </ScrollView>

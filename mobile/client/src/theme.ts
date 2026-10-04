@@ -45,10 +45,6 @@ export const SHADOWS = {
   },
 };
 
-// Backend-ul real e Supabase (vezi ../../supabase/) — la conectare, înlocuiește
-// mock-urile din screens cu @supabase/supabase-js. Pentru un API HTTP local:
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:3000';
-
 // Luxury "Dragons Alliance Premium" extensions (synced with web identity)
 export const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia' });
 

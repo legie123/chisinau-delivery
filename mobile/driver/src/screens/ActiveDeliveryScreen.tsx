@@ -15,8 +15,10 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
-import { advanceStatus, getMyCourierId, CHISINAU_CENTER } from '../lib/api';
-import { useBroadcastCourierLocation } from '../hooks/useBroadcastCourierLocation';
+import { CHISINAU_CENTER, markArrivedAtRestaurant } from '../lib/api';
+import { advanceOrEnqueue } from '../lib/offlineQueue';
+import { stopDeliveryTracking } from '../lib/backgroundLocation';
+import { useDevicePosition } from '../hooks/useDevicePosition';
 
 const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.55;
@@ -39,18 +41,24 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
         ? 'delivering'
         : 'pickup';
   const [status, setStatus] = useState<'pickup' | 'delivering' | 'delivered'>(initialStep);
-  const [courierId, setCourierId] = useState<string | null>(null);
+  const [arrived, setArrived] = useState(false);
   const swipeX = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    getMyCourierId().then(setCourierId).catch(() => {});
-  }, []);
+  // Broadcasting to the customer runs in the BACKGROUND task
+  // (src/lib/backgroundLocation.ts, started on accept), so it survives a locked
+  // screen. This hook only draws the courier's own marker.
+  const broadcasting = status !== 'delivered';
+  const { position: livePosition, error: geoError } = useDevicePosition();
 
-  // Broadcast REAL GPS while the food is with the courier (picked_up/en_route —
-  // 'delivering' covers both, since this screen advances them together on one
-  // swipe). Mirrors DeliveryStatusControls.tsx on the web app.
-  const broadcasting = status === 'delivering';
-  const { position: livePosition, error: geoError } = useBroadcastCourierLocation(order.id, courierId, broadcasting);
+  // Soft ops signal only (wait-time KPI), never a gate on the delivery.
+  const handleArrived = async () => {
+    const err = await markArrivedAtRestaurant(order.id);
+    if (err) {
+      Alert.alert('Nu s-a putut trimite', err);
+      return;
+    }
+    setArrived(true);
+  };
 
   const panResponder = PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -64,10 +72,11 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       if (gesture.dx > SWIPE_THRESHOLD) {
         Animated.spring(swipeX, { toValue: SWIPE_THRESHOLD, useNativeDriver: true }).start(async () => {
           if (status === 'pickup') {
-            const err1 = await advanceStatus(order.id, 'picked_up');
-            const err2 = err1 ? err1 : await advanceStatus(order.id, 'en_route');
-            if (err2) {
-              Alert.alert('Eroare', 'Nu am putut actualiza statusul. Încearcă din nou.');
+            // One target (en_route); the hops in between are walked by
+            // advanceThrough, online now or from the offline queue later.
+            const { error } = await advanceOrEnqueue(order.id, 'en_route');
+            if (error) {
+              Alert.alert('Eroare', error);
               swipeX.setValue(0);
               return;
             }
@@ -78,11 +87,19 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
               {
                 text: 'Da, încasat',
                 onPress: async () => {
-                  const err = await advanceStatus(order.id, 'delivered', true);
-                  if (err) { Alert.alert('Eroare', 'Nu am putut finaliza livrarea.'); swipeX.setValue(0); return; }
+                  const { error, queued } = await advanceOrEnqueue(order.id, 'delivered', true);
+                  if (error) { Alert.alert('Eroare', error); swipeX.setValue(0); return; }
                   setStatus('delivered');
-                  Alert.alert('✅ Livrare finalizată!', `Comanda a ajuns la client. Câștig: ${order.earnings}`,
-                    [{ text: 'OK', onPress: () => navigation.goBack() }]);
+                  if (!queued) {
+                    stopDeliveryTracking().catch((e: unknown) => console.warn('[gps] stop', e));
+                  }
+                  Alert.alert(
+                    queued ? 'Salvat fără semnal' : '✅ Livrare finalizată!',
+                    queued
+                      ? 'Livrarea se confirmă automat când revine conexiunea.'
+                      : `Comanda a ajuns la client. Câștig (minim): ${order.earnings}`,
+                    [{ text: 'OK', onPress: () => navigation.goBack() }],
+                  );
                 },
               },
               {
@@ -110,14 +127,14 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   ];
 
   const getSwipeText = () => {
-    if (status === 'pickup') return 'Swipe to confirm pickup →';
-    return 'Swipe to confirm delivery →';
+    if (status === 'pickup') return 'Glisează: am ridicat comanda →';
+    return 'Glisează: am livrat →';
   };
 
   const getStatusSteps = () => [
-    { label: 'Picked up', done: status === 'delivering' || status === 'delivered' },
-    { label: 'In transit', done: status === 'delivering' || status === 'delivered' },
-    { label: 'Delivered', done: status === 'delivered' },
+    { label: 'Ridicată', done: status === 'delivering' || status === 'delivered' },
+    { label: 'În drum', done: status === 'delivering' || status === 'delivered' },
+    { label: 'Livrată', done: status === 'delivered' },
   ];
 
   return (
@@ -186,7 +203,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       <View style={styles.addressBanner}>
         <Ionicons name="navigate-circle" size={20} color="#4CD964" />
         <Text style={styles.addressBannerText} numberOfLines={1}>
-          Delivering to: {order.deliveryAddress}
+          Livrezi la: {order.deliveryAddress}
         </Text>
       </View>
 
@@ -211,6 +228,13 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
                 {geoError ?? 'Locația ta se transmite live clientului'}
               </Text>
             </View>
+          )}
+
+          {status === 'pickup' && (
+            <TouchableOpacity style={styles.gpsBanner} onPress={handleArrived} disabled={arrived}>
+              <Ionicons name={arrived ? 'checkmark-circle' : 'storefront'} size={16} color={COLORS.white} />
+              <Text style={styles.gpsBannerText}>{arrived ? 'Sosirea la restaurant a fost înregistrată' : 'Am ajuns la restaurant'}</Text>
+            </TouchableOpacity>
           )}
 
           {/* Customer Info Card */}

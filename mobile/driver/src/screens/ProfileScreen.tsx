@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, CourierProfile, CourierStatus } from '../lib/api';
+import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, userMessage, CourierProfile, CourierStatus } from '../lib/api';
 
 const VEHICLE_LABEL: Record<string, string> = {
   bike: '🚲 Bicicletă',
@@ -61,7 +61,9 @@ export default function ProfileScreen() {
         setDeliveries(d);
         setAcceptRate(rate);
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (mounted) Alert.alert('Profilul nu s-a încărcat', userMessage(err));
+      })
       .finally(() => {
         if (mounted) setLoading(false);
       });
@@ -148,7 +150,7 @@ export default function ProfileScreen() {
               key={i}
               style={styles.menuItem}
               activeOpacity={0.7}
-              onPress={item.label === 'Deconectare' ? () => signOut() : undefined}
+              onPress={item.label === 'Deconectare' ? () => signOut().catch((err: unknown) => Alert.alert('Deconectare', userMessage(err))) : undefined}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
                 <Ionicons name={item.icon as any} size={20} color={item.color} />

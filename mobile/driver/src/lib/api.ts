@@ -1,21 +1,49 @@
+import {
+  RpcError,
+  acceptDispatchOffer as rpcAcceptDispatchOffer,
+  claimOrderAsCourier,
+  courierArrivedAtRestaurant,
+  declineDispatchOffer as rpcDeclineDispatchOffer,
+  getCourierCashStatus,
+  setCourierOnlineStatus,
+  type CourierCashStatus,
+} from "@chisinau/shared-api";
+import { isNetworkError, type EarningsSummary as MoneySummary } from "@chisinau/shared-domain";
+import type { OfferId, OrderId } from "@chisinau/shared-types";
 import { supabase } from "./supabase";
+import { fetchCommissionPct, fetchTodayEarnings, fetchWeekEarnings, historyNet, offerNetLabel } from "./earnings";
+import { stopDeliveryTracking } from "./backgroundLocation";
+import { unregisterPush } from "./push";
 
-// Audit 2026-08-13 HIGH: the courier's real pay is courier_fee_mdl (stamped
-// final at delivery) or courier_fee_quoted_mdl (the floor quoted at ready) —
-// NOT delivery_fee_mdl, which is the CUSTOMER's fee (observed live spread:
-// 45.00 shown vs 30.74 actually paid). Mirrors admin_generate_payouts.
-function courierPay(r: { courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; delivery_fee_mdl: number }): number {
-  return Number(r.courier_fee_mdl ?? r.courier_fee_quoted_mdl ?? r.delivery_fee_mdl);
+// Every status change goes through @chisinau/shared-api (the same typed RPC
+// wrappers the web uses); reads stay plain RLS-scoped selects. Money goes
+// through ./earnings (= @chisinau/shared-domain, the web's canonical model).
+
+// Romanian, user-facing, never swallowed: callers show this in an alert/banner.
+export function userMessage(err: unknown, fallback = "A apărut o eroare. Încearcă din nou."): string {
+  if (isNetworkError(err)) return "Fără conexiune — încearcă din nou când ai semnal.";
+  if (err instanceof RpcError) return err.userMessage;
+  return fallback;
+}
+
+async function attempt(fn: () => Promise<unknown>): Promise<string | null> {
+  try {
+    await fn();
+    return null;
+  } catch (err) {
+    return userMessage(err);
+  }
 }
 
 // UI shape MapScreen/ActiveDeliveryScreen already render.
 export interface DriverOrder {
   id: string;
+  status: string;
   restaurant: string;
   pickupAddress: string;
   deliveryAddress: string;
   distance: string;
-  earnings: string;
+  earnings: string; // NET of the quoted courier fee (floor), same as the web's „Câștig net"
   items: string;
   customerName: string;
   lat: number;
@@ -27,21 +55,40 @@ export async function signIn(email: string, password: string): Promise<string | 
   return error ? error.message : null;
 }
 
-export async function getSessionUserId(): Promise<string | null> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return session?.user.id ?? null;
-}
-
+// Sign-out must leave nothing running on this phone for the previous courier:
+// no background GPS, no push token, and no "online" status that would keep
+// sending them offers they can no longer see.
 export async function signOut(): Promise<void> {
+  await stopDeliveryTracking().catch((err) => console.warn("[signOut] stop tracking", err));
+  await unregisterPush();
+  const offlineError = await setOnline(false);
+  if (offlineError) console.warn("[signOut] set offline", offlineError);
+  courierIdCache = null;
   await supabase.auth.signOut({ scope: "local" });
 }
 
 // couriers RLS (couriers_self_read) only returns the caller's own row.
+let courierIdCache: { userId: string; courierId: string | null } | null = null;
 export async function getMyCourierId(): Promise<string | null> {
-  const { data } = await supabase.from("couriers").select("id").maybeSingle();
-  return data?.id ?? null;
+  const { data: session } = await supabase.auth.getSession();
+  const userId = session.session?.user.id;
+  if (!userId) return null;
+  if (courierIdCache?.userId === userId) return courierIdCache.courierId;
+  const { data, error } = await supabase.from("couriers").select("id").maybeSingle();
+  if (error) throw new Error(error.message);
+  courierIdCache = { userId, courierId: data?.id ?? null };
+  return courierIdCache.courierId;
+}
+
+// The live commission changes rarely (versioned config); one read per 5 min
+// keeps a 10s offer poll from doubling its request count.
+const PCT_TTL_MS = 5 * 60_000;
+let pctCache: { at: number; pct: number } | null = null;
+export async function getCommissionPct(): Promise<number> {
+  if (pctCache && Date.now() - pctCache.at < PCT_TTL_MS) return pctCache.pct;
+  const pct = await fetchCommissionPct(supabase);
+  pctCache = { at: Date.now(), pct };
+  return pct;
 }
 
 function formatAddress(a: {
@@ -62,40 +109,60 @@ function formatAddress(a: {
 export const CHISINAU_CENTER = { lat: 47.0105, lng: 28.8638 };
 const CENTER = CHISINAU_CENTER;
 
-async function mapOrders(rows: Record<string, unknown>[]): Promise<DriverOrder[]> {
-  const restaurantIds = [...new Set(rows.map((r) => r.restaurant_id as string))];
-  const addressIds = rows.map((r) => r.delivery_address_id as string | null).filter(Boolean) as string[];
+type OrderRow = {
+  id: string;
+  status: string;
+  restaurant_id: string;
+  delivery_address_id: string | null;
+  order_number: string;
+  total_mdl: number;
+  order_type: string;
+  delivery_fee_mdl: number;
+  courier_fee_mdl: number | null;
+  courier_fee_quoted_mdl: number | null;
+};
 
-  const [{ data: restaurants }, { data: addresses }, { data: cateringRows }] = await Promise.all([
-    restaurantIds.length > 0
-      ? supabase.from("restaurants").select("id, name, address").in("id", restaurantIds)
-      : Promise.resolve({ data: [] }),
+const ORDER_COLUMNS =
+  "id, status, restaurant_id, delivery_address_id, order_number, total_mdl, order_type, delivery_fee_mdl, courier_fee_mdl, courier_fee_quoted_mdl";
+
+async function mapOrders(rows: OrderRow[]): Promise<DriverOrder[]> {
+  if (rows.length === 0) return [];
+  const restaurantIds = [...new Set(rows.map((r) => r.restaurant_id))];
+  const addressIds = rows.map((r) => r.delivery_address_id).filter((x): x is string => !!x);
+
+  const [restaurants, addresses, catering, pct] = await Promise.all([
+    supabase.from("restaurants").select("id, name, address").in("id", restaurantIds),
     addressIds.length > 0
       ? supabase.from("addresses").select("id, street_address, building, apartment").in("id", addressIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     supabase
       .from("catering_details")
       .select("order_id, event_address_text")
-      .in("order_id", rows.map((r) => r.id as string)),
+      .in("order_id", rows.map((r) => r.id)),
+    getCommissionPct(),
   ]);
+  for (const res of [restaurants, addresses, catering]) {
+    if (res.error) throw new Error(res.error.message);
+  }
 
-  const restaurantById = new Map((restaurants ?? []).map((r) => [r.id, r]));
-  const addressById = new Map((addresses ?? []).map((a) => [a.id, a]));
-  const cateringByOrder = new Map((cateringRows ?? []).map((c) => [c.order_id, c.event_address_text]));
+  const restaurantById = new Map((restaurants.data ?? []).map((r) => [r.id, r]));
+  const addressById = new Map((addresses.data ?? []).map((a) => [a.id, a]));
+  const cateringByOrder = new Map((catering.data ?? []).map((c) => [c.order_id, c.event_address_text]));
 
   return rows.map((r, i) => {
-    const restaurant = restaurantById.get(r.restaurant_id as string);
-    const address = r.delivery_address_id ? (addressById.get(r.delivery_address_id as string) ?? null) : null;
-    const cateringVenue = cateringByOrder.get(r.id as string);
+    const restaurant = restaurantById.get(r.restaurant_id);
+    const address = r.delivery_address_id ? (addressById.get(r.delivery_address_id) ?? null) : null;
+    const cateringVenue = cateringByOrder.get(r.id);
     return {
-      id: r.id as string,
+      id: r.id,
+      status: r.status,
       restaurant: restaurant?.name ?? "Restaurant",
       pickupAddress: restaurant?.address ?? "",
       deliveryAddress: cateringVenue ?? formatAddress(address),
       distance: "",
-      earnings: `${courierPay(r as { courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; delivery_fee_mdl: number })} MDL`,
+      earnings: offerNetLabel(r, pct),
       items: `Comandă ${r.order_number} · total ${r.total_mdl} MDL`,
-      customerName: (r.order_type as string) === "catering" ? "Eveniment catering" : "Client",
+      customerName: r.order_type === "catering" ? "Eveniment catering" : "Client",
       lat: CENTER.lat + 0.004 * Math.sin(i * 2.1),
       lng: CENTER.lng + 0.006 * Math.cos(i * 2.1),
     };
@@ -105,12 +172,12 @@ async function mapOrders(rows: Record<string, unknown>[]): Promise<DriverOrder[]
 export async function fetchAvailableOrders(): Promise<DriverOrder[]> {
   const { data, error } = await supabase
     .from("orders")
-    .select("*")
+    .select(ORDER_COLUMNS)
     .eq("status", "ready_for_pickup")
     .is("courier_id", null)
     .order("created_at");
   if (error) throw new Error(error.message);
-  return mapOrders(data ?? []);
+  return mapOrders((data ?? []) as OrderRow[]);
 }
 
 export async function fetchActiveOrder(): Promise<{ order: DriverOrder; status: string } | null> {
@@ -118,87 +185,90 @@ export async function fetchActiveOrder(): Promise<{ order: DriverOrder; status: 
   if (!courierId) return null;
   const { data, error } = await supabase
     .from("orders")
-    .select("*")
+    .select(ORDER_COLUMNS)
     .in("status", ["courier_assigned", "picked_up", "en_route"])
     .eq("courier_id", courierId)
     .limit(1);
   if (error) throw new Error(error.message);
   if (!data || data.length === 0) return null;
-  const [mapped] = await mapOrders(data);
-  return { order: mapped, status: data[0].status as string };
+  const [mapped] = await mapOrders(data as OrderRow[]);
+  return { order: mapped, status: mapped.status };
 }
 
-export async function acceptOrder(orderId: string): Promise<string | null> {
-  const { error } = await supabase.rpc("assign_courier", { p_order_id: orderId });
-  return error ? error.message : null;
+/** Self-claim from the pull list (RPC assign_courier — self only). */
+export function claimOrder(orderId: string): Promise<string | null> {
+  return attempt(() => claimOrderAsCourier(supabase, orderId as OrderId));
 }
 
-export async function advanceStatus(orderId: string, newStatus: string, paymentConfirmed?: boolean): Promise<string | null> {
-  const { error } = await supabase.rpc("advance_delivery_status", {
-    p_order_id: orderId,
-    p_new_status: newStatus,
-    p_payment_confirmed: paymentConfirmed ?? null,
-  });
-  return error ? error.message : null;
+export function markArrivedAtRestaurant(orderId: string): Promise<string | null> {
+  return attempt(() => courierArrivedAtRestaurant(supabase, orderId as OrderId));
 }
 
-export async function setOnline(online: boolean): Promise<string | null> {
-  const { error } = await supabase.rpc("set_courier_online_status", { p_status: online ? "online" : "offline" });
-  return error ? error.message : null;
+export function setOnline(online: boolean): Promise<string | null> {
+  return attempt(() => setCourierOnlineStatus(supabase, online));
 }
 
-// ---------- History & earnings (video reference: Istoric Livrări) ----------
+export type CourierStatus = "offline" | "online" | "on_delivery";
+
+/** The SERVER's view of the courier's availability — the app never assumes "online". */
+export async function fetchMyCourierStatus(): Promise<CourierStatus | null> {
+  const { data, error } = await supabase.from("couriers").select("status").maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.status as CourierStatus | undefined) ?? null;
+}
+
+export function fetchCashStatus(): Promise<CourierCashStatus | null> {
+  return getCourierCashStatus(supabase);
+}
+
+// ---------- History & earnings ----------
 
 export interface DeliveredRow {
   id: string;
   orderNumber: string;
   restaurant: string;
   time: string;
-  feeMdl: number;
-  isToday: boolean;
+  netMdl: number | null; // null = livrată dar neîncasată (not settled → never summed)
 }
 
-export async function fetchDeliveryHistory(): Promise<{
-  rows: DeliveredRow[];
-  todayCount: number;
-  todayEarnings: number;
-}> {
+export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; today: MoneySummary }> {
   const courierId = await getMyCourierId();
-  if (!courierId) return { rows: [], todayCount: 0, todayEarnings: 0 };
-  const { data, error } = await supabase
-    .from("orders")
-    .select("id, order_number, updated_at, delivery_fee_mdl, courier_fee_mdl, courier_fee_quoted_mdl, restaurants(name)")
-    .eq("status", "delivered")
-    .eq("courier_id", courierId)
-    .order("updated_at", { ascending: false })
-    .limit(50);
+  const empty = { ordersCount: 0, grossMdl: 0, commissionMdl: 0, netMdl: 0, pendingCount: 0 };
+  if (!courierId) return { rows: [], today: empty };
+  const pct = await getCommissionPct();
+  const [{ data, error }, today] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, restaurants(name)")
+      .eq("status", "delivered")
+      .eq("courier_id", courierId)
+      .order("delivered_at", { ascending: false, nullsFirst: false })
+      .limit(50),
+    fetchTodayEarnings(supabase, courierId, pct),
+  ]);
   if (error) throw new Error(error.message);
 
-  const todayStr = new Date().toLocaleDateString("ro-RO");
   const rows: DeliveredRow[] = (data ?? []).map((o) => {
-    const d = new Date(o.updated_at as string);
+    const d = new Date(o.delivered_at ?? o.updated_at);
     return {
-      id: o.id as string,
-      orderNumber: o.order_number as string,
-      restaurant: ((o.restaurants as unknown as { name: string } | null)?.name) ?? "Restaurant",
-      time: d.toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" }),
-      feeMdl: courierPay(o as { courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; delivery_fee_mdl: number }),
-      isToday: d.toLocaleDateString("ro-RO") === todayStr,
+      id: o.id,
+      orderNumber: o.order_number,
+      restaurant: (o.restaurants as unknown as { name: string } | null)?.name ?? "Restaurant",
+      time: d.toLocaleString("ro-RO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
+      netMdl: historyNet(o, pct),
     };
   });
-  const today = rows.filter((r) => r.isToday);
-  return {
-    rows,
-    todayCount: today.length,
-    todayEarnings: today.reduce((sum, r) => sum + r.feeMdl, 0),
-  };
+  return { rows, today };
+}
+
+/** "Azi ai câștigat" — net, settled only (unpaid cash is counted apart, as on the web). */
+export async function fetchTodaySummary(): Promise<MoneySummary | null> {
+  const courierId = await getMyCourierId();
+  if (!courierId) return null;
+  return fetchTodayEarnings(supabase, courierId, await getCommissionPct());
 }
 
 // ---------- Push dispatch (dispatch_offers) ----------
-// Mirrors src/components/courier/{OfferCard,OffersLive}.tsx on the web app:
-// a scored offer lands as a dispatch_offers row for this courier; accept/decline
-// go through the RPCs (never a raw orders update), and the offer feed is a
-// row-filtered postgres_changes subscription, unique channel name per mount.
 
 export interface DispatchOfferRow {
   id: string;
@@ -220,35 +290,38 @@ export async function fetchMyLiveOffer(): Promise<{ offer: DispatchOfferRow; ord
   if (error) throw new Error(error.message);
   if (!data) return null;
 
-  const { data: orderRows, error: orderError } = await supabase.from("orders").select("*").eq("id", data.order_id);
+  const { data: orderRows, error: orderError } = await supabase.from("orders").select(ORDER_COLUMNS).eq("id", data.order_id);
   if (orderError) throw new Error(orderError.message);
   if (!orderRows || orderRows.length === 0) return null;
-  const [order] = await mapOrders(orderRows);
+  const [order] = await mapOrders(orderRows as OrderRow[]);
 
   return {
     offer: {
-      id: data.id as string,
-      orderId: data.order_id as string,
+      id: data.id,
+      orderId: data.order_id,
       distanceKm: data.distance_km != null ? Number(data.distance_km) : null,
-      expiresAt: data.expires_at as string,
+      expiresAt: data.expires_at,
     },
     order,
   };
 }
 
-export async function acceptDispatchOffer(offerId: string): Promise<string | null> {
-  const { error } = await supabase.rpc("accept_dispatch_offer", { p_offer_id: offerId });
-  return error ? error.message : null;
+export function acceptDispatchOffer(offerId: string): Promise<string | null> {
+  return attempt(() => rpcAcceptDispatchOffer(supabase, offerId as OfferId));
 }
 
-export async function declineDispatchOffer(offerId: string): Promise<string | null> {
-  const { error } = await supabase.rpc("decline_dispatch_offer", { p_offer_id: offerId });
-  return error ? error.message : null;
+export function declineDispatchOffer(offerId: string): Promise<string | null> {
+  return attempt(() => rpcDeclineDispatchOffer(supabase, offerId as OfferId));
 }
 
-// Row-filtered by courier_id, unique channel name per mount (static names break
-// on React re-mounts — same gotcha the web app's subscribeTable avoids).
-export function subscribeMyDispatchOffers(courierId: string, onChange: () => void): () => void {
+// Row-filtered by courier_id, unique channel name per subscribe (static names
+// break on re-mounts — same rule as the web's subscribeTable). `onHealth`
+// reports whether the socket is live, so the UI can say "reconectare…".
+export function subscribeMyDispatchOffers(
+  courierId: string,
+  onChange: () => void,
+  onHealth?: (healthy: boolean) => void,
+): () => void {
   const channelName = `driver-offers:${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const channel = supabase
     .channel(channelName)
@@ -257,16 +330,17 @@ export function subscribeMyDispatchOffers(courierId: string, onChange: () => voi
       { event: "*", schema: "public", table: "dispatch_offers", filter: `courier_id=eq.${courierId}` },
       () => onChange(),
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") onHealth?.(true);
+      else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") onHealth?.(false);
+    });
 
   return () => {
-    supabase.removeChannel(channel);
+    void supabase.removeChannel(channel);
   };
 }
 
 // ---------- Courier profile (ProfileScreen) ----------
-
-export type CourierStatus = "offline" | "online" | "on_delivery";
 
 export interface CourierProfile {
   id: string;
@@ -286,13 +360,13 @@ export async function getMyCourierProfile(): Promise<CourierProfile | null> {
   if (error) throw new Error(error.message);
   if (!data) return null;
   return {
-    id: data.id as string,
-    fullName: data.full_name as string,
-    phone: data.phone as string,
-    vehicleType: data.vehicle_type as string,
+    id: data.id,
+    fullName: data.full_name,
+    phone: data.phone,
+    vehicleType: data.vehicle_type,
     status: data.status as CourierStatus,
     ratingAvg: data.rating_avg != null ? Number(data.rating_avg) : null,
-    ratingCount: data.rating_count as number,
+    ratingCount: data.rating_count,
   };
 }
 
@@ -308,9 +382,8 @@ export async function fetchDeliveredOrdersCount(): Promise<number> {
   return count ?? 0;
 }
 
-// Same 14-day acceptance-rate definition the dispatch engine itself uses
-// (see dispatch_order() in 20260717001600_dispatch_offers.sql) — real number,
-// not a fabricated stat.
+// Same 14-day acceptance-rate definition the dispatch engine historically used
+// — shown to the courier as information only (dispatch no longer scores on it).
 export async function fetchAcceptanceRate(): Promise<number | null> {
   const courierId = await getMyCourierId();
   if (!courierId) return null;
@@ -327,7 +400,7 @@ export async function fetchAcceptanceRate(): Promise<number | null> {
   return Math.round((accepted / data.length) * 100);
 }
 
-// ---------- Earnings (real money, mirrors src/app/(courier)/earnings/page.tsx) ----------
+// ---------- Earnings (net, mirrors src/app/(courier)/earnings/page.tsx) ----------
 
 export type PayoutStatus = "pending" | "paid" | "failed";
 
@@ -343,24 +416,18 @@ export interface PayoutRow {
 }
 
 export interface EarningsSummary {
-  weekEarningsMdl: number;
-  weekOrdersCount: number;
+  commissionPct: number;
+  week: MoneySummary;
   payouts: PayoutRow[];
 }
 
-export async function fetchEarningsSummary(): Promise<EarningsSummary> {
+export async function fetchEarningsSummary(): Promise<EarningsSummary | null> {
   const courierId = await getMyCourierId();
-  if (!courierId) return { weekEarningsMdl: 0, weekOrdersCount: 0, payouts: [] };
+  if (!courierId) return null;
+  const commissionPct = await getCommissionPct();
 
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const [{ data: weekOrders, error: ordersError }, { data: payoutRows, error: payoutsError }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select("delivery_fee_mdl, courier_fee_mdl, courier_fee_quoted_mdl, tip_mdl")
-      .eq("courier_id", courierId)
-      .eq("status", "delivered")
-      .eq("payment_status", "paid")
-      .gte("delivered_at", weekAgo),
+  const [week, { data: payoutRows, error: payoutsError }] = await Promise.all([
+    fetchWeekEarnings(supabase, courierId, commissionPct),
     supabase
       .from("payouts")
       .select("*")
@@ -368,22 +435,18 @@ export async function fetchEarningsSummary(): Promise<EarningsSummary> {
       .eq("recipient_id", courierId)
       .order("created_at", { ascending: false }),
   ]);
-  if (ordersError) throw new Error(ordersError.message);
   if (payoutsError) throw new Error(payoutsError.message);
 
-  const week = (weekOrders ?? []) as { delivery_fee_mdl: number; courier_fee_mdl?: number | null; courier_fee_quoted_mdl?: number | null; tip_mdl: number }[];
-  const weekEarningsMdl = Math.round(week.reduce((sum, o) => sum + courierPay(o) + Number(o.tip_mdl), 0) * 100) / 100;
-
   const payouts: PayoutRow[] = (payoutRows ?? []).map((p) => ({
-    id: p.id as string,
-    periodStart: p.period_start as string,
-    periodEnd: p.period_end as string,
-    ordersCount: p.orders_count as number,
+    id: p.id,
+    periodStart: p.period_start,
+    periodEnd: p.period_end,
+    ordersCount: p.orders_count,
     grossMdl: Number(p.gross_mdl),
     commissionMdl: Number(p.commission_mdl),
     netMdl: Number(p.net_mdl),
     status: p.status as PayoutStatus,
   }));
 
-  return { weekEarningsMdl, weekOrdersCount: week.length, payouts };
+  return { commissionPct, week, payouts };
 }

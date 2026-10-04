@@ -1,22 +1,29 @@
-// UI types for the client app. IDs are Supabase UUIDs (strings) — the data
-// layer in src/lib/api.ts maps backend rows into these shapes.
+// UI shapes for the client app. Built from Supabase rows in src/lib/api.ts.
+import type { OptionGroupLike } from "@chisinau/shared-domain";
 
 export interface Restaurant {
   id: string;
-  cuisine: string;
+  slug: string;
   name: string;
+  cuisine: string;
+  venueType: string;
+  category: string;
   address: string;
-  lat: string;
-  lng: string;
-  phone: string;
+  lat: number | null;
+  lng: number | null;
   logoUrl: string | null;
   coverUrl: string | null;
-  category: string;
-  rating: string;
-  deliveryTime: string;
-  deliveryFee: string;
-  isOpen: number;
-  createdAt: number;
+  ratingAvg: number | null;
+  ratingCount: number;
+  prepLabel: string; // "25–40 min" from get_prep_estimates (static fallback)
+  deliveryFee: number;
+  minOrder: number;
+  acceptingOrders: boolean;
+  openNow: boolean;
+  nextOpening: string | null;
+  distanceM: number | null;
+  acceptsCatering: boolean;
+  cateringMin: number | null;
 }
 
 export interface MenuItem {
@@ -24,31 +31,10 @@ export interface MenuItem {
   restaurantId: string;
   name: string;
   description: string;
-  price: string;
+  priceMdl: number;
   imageUrl: string | null;
   category: string;
-  isAvailable: number;
-  createdAt: number;
+  cateringMinQty: number | null;
 }
 
-export interface CartItem {
-  menuItem: MenuItem;
-  quantity: number;
-}
-
-export interface Order {
-  id: string;
-  customerName: string;
-  customerPhone: string | null;
-  restaurantId: string;
-  restaurantName: string;
-  courierId: string | null;
-  status: string;
-  pickupAddress: string;
-  deliveryAddress: string;
-  items: string;
-  totalAmount: string;
-  deliveryFee: string;
-  notes: string | null;
-  createdAt: number;
-}
+export type OptionGroup = OptionGroupLike & { menuItemId: string };

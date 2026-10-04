@@ -5,8 +5,10 @@ import {
   TouchableOpacity,
   StatusBar,
   Animated,
-  Dimensions,
+  AppState,
+  ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { COLORS } from '../theme';
@@ -14,23 +16,23 @@ import { styles, darkMapStyle } from './MapScreen.styles';
 import {
   fetchAvailableOrders,
   fetchActiveOrder,
-  fetchDeliveryHistory,
-  acceptOrder as apiAcceptOrder,
+  fetchTodaySummary,
+  fetchMyCourierStatus,
+  claimOrder,
   setOnline,
   getMyCourierId,
-  fetchMyLiveOffer,
   acceptDispatchOffer,
   declineDispatchOffer,
-  subscribeMyDispatchOffers,
+  userMessage,
   CHISINAU_CENTER,
+  CourierStatus,
   DriverOrder,
-  DispatchOfferRow,
 } from '../lib/api';
+import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
 import { useDevicePosition } from '../hooks/useDevicePosition';
+import { useLiveOffer } from '../hooks/useLiveOffer';
 import OfferCard from '../components/OfferCard';
 import { Alert } from 'react-native';
-
-const { width } = Dimensions.get('window');
 
 type Order = DriverOrder;
 
@@ -38,61 +40,108 @@ interface Props {
   navigation: any;
 }
 
+const REFRESH_MS = 15_000;
+
 export default function MapScreen({ navigation }: Props) {
-  const [isOnline, setIsOnline] = useState(true);
+  // The SERVER owns availability. null = not loaded yet; the app never assumes
+  // "online" (it used to force set_courier_online_status(online) on every launch).
+  const [courierStatus, setCourierStatus] = useState<CourierStatus | null>(null);
+  const [toggling, setToggling] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
-  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [todayNet, setTodayNet] = useState<number | null>(null);
+  const [todayPending, setTodayPending] = useState(0);
   const [activeDelivery, setActiveDelivery] = useState<{ order: DriverOrder; status: string } | null>(null);
+  const [activeLoaded, setActiveLoaded] = useState(false);
   const [courierId, setCourierId] = useState<string | null>(null);
-  const [liveOffer, setLiveOffer] = useState<{ offer: DispatchOfferRow; order: DriverOrder } | null>(null);
   const [offerPending, setOfferPending] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [trackingWarning, setTrackingWarning] = useState<string | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
-  // Real device GPS for the courier's own map marker (finding #4 — this used
-  // to be a hardcoded constant, so the marker never moved).
+  // Real device GPS for the courier's own map marker.
   const { position: devicePosition, error: gpsError } = useDevicePosition();
 
-  const refreshOrders = useCallback(() => {
-    fetchAvailableOrders().then(setOrders).catch(() => {});
+  const isOnline = courierStatus === 'online' || courierStatus === 'on_delivery';
+  const { offer: liveOffer, setOffer: setLiveOffer, error: offerError, socketHealthy, reload: refreshOffer } =
+    useLiveOffer(courierId, isOnline);
+
+  // Every read surfaces its failure in the banner — nothing is swallowed.
+  const refreshAll = useCallback(async () => {
+    try {
+      const [id, status, active, available, today] = await Promise.all([
+        getMyCourierId(),
+        fetchMyCourierStatus(),
+        fetchActiveOrder(),
+        fetchAvailableOrders(),
+        fetchTodaySummary(),
+      ]);
+      setCourierId(id);
+      setCourierStatus(status);
+      setActiveDelivery(active);
+      setActiveLoaded(true);
+      setOrders(available);
+      setTodayNet(today ? Math.round(today.netMdl) : 0);
+      setTodayPending(today?.pendingCount ?? 0);
+      setLoadError(null);
+    } catch (err) {
+      setLoadError(userMessage(err, 'Nu am putut încărca datele. Revino în aplicație sau încearcă din nou.'));
+    }
   }, []);
 
-  const refreshOffer = useCallback(() => {
-    fetchMyLiveOffer().then(setLiveOffer).catch(() => {});
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      void refreshAll();
+    }, [refreshAll]),
+  );
 
   useEffect(() => {
-    refreshOrders();
-    refreshOffer();
-    fetchDeliveryHistory().then((h) => setTodayEarnings(h.todayEarnings)).catch(() => {});
-    fetchActiveOrder().then(setActiveDelivery).catch(() => {});
-    getMyCourierId().then(setCourierId).catch(() => {});
-    const interval = setInterval(refreshOrders, 15000);
-    return () => clearInterval(interval);
-  }, [refreshOrders, refreshOffer]);
+    const interval = setInterval(() => void refreshAll(), REFRESH_MS);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void refreshAll();
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+    };
+  }, [refreshAll]);
 
-  // Push-dispatch feed (finding #21) — row-filtered by courier_id, unique
-  // channel name per mount so it survives React re-mounts.
+  // Background GPS follows the delivery: on while one is in flight, off once it
+  // is delivered / cancelled / reassigned (the next refresh sees no active order).
+  const activeOrderId = activeDelivery?.order.id ?? null;
   useEffect(() => {
+    if (!activeLoaded) return;
+    if (activeOrderId && courierId) {
+      startDeliveryTracking(activeOrderId, courierId)
+        .then(setTrackingWarning)
+        .catch((err: unknown) => setTrackingWarning(userMessage(err, 'GPS-ul în fundal nu a putut porni.')));
+    } else {
+      setTrackingWarning(null);
+      stopDeliveryTracking().catch((err: unknown) => console.warn('[gps] stop', err));
+    }
+  }, [activeLoaded, activeOrderId, courierId]);
+
+  const beginTracking = (orderId: string) => {
     if (!courierId) return;
-    return subscribeMyDispatchOffers(courierId, refreshOffer);
-  }, [courierId, refreshOffer]);
+    startDeliveryTracking(orderId, courierId)
+      .then(setTrackingWarning)
+      .catch((e: unknown) => setTrackingWarning(userMessage(e, 'GPS-ul în fundal nu a putut porni.')));
+  };
 
-  // Skip guard: the revert below must not re-fire the server call (the on_delivery
-  // block rejects EVERY toggle, so a naive revert would alert-loop forever).
-  const skipNextToggleRef = useRef(false);
-  useEffect(() => {
-    if (skipNextToggleRef.current) {
-      skipNextToggleRef.current = false;
+  // Explicit, server-confirmed toggle. On error the server state is re-read and
+  // the reason is shown (e.g. "ai o livrare activă", cash cap reached).
+  const handleToggleOnline = async () => {
+    if (courierStatus === null || toggling) return;
+    if (courierStatus === 'on_delivery') {
+      Alert.alert('Status', 'Ai o livrare activă — termin-o înainte să ieși offline.');
       return;
     }
-    // Surface the backend's block (e.g. "ai o livrare activă...") and revert the
-    // local toggle instead of showing "Offline" while still on_delivery server-side.
-    setOnline(isOnline).catch((err: unknown) => {
-      Alert.alert('Status', err instanceof Error ? err.message : 'Nu am putut schimba statusul.');
-      skipNextToggleRef.current = true;
-      setIsOnline((prev) => !prev);
-    });
-  }, [isOnline]);
+    const goingOnline = courierStatus !== 'online';
+    setToggling(true);
+    const err = await setOnline(goingOnline);
+    setToggling(false);
+    if (err) Alert.alert('Nu s-a putut schimba statusul', err);
+    await refreshAll();
+  };
 
   const handleAcceptOffer = async () => {
     if (!liveOffer) return;
@@ -102,26 +151,29 @@ export default function MapScreen({ navigation }: Props) {
     if (err) {
       Alert.alert('Nu s-a putut accepta', err);
       setLiveOffer(null);
-      refreshOffer();
+      void refreshOffer();
       return;
     }
     const { order } = liveOffer;
     setLiveOffer(null);
-    navigation.navigate('ActiveDelivery', { order });
+    beginTracking(order.id);
+    navigation.navigate('ActiveDelivery', { order: { ...order, status: 'courier_assigned' } });
+    void refreshAll();
   };
 
   const handleDeclineOffer = async () => {
     if (!liveOffer) return;
     setOfferPending(true);
-    await declineDispatchOffer(liveOffer.offer.id);
+    const err = await declineDispatchOffer(liveOffer.offer.id);
     setOfferPending(false);
+    if (err) Alert.alert('Refuzul nu a fost trimis', err);
     setLiveOffer(null);
-    refreshOffer();
+    void refreshOffer();
   };
 
   const handleOfferExpire = () => {
     setLiveOffer(null);
-    refreshOffer();
+    void refreshOffer();
   };
 
   const showOrderCard = (order: Order) => {
@@ -144,22 +196,32 @@ export default function MapScreen({ navigation }: Props) {
 
   const acceptOrder = async () => {
     if (!currentOrder) return;
-    const error = await apiAcceptOrder(currentOrder.id);
+    const order = currentOrder;
+    const error = await claimOrder(order.id);
     if (error) {
-      Alert.alert('Nu s-a putut accepta', 'Comanda a fost preluată de alt curier sau ai deja o livrare activă.');
+      Alert.alert('Nu s-a putut accepta', error);
       hideOrderCard();
-      refreshOrders();
+      void refreshAll();
       return;
     }
-    navigation.navigate('ActiveDelivery', { order: currentOrder });
+    beginTracking(order.id);
+    navigation.navigate('ActiveDelivery', { order: { ...order, status: 'courier_assigned' } });
     hideOrderCard();
-    refreshOrders();
+    void refreshAll();
   };
 
   const cardTranslateY = slideAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [400, 0],
   });
+
+  // One banner, most urgent first.
+  const bannerMessage =
+    loadError ??
+    offerError ??
+    (isOnline && !socketHealthy ? 'Reconectare… ofertele se verifică automat la câteva secunde.' : null) ??
+    trackingWarning ??
+    gpsError;
 
   return (
     <View style={styles.container}>
@@ -211,10 +273,17 @@ export default function MapScreen({ navigation }: Props) {
         {/* Left: Online Status Button */}
         <TouchableOpacity
           style={[styles.statusBtn, isOnline ? styles.statusOnline : styles.statusOffline]}
-          onPress={() => setIsOnline(!isOnline)}
+          onPress={handleToggleOnline}
+          disabled={courierStatus === null || toggling}
         >
-          <View style={[styles.statusDot, { backgroundColor: isOnline ? '#4CD964' : '#FF3B30' }]} />
-          <Text style={styles.statusText}>{isOnline ? 'Online' : 'Offline'}</Text>
+          {courierStatus === null || toggling ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <View style={[styles.statusDot, { backgroundColor: isOnline ? '#4CD964' : '#FF3B30' }]} />
+          )}
+          <Text style={styles.statusText}>
+            {courierStatus === null ? '…' : courierStatus === 'on_delivery' ? 'În livrare' : isOnline ? 'Online' : 'Offline'}
+          </Text>
         </TouchableOpacity>
 
         {/* Center: Logo */}
@@ -229,18 +298,23 @@ export default function MapScreen({ navigation }: Props) {
 
         {/* Right: Today's Earnings */}
         <View style={styles.earningsBox}>
-          <Text style={styles.earningsLabel}>Earnings Today</Text>
-          <Text style={styles.earningsText}>{todayEarnings} MDL</Text>
+          <Text style={styles.earningsLabel}>Azi (net)</Text>
+          <Text style={styles.earningsText}>{todayNet === null ? '…' : `${todayNet} MDL`}</Text>
+          {todayPending > 0 && (
+            <Text style={styles.earningsLabel}>
+              +{todayPending} {todayPending === 1 ? 'neîncasată' : 'neîncasate'}
+            </Text>
+          )}
         </View>
       </View>
 
       {/* GPS permission banner — hidden while an offer is showing so the two
           don't stack on top of each other. */}
-      {gpsError && !liveOffer && (
+      {bannerMessage && !liveOffer && (
         <View style={styles.gpsBanner}>
           <Ionicons name="warning" size={16} color={COLORS.primary} />
-          <Text style={styles.gpsBannerText} numberOfLines={2}>
-            {gpsError}
+          <Text style={styles.gpsBannerText} numberOfLines={3}>
+            {bannerMessage}
           </Text>
         </View>
       )}
@@ -289,7 +363,7 @@ export default function MapScreen({ navigation }: Props) {
           <View style={styles.orderCardHeader}>
             <View style={styles.newOrderBadge}>
               <Ionicons name="flash" size={14} color={COLORS.gold} />
-              <Text style={styles.newOrderText}>New Order!</Text>
+              <Text style={styles.newOrderText}>Comandă disponibilă</Text>
             </View>
             <TouchableOpacity onPress={hideOrderCard}>
               <Ionicons name="close-circle" size={28} color={COLORS.textMuted} />
@@ -300,7 +374,7 @@ export default function MapScreen({ navigation }: Props) {
             <View style={styles.orderRow}>
               <View style={[styles.orderDot, { backgroundColor: '#4CD964' }]} />
               <View style={styles.orderInfo}>
-                <Text style={styles.orderLabel}>PICKUP</Text>
+                <Text style={styles.orderLabel}>RIDICARE</Text>
                 <Text style={styles.orderRestaurant}>{currentOrder.restaurant}</Text>
                 <Text style={styles.orderAddress}>{currentOrder.pickupAddress}</Text>
               </View>
@@ -311,7 +385,7 @@ export default function MapScreen({ navigation }: Props) {
             <View style={styles.orderRow}>
               <View style={[styles.orderDot, { backgroundColor: COLORS.primary }]} />
               <View style={styles.orderInfo}>
-                <Text style={styles.orderLabel}>DELIVERY</Text>
+                <Text style={styles.orderLabel}>LIVRARE</Text>
                 <Text style={styles.orderCustomer}>{currentOrder.customerName}</Text>
                 <Text style={styles.orderAddress}>{currentOrder.deliveryAddress}</Text>
               </View>
@@ -331,10 +405,10 @@ export default function MapScreen({ navigation }: Props) {
 
           <View style={styles.orderActions}>
             <TouchableOpacity style={styles.declineBtn} onPress={hideOrderCard}>
-              <Text style={styles.declineBtnText}>Decline</Text>
+              <Text style={styles.declineBtnText}>Închide</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.acceptBtn} onPress={acceptOrder}>
-              <Text style={styles.acceptBtnText}>Accept</Text>
+              <Text style={styles.acceptBtnText}>Preiau</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>

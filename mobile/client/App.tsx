@@ -1,9 +1,11 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect } from 'react';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Notifications from 'expo-notifications';
 
 import HomeScreen from './src/screens/HomeScreen';
 import SearchScreen from './src/screens/SearchScreen';
@@ -12,10 +14,17 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import RestaurantScreen from './src/screens/RestaurantScreen';
 import CartScreen from './src/screens/CartScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import OrderTrackingScreen from './src/screens/OrderTrackingScreen';
+import CateringScreen from './src/screens/CateringScreen';
+import ConciergeScreen from './src/screens/ConciergeScreen';
 import { COLORS } from './src/theme';
+import { supabase } from './src/lib/supabase';
+import { hydrateCart } from './src/lib/cart';
+import { onNotificationOpened, orderIdFromUrl, registerForPush } from './src/lib/push';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+const navigationRef = createNavigationContainerRef<any>();
 
 function HomeTabs() {
   return (
@@ -32,11 +41,8 @@ function HomeTabs() {
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarIcon: ({ focused, color }) => {
           let iconName: any;
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
           else if (route.name === 'Search') iconName = focused ? 'search' : 'search-outline';
@@ -58,16 +64,44 @@ function HomeTabs() {
   );
 }
 
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+function openOrder(orderId: string) {
+  if (navigationRef.isReady()) navigationRef.navigate('OrderTracking', { orderId });
+}
 
 export default function App() {
+  useEffect(() => {
+    hydrateCart();
+    // Push token follows the session: registered on every sign-in / app start with a
+    // session (tokens rotate), removed on sign-out (ProfileScreen, before signOut).
+    const { data: auth } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        registerForPush().then(r => { if (r !== 'registered') console.info('[push]', r); });
+      }
+    });
+    const offTap = onNotificationOpened(openOrder);
+    // Cold start from a notification tap.
+    Notifications.getLastNotificationResponseAsync()
+      .then(resp => {
+        const id = orderIdFromUrl(resp?.notification.request.content.data?.url);
+        if (id) setTimeout(() => openOrder(id), 300);
+      })
+      .catch(() => {});
+    return () => {
+      auth.subscription.unsubscribe();
+      offTap();
+    };
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Main" component={HomeTabs} />
           <Stack.Screen name="Restaurant" component={RestaurantScreen} />
           <Stack.Screen name="Cart" component={CartScreen} />
+          <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
+          <Stack.Screen name="Catering" component={CateringScreen} />
+          <Stack.Screen name="Concierge" component={ConciergeScreen} />
           <Stack.Screen name="Login" component={LoginScreen} options={{ presentation: 'modal' }} />
         </Stack.Navigator>
       </NavigationContainer>

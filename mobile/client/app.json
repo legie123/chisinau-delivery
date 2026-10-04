@@ -1,25 +1,53 @@
 {
   "expo": {
-    "name": "dragons-couriers-client",
-    "slug": "dragons-couriers-client",
+    "name": "Dragons Delivery",
+    "slug": "dragons-delivery-client",
+    "scheme": "dragonsdelivery",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0D0D1F",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "md.dragonsdelivery.client",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Folosim locația ca să-ți arătăm restaurantele din apropiere și să fixăm adresa de livrare.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "md.dragonsdelivery.client",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0D0D1F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"],
+      "blockedPermissions": ["ACCESS_BACKGROUND_LOCATION", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#E94560"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Folosim locația ca să-ți arătăm restaurantele din apropiere și să fixăm adresa de livrare.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ]
   }
 }

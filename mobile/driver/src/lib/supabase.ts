@@ -1,18 +1,38 @@
+import { AppState } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { createClient } from "@supabase/supabase-js";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { Database } from "@chisinau/shared-types";
+import { createChunkedStorage } from "./chunkedStorage";
+import { readSupabaseConfig } from "./config";
 
-// Anon key is public by design (RLS is the security boundary); values can be
-// overridden per-environment via EXPO_PUBLIC_* in .env.
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "https://rdowjxnuyawhrjppxzuu.supabase.co";
-const SUPABASE_ANON_KEY =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkb3dqeG51eWF3aHJqcHB4enV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTE4NzQsImV4cCI6MjA5MjAyNzg3NH0.UMa8W0zFGD73GKh5_a3CHGh6Qh3K6VHMX01h52ugpaI";
+// Metro only inlines `process.env.EXPO_PUBLIC_X` written out literally.
+const { url, anonKey } = readSupabaseConfig({
+  EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+});
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+// AFTER_FIRST_UNLOCK: the background GPS task may run while the phone is
+// locked; with the default (WHEN_UNLOCKED) iOS refuses the keychain read and the
+// task would broadcast without a session (RLS would reject every ping).
+const KEYCHAIN = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK };
+const secureStore = {
+  getItemAsync: (key: string) => SecureStore.getItemAsync(key, KEYCHAIN),
+  setItemAsync: (key: string, value: string) => SecureStore.setItemAsync(key, value, KEYCHAIN),
+  deleteItemAsync: (key: string) => SecureStore.deleteItemAsync(key, KEYCHAIN),
+};
+
+export const supabase = createClient<Database>(url, anonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage: createChunkedStorage(secureStore),
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
   },
+});
+
+// Refresh timers do not run reliably while the app is backgrounded; Supabase's
+// RN guidance is to drive auto-refresh from AppState.
+AppState.addEventListener("change", (state) => {
+  if (state === "active") supabase.auth.startAutoRefresh();
+  else supabase.auth.stopAutoRefresh();
 });

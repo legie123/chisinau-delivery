@@ -1,0 +1,46 @@
+import type { Db } from "./supabase";
+
+// Native twins of src/lib/realtime/{subscribeTable,courierLocation}.ts.
+// - postgres_changes always row-filtered, channel name unique per call (a fixed name
+//   throws "cannot add postgres_changes callbacks after subscribe()" on re-mount).
+// - courier GPS: PRIVATE broadcast channel `order:{id}:location`; setAuth() hands the
+//   user's JWT to the socket so realtime.messages RLS lets only this order's customer in.
+
+export type LatLng = { lat: number; lng: number };
+
+export function subscribeOrderRow(
+  db: Db,
+  orderId: string,
+  onRow: (row: Record<string, unknown>) => void,
+  onDegraded: () => void,
+): () => void {
+  const name = `order-status:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const channel = db
+    .channel(name)
+    .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `id=eq.${orderId}` }, (payload) => {
+      if (payload.new && "id" in payload.new) onRow(payload.new as Record<string, unknown>);
+    })
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") onDegraded();
+    });
+  return () => {
+    db.removeChannel(channel);
+  };
+}
+
+export function subscribeCourierLocation(db: Db, orderId: string, onUpdate: (p: LatLng) => void): () => void {
+  const channel = db
+    .channel(`order:${orderId}:location`, { config: { private: true } })
+    .on("broadcast", { event: "location" }, ({ payload }) => {
+      const p = payload as Partial<LatLng> | null;
+      if (p && typeof p.lat === "number" && typeof p.lng === "number") onUpdate({ lat: p.lat, lng: p.lng });
+    });
+  let closed = false;
+  void db.realtime.setAuth().finally(() => {
+    if (!closed) channel.subscribe();
+  });
+  return () => {
+    closed = true;
+    db.removeChannel(channel);
+  };
+}

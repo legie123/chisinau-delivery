@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { claimNotificationOutbox } from "@chisinau/shared-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendPushToUser } from "@/lib/push/send";
+import { sendExpoPushToUser } from "@/lib/push/expo";
 
 // Constant-time secret comparison — avoids leaking the drain secret via response
 // timing (audit #66). Length-guarded because timingSafeEqual throws on length mismatch.
@@ -12,7 +13,7 @@ function secretMatches(provided: string, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-// Drains the notification_outbox: sends any pending Web Push, marks rows handled.
+// Drains the notification_outbox: sends any pending Web Push + Expo (native) push, marks rows handled.
 // Called every ~10s by the pg_cron `drain-push-outbox` job (via pg_net) — that's
 // what delivers DB-originated notifications (dispatch-offer cascade waves, new
 // orders) that no request thread is around to send. Guarded by a shared secret.
@@ -77,11 +78,11 @@ export async function POST(req: Request) {
         // #5/#10/#16), bump attempts WITHOUT sent_at so the row is retried until
         // MAX_ATTEMPTS, then the claim RPC (attempts < 5) stops picking it up.
         // A 429 here is Chrome/FCM rate-limiting the push service, not an app bug.
-        await sendPushToUser(
-          r.user_id,
-          { title: r.title, body: r.body, url: r.url, tag: r.tag ?? undefined },
-          pushOptionsForTag(r.tag),
-        );
+        const payload = { title: r.title, body: r.body, url: r.url, tag: r.tag ?? undefined };
+        await sendPushToUser(r.user_id, payload, pushOptionsForTag(r.tag));
+        // Native apps (Expo tokens). Throws on a transport failure → the row is
+        // retried like any other failed attempt; web push collapses the repeat by tag.
+        await sendExpoPushToUser(admin, r.user_id, payload, pushOptionsForTag(r.tag));
         await admin.from("notification_outbox").update({ sent_at: now, attempts }).eq("id", r.id);
         drained++;
       } catch {

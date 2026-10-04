@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { fetchEarningsSummary, EarningsSummary, PayoutRow } from '../lib/api';
+import { fetchEarningsSummary, fetchCashStatus, userMessage, EarningsSummary, PayoutRow } from '../lib/api';
+import type { CourierCashStatus } from '@chisinau/shared-api';
 
 const PAYOUT_STATUS_LABEL: Record<PayoutRow['status'], string> = {
   paid: 'Plătit ✓',
@@ -21,21 +22,27 @@ function formatPeriod(start: string, end: string) {
   return `${fmt(start)} – ${fmt(end)}`;
 }
 
-// Real earnings (fixes fabricated RON numbers, finding #23) — mirrors
-// src/app/(courier)/earnings/page.tsx on the web app: this-week delivery
-// earnings (delivery fee + tip, delivered+paid orders only) and the payout
-// history the platform settles, in MDL.
+// Mirrors src/app/(courier)/earnings/page.tsx: this calendar week NET after
+// the live commission (shared-domain summarizeEarnings — the model payouts use),
+// brut/comision/net breakdown, unpaid deliveries counted apart, the cash the
+// courier currently holds, and the payout history, in MDL.
 export default function EarningsScreen() {
   const [summary, setSummary] = useState<EarningsSummary | null>(null);
+  const [cash, setCash] = useState<CourierCashStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    fetchEarningsSummary()
-      .then((s) => {
-        if (mounted) setSummary(s);
+    Promise.all([fetchEarningsSummary(), fetchCashStatus()])
+      .then(([s, c]) => {
+        if (!mounted) return;
+        setSummary(s);
+        setCash(c);
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        if (mounted) setError(userMessage(err, 'Câștigurile nu s-au putut încărca.'));
+      })
       .finally(() => {
         if (mounted) setLoading(false);
       });
@@ -56,19 +63,49 @@ export default function EarningsScreen() {
           <ActivityIndicator color={COLORS.gold} style={styles.loading} />
         ) : (
           <>
+            {error && <Text style={[styles.emptyText, { color: COLORS.primary, marginBottom: 16 }]}>{error}</Text>}
             <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>Săptămâna aceasta (brut, înainte de comision)</Text>
-              <Text style={styles.totalAmount}>{summary?.weekEarningsMdl ?? 0} MDL</Text>
+              <Text style={styles.totalLabel}>Săptămâna aceasta (net, după comision)</Text>
+              <Text style={styles.totalAmount}>{summary?.week.netMdl ?? 0} MDL</Text>
               <View style={styles.totalMeta}>
                 <View style={styles.metaItem}>
                   <Ionicons name="bicycle" size={16} color={COLORS.textSecondary} />
                   <Text style={styles.metaText}>
-                    {summary?.weekOrdersCount ?? 0} {summary?.weekOrdersCount === 1 ? 'livrare completată' : 'livrări completate'}
+                    {summary?.week.ordersCount ?? 0} {summary?.week.ordersCount === 1 ? 'livrare încasată' : 'livrări încasate'}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.totalHint}>Taxă livrare + bacșiș, doar comenzi livrate și plătite</Text>
+              <View style={[styles.payoutStats, { marginTop: 12 }]}>
+                <View style={styles.payoutStat}>
+                  <Text style={styles.payoutStatLabel}>Brut</Text>
+                  <Text style={styles.payoutStatValue}>{summary?.week.grossMdl ?? 0} MDL</Text>
+                </View>
+                <View style={styles.payoutStat}>
+                  <Text style={styles.payoutStatLabel}>Comision{summary ? ` ${summary.commissionPct}%` : ''}</Text>
+                  <Text style={styles.payoutStatValueMuted}>−{summary?.week.commissionMdl ?? 0} MDL</Text>
+                </View>
+                <View style={styles.payoutStat}>
+                  <Text style={styles.payoutStatLabel}>Net</Text>
+                  <Text style={styles.payoutStatValueGold}>{summary?.week.netMdl ?? 0} MDL</Text>
+                </View>
+              </View>
+              <Text style={styles.totalHint}>
+                Comision doar pe taxa de livrare · bacșișul e 100% al tău
+                {summary && summary.week.pendingCount > 0
+                  ? ` · ${summary.week.pendingCount} ${summary.week.pendingCount === 1 ? 'livrare neîncasată nu apare' : 'livrări neîncasate nu apar'} aici`
+                  : ''}
+              </Text>
             </View>
+
+            {cash && (
+              <View style={styles.totalCard}>
+                <Text style={styles.totalLabel}>Numerar la tine</Text>
+                <Text style={[styles.totalAmount, { fontSize: 26 }]}>
+                  {cash.balance_mdl} / {cash.cap_mdl} MDL
+                </Text>
+                <Text style={styles.totalHint}>{cash.offload_channel_text}</Text>
+              </View>
+            )}
 
             <Text style={styles.sectionTitle}>Plăți</Text>
             {!summary || summary.payouts.length === 0 ? (

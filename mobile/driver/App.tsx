@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { View } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 import MapScreen from './src/screens/MapScreen';
 import OrdersHistoryScreen from './src/screens/OrdersHistoryScreen';
@@ -12,6 +12,9 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import ActiveDeliveryScreen from './src/screens/ActiveDeliveryScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import { supabase } from './src/lib/supabase';
+import { registerForPush } from './src/lib/push';
+import { stopDeliveryTracking } from './src/lib/backgroundLocation';
+import { useOfflineSync } from './src/hooks/useOfflineSync';
 
 const COLORS = {
   surface: '#1A1A2E',
@@ -66,20 +69,66 @@ function MainTabs() {
 
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+// App-wide status strip: queued status changes, changes the queue gave up on,
+// and a push problem. Every one of these used to fail silently.
+function StatusBanners({ pushWarning }: { pushWarning: string | null }) {
+  const { pending, givenUp, dismissGiveUp } = useOfflineSync(true);
+  if (pending === 0 && givenUp === 0 && !pushWarning) return null;
+  return (
+    <View style={banner.wrap} pointerEvents="box-none">
+      {pending > 0 && (
+        <View style={banner.row}>
+          <Text style={banner.text}>
+            {pending} {pending === 1 ? 'acțiune în așteptare' : 'acțiuni în așteptare'} — se sincronizează…
+          </Text>
+        </View>
+      )}
+      {givenUp > 0 && (
+        <TouchableOpacity style={[banner.row, banner.error]} onPress={() => void dismissGiveUp()}>
+          <Text style={banner.text}>
+            {givenUp} {givenUp === 1 ? 'acțiune nu s-a putut sincroniza' : 'acțiuni nu s-au putut sincroniza'} — verifică
+            livrarea. Atinge pentru „Am înțeles”.
+          </Text>
+        </TouchableOpacity>
+      )}
+      {pushWarning && (
+        <View style={[banner.row, banner.warn]}>
+          <Text style={banner.text}>{pushWarning}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function App() {
   const [checking, setChecking] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
+  const [pushWarning, setPushWarning] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => setSignedIn(!!session))
+      .catch((err: unknown) => console.warn('[auth] getSession', err))
+      .finally(() => setChecking(false));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSignedIn(!!session);
-      setChecking(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(!!session);
+      if (event === 'SIGNED_OUT') void stopDeliveryTracking();
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Push registration per signed-in session (also refreshes last_seen_at).
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    void registerForPush().then((warning) => {
+      if (!cancelled) setPushWarning(warning);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
 
   if (checking) return <View style={{ flex: 1, backgroundColor: '#0D0D1F' }} />;
 
@@ -99,6 +148,22 @@ export default function App() {
           <Stack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />
         </Stack.Navigator>
       </NavigationContainer>
+      <StatusBanners pushWarning={pushWarning} />
     </GestureHandlerRootView>
   );
 }
+
+const banner = StyleSheet.create({
+  wrap: { position: 'absolute', left: 12, right: 12, bottom: 96, gap: 6 },
+  row: {
+    backgroundColor: 'rgba(26,26,46,0.95)',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  error: { borderColor: 'rgba(233,69,96,0.6)' },
+  warn: { borderColor: 'rgba(212,175,55,0.5)' },
+  text: { color: '#FFFFFF', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+});

@@ -18,3 +18,14 @@ export async function claimNotificationOutbox(
   if (error) throw new RpcError(error);
   return data ?? [];
 }
+
+/**
+ * Native app (Expo) registers its push token for the signed-in user. Idempotent
+ * (call on every launch — refreshes last_seen_at); a token already held by
+ * another user MOVES to the caller (phone changed hands). RPC-only by design:
+ * device_push_tokens has no client insert/update policy.
+ */
+export async function registerDevicePushToken(db: Db, token: string, platform: "ios" | "android"): Promise<void> {
+  const { error } = await db.rpc("register_device_push_token", { p_token: token, p_platform: platform });
+  if (error) throw new RpcError(error);
+}

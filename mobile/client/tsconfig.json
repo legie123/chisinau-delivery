@@ -1,6 +1,12 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    "paths": {
+      "@chisinau/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@chisinau/shared-api": ["../../packages/shared-api/src/index.ts"],
+      "@chisinau/shared-domain": ["../../packages/shared-domain/src/index.ts"],
+      "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"]
+    }
   }
 }

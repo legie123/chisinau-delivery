@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Activi
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { CustomerProfile, fetchMyProfile, signOut } from '../lib/api';
+import { CustomerProfile, fetchMyProfile } from '../lib/api';
+import { supabase } from '../lib/supabase';
+import { unregisterPush } from '../lib/push';
 
 // Entries with no screen/backend behind them yet stay visible (so the menu
 // doesn't look empty) but are disabled instead of firing dead onPress handlers.
@@ -50,7 +52,12 @@ export default function ProfileScreen({ navigation }: { navigation: any }) {
         style: 'destructive',
         onPress: async () => {
           setSigningOut(true);
-          await signOut();
+          try {
+            await unregisterPush(); // while we still own the token row (RLS)
+          } catch {
+            /* never block sign-out on it */
+          }
+          await supabase.auth.signOut();
           setSigningOut(false);
           setProfile(null);
         },
@@ -110,6 +117,13 @@ export default function ProfileScreen({ navigation }: { navigation: any }) {
                 <Text style={styles.comingSoon}>Curând</Text>
               </View>
             ))}
+            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={() => navigation.navigate('Concierge')}>
+              <View style={[styles.menuIcon, { backgroundColor: COLORS.gold + '15' }]}>
+                <Ionicons name="key-outline" size={20} color={COLORS.gold} />
+              </View>
+              <Text style={styles.menuLabel}>Rezervări concierge</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleSignOut} disabled={signingOut}>
               <View style={[styles.menuIcon, { backgroundColor: COLORS.primary + '15' }]}>
                 <Ionicons name="log-out-outline" size={20} color={COLORS.primary} />

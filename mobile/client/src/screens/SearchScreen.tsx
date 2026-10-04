@@ -2,14 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, StatusBar, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { CUISINE_LABEL, DishSearchResult, fetchRestaurants, searchMenuItems } from '../lib/api';
+import { CUISINE_LABEL, fetchRestaurants, searchDishes } from '../lib/api';
 import { Restaurant } from '../types';
 
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&h=300&fit=crop';
+type DishSearchResult = Awaited<ReturnType<typeof searchDishes>>[number];
 const CATEGORIES = Object.entries(CUISINE_LABEL).map(([cuisine, label]) => ({ cuisine, label }));
 
 interface Props {
   navigation: any;
+}
+
+function Thumb({ uri }: { uri: string | null }) {
+  return uri ? <Image source={{ uri }} style={styles.resultImage} /> : <View style={[styles.resultImage, { backgroundColor: COLORS.surfaceLight }]} />;
 }
 
 export default function SearchScreen({ navigation }: Props) {
@@ -42,7 +46,7 @@ export default function SearchScreen({ navigation }: Props) {
     }
     let cancelled = false;
     setSearchingDishes(true);
-    searchMenuItems(debouncedQuery)
+    searchDishes(debouncedQuery)
       .then(results => { if (!cancelled) setDishResults(results); })
       .catch(() => { if (!cancelled) setDishResults([]); })
       .finally(() => { if (!cancelled) setSearchingDishes(false); });
@@ -60,11 +64,11 @@ export default function SearchScreen({ navigation }: Props) {
   const isSearching = debouncedQuery.length >= 2 || !!selectedCuisine;
 
   function openRestaurant(restaurant: Restaurant) {
-    navigation.navigate('Restaurant', { restaurant, imageUrl: restaurant.coverUrl ?? FALLBACK_IMAGE });
+    navigation.navigate('Restaurant', { restaurant });
   }
 
   function openDish(dish: DishSearchResult) {
-    const restaurant = restaurants.find(r => r.id === dish.restaurantId);
+    const restaurant = restaurants.find(r => r.id === dish.restaurant_id);
     // audit #17: don't silently no-op if the restaurant list hasn't loaded yet.
     if (!restaurant) {
       Alert.alert('Se încarcă', 'Restaurantele încă se încarcă. Încearcă din nou într-o clipă.');
@@ -121,7 +125,7 @@ export default function SearchScreen({ navigation }: Props) {
             {restaurantResults.length === 0 && <Text style={styles.emptyText}>Niciun restaurant găsit.</Text>}
             {restaurantResults.map(r => (
               <TouchableOpacity key={r.id} style={styles.resultRow} activeOpacity={0.8} onPress={() => openRestaurant(r)}>
-                <Image source={{ uri: r.logoUrl ?? r.coverUrl ?? FALLBACK_IMAGE }} style={styles.resultImage} />
+                <Thumb uri={r.logoUrl ?? r.coverUrl} />
                 <View style={styles.resultText}>
                   <Text style={styles.resultName}>{r.name}</Text>
                   <Text style={styles.resultMeta}>{r.category}</Text>
@@ -135,11 +139,11 @@ export default function SearchScreen({ navigation }: Props) {
                 <Text style={styles.sectionTitle}>Preparate</Text>
                 {!searchingDishes && dishResults.length === 0 && <Text style={styles.emptyText}>Niciun preparat găsit.</Text>}
                 {dishResults.map(dish => (
-                  <TouchableOpacity key={dish.itemId} style={styles.resultRow} activeOpacity={0.8} onPress={() => openDish(dish)}>
-                    <Image source={{ uri: dish.photoUrl ?? FALLBACK_IMAGE }} style={styles.resultImage} />
+                  <TouchableOpacity key={dish.item_id} style={styles.resultRow} activeOpacity={0.8} onPress={() => openDish(dish)}>
+                    <Thumb uri={dish.photo_url} />
                     <View style={styles.resultText}>
-                      <Text style={styles.resultName}>{dish.itemName}</Text>
-                      <Text style={styles.resultMeta}>{dish.restaurantName} · {dish.priceMdl} MDL</Text>
+                      <Text style={styles.resultName}>{dish.item_name}</Text>
+                      <Text style={styles.resultMeta}>{dish.restaurant_name} · {dish.price_mdl} MDL</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
                   </TouchableOpacity>
