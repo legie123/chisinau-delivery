@@ -37,10 +37,10 @@ function PayoutStatusBadge({ status }: { status: Payout["status"] }) {
 export default async function PlatformPayoutsPage() {
   const supabase = await createClient();
 
-  const { data: settings } = await supabase
-    .from("platform_settings")
-    .select("courier_commission_pct, restaurant_commission_pct")
-    .maybeSingle();
+  // The version in effect NOW (what payouts apply), not platform_settings: set_pricing_config
+  // writes that cache at once, so a rate scheduled for next week showed as current.
+  const { data: pricing } = await supabase.rpc("current_pricing_config");
+  const settings = pricing as { courier_commission_pct: number; restaurant_commission_pct: number } | null;
 
   const { data: payoutRows } = await supabase
     .from("payouts")

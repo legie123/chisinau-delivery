@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPublicPricingHistory } from "@chisinau/shared-api";
-import { COMMISSION_PCT, currentWeekRange, netForOrder, summarizeEarnings } from "@/app/(courier)/_lib/earnings";
+import { COMMISSION_PCT, currentWeekRange, netForOrder, summarizeEarnings, type EarningsOrder } from "@/app/(courier)/_lib/earnings";
 import type { Order } from "@/lib/types/domain";
 
 // "Istoric Livrări" — every delivered order, newest first. #3b/#3c: the
@@ -28,7 +28,10 @@ export default async function DeliveryHistoryPage() {
     );
   }
 
-  const [{ data: delivered }, pricingHistory, { data: pricing }] = await Promise.all([
+  // The headline is the WHOLE Chisinau week (the same query as Câștiguri); the list below stays
+  // capped at 50. Summing the capped list under-counted a busy week (verifier, 2026-10-04).
+  const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
+  const [{ data: delivered }, pricingHistory, { data: pricing }, { data: weekRows }] = await Promise.all([
     supabase
       .from("orders")
       .select(
@@ -40,6 +43,13 @@ export default async function DeliveryHistoryPage() {
       .limit(50),
     getPublicPricingHistory(supabase),
     supabase.rpc("current_pricing_config"),
+    supabase
+      .from("orders")
+      .select("delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, delivered_at")
+      .eq("courier_id", courier.id)
+      .eq("status", "delivered")
+      .gte("delivered_at", weekStart.toISOString())
+      .lt("delivered_at", weekEnd.toISOString()),
   ]);
   // Each order's commission = the pricing version in effect at its delivered_at
   // (what the payout pays); the live rate only if the history read soft-fails.
@@ -56,12 +66,7 @@ export default async function DeliveryHistoryPage() {
   };
   const orders = (delivered ?? []) as unknown as HistoryRow[];
 
-  const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
-  const weekOrders = orders.filter((o) => {
-    const at = new Date(o.delivered_at ?? o.updated_at);
-    return at >= weekStart && at < weekEnd;
-  });
-  const weekSummary = summarizeEarnings(weekOrders, commission);
+  const weekSummary = summarizeEarnings((weekRows ?? []) as EarningsOrder[], commission);
 
   const formatTime = new Intl.DateTimeFormat("ro-RO", {
     hour: "2-digit",

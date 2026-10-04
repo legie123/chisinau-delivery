@@ -35,23 +35,29 @@ export function useOfflinePendingStatusQueue(orderId: string, advance: AdvanceFn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
+  // enqueue rejects (Romanian message) when storage can't be read; return it inline like the
+  // app does instead of throwing into the caller's transition (error boundary).
+  async function enqueue(entry: PendingStatusChange): Promise<{ error: string | null }> {
+    try {
+      await enqueueStatusChange(entry);
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Nu am putut salva acțiunea offline. Încearcă din nou." };
+    }
+    setQueued(true);
+    return { error: null };
+  }
+
   async function advanceOrEnqueue(newStatus: string, paymentConfirmed?: boolean): Promise<{ error: string | null }> {
     const entry: PendingStatusChange = { orderId, newStatus, paymentConfirmed, ts: Date.now() };
 
     if (typeof navigator !== "undefined" && "onLine" in navigator && !navigator.onLine) {
-      await enqueueStatusChange(entry);
-      setQueued(true);
-      return { error: null };
+      return enqueue(entry);
     }
 
     try {
       return await advance(orderId, newStatus, paymentConfirmed);
     } catch (err) {
-      if (isNetworkError(err)) {
-        await enqueueStatusChange(entry);
-        setQueued(true);
-        return { error: null };
-      }
+      if (isNetworkError(err)) return enqueue(entry);
       throw err;
     }
   }

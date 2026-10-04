@@ -82,6 +82,20 @@ export function isNetworkError(err: unknown): boolean {
 
 export type StatusQueue = ReturnType<typeof createStatusQueue>;
 
+// A replay that never settles (no fetch timeout in supabase-js / RN, a stuck token refresh)
+// held the single-flight drain forever, so every later tap stayed queued until a restart.
+// Timing out reads as a network error: the entry stays queued, and a late success is harmless
+// because advance_delivery_status is idempotent.
+export const ADVANCE_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(p: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new TypeError("network timeout")), ADVANCE_TIMEOUT_MS);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+}
+
 export function createStatusQueue(storage: KeyValueStorage) {
   // Read-modify-write of the stored list must not interleave inside one queue
   // instance: with an async store, two enqueues (or an enqueue during a drain's
@@ -131,11 +145,17 @@ export function createStatusQueue(storage: KeyValueStorage) {
     }
   }
 
+  // Strict for the read-modify-write paths (clear, drain merge): a failed read must skip the
+  // write, not treat the count as 0 and erase give-ups the banner has not shown yet.
+  async function readGiveUpStrict(): Promise<number> {
+    const raw = await storage.getItem(STATUS_QUEUE_GIVEUP_KEY);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) ? n : 0;
+  }
+
   async function readGiveUp(): Promise<number> {
     try {
-      const raw = await storage.getItem(STATUS_QUEUE_GIVEUP_KEY);
-      const n = raw ? parseInt(raw, 10) : 0;
-      return Number.isFinite(n) ? n : 0;
+      return await readGiveUpStrict();
     } catch {
       return 0;
     }
@@ -181,7 +201,7 @@ export function createStatusQueue(storage: KeyValueStorage) {
     clearGiveUpCount(seen?: number): Promise<void> {
       return serial(async () => {
         try {
-          const left = seen === undefined ? 0 : (await readGiveUp()) - seen;
+          const left = seen === undefined ? 0 : (await readGiveUpStrict()) - seen;
           if (left > 0) await storage.setItem(STATUS_QUEUE_GIVEUP_KEY, String(left));
           else await storage.removeItem(STATUS_QUEUE_GIVEUP_KEY);
         } catch {
@@ -209,7 +229,7 @@ export function createStatusQueue(storage: KeyValueStorage) {
           continue;
         }
         try {
-          const result = await advance(entry.orderId, entry.newStatus, entry.paymentConfirmed);
+          const result = await withTimeout(advance(entry.orderId, entry.newStatus, entry.paymentConfirmed));
           if (result.error && !isInvalidTransitionError(result.error)) {
             remaining.push({ ...entry, attempts: (entry.attempts ?? 0) + 1 });
           }
@@ -235,7 +255,7 @@ export function createStatusQueue(storage: KeyValueStorage) {
         await write([...remaining.filter((e) => !supersededOrders.has(e.orderId)), ...added]);
         if (givenUp > 0) {
           try {
-            await storage.setItem(STATUS_QUEUE_GIVEUP_KEY, String((await readGiveUp()) + givenUp));
+            await storage.setItem(STATUS_QUEUE_GIVEUP_KEY, String((await readGiveUpStrict()) + givenUp));
           } catch {
             // best-effort — the banner is discreet, not critical.
           }

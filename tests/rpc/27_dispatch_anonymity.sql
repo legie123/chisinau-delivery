@@ -53,7 +53,9 @@ begin
 
   -- ===== part 1: score IDENTICAL across alpha1=0 vs alpha1=500 =====
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin,'role','authenticated')::text, true);
-  perform public.set_dispatch_scoring_config(1, 0, 0, now(), 'test: anonymity baseline alpha1=0');
+  -- distinct instants: two versions at the same now() tied, and part 2 could silently run on the
+  -- baseline again (one version per instant since 20261004000400).
+  perform public.set_dispatch_scoring_config(1, 0, 0, now() - interval '2 seconds', 'test: anonymity baseline alpha1=0');
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
   v_oid_a := public.place_order(v_rest, 'standard', 'cash',
@@ -69,7 +71,10 @@ begin
   update public.dispatch_offers set status = 'cancelled' where id = v_offer_a;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin,'role','authenticated')::text, true);
-  perform public.set_dispatch_scoring_config(1, 500, 0, now(), 'test: anonymity alpha1=500 (would dominate under the old formula)');
+  perform public.set_dispatch_scoring_config(1, 500, 0, now() - interval '1 second', 'test: anonymity alpha1=500 (would dominate under the old formula)');
+  if (public.current_dispatch_scoring_config()).alpha1 <> 500 then
+    raise exception 'FAIL: the alpha1=500 version is not the one in effect — part 1 would compare the baseline with itself';
+  end if;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_cust,'role','authenticated')::text, true);
   v_oid_b := public.place_order(v_rest, 'standard', 'cash',

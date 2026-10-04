@@ -13,6 +13,7 @@ import {
   netForOrder,
   quotedNetMdl,
   summarizeEarnings,
+  STATUS_QUEUE_GIVEUP_KEY,
   STATUS_QUEUE_KEY,
   type EarningsOrder,
   type KeyValueStorage,
@@ -249,5 +250,63 @@ describe("offline status queue races", () => {
     await q.drain(advance).catch(() => undefined);
     const ids = (JSON.parse(s.map.get(STATUS_QUEUE_KEY) ?? "[]") as { orderId: string }[]).map((e) => e.orderId);
     expect(ids).toEqual(expect.arrayContaining(["o1", "o3"]));
+  });
+});
+
+// Verifier round 2 (2026-10-04): a transient read of the give-up key returned 0, so
+// clearGiveUpCount(seen) erased give-ups recorded after the banner and the drain merge
+// overwrote the stored count; and a replay that never settles held the single-flight drain
+// forever, so a later "delivered" tap was never sent.
+describe("offline status queue — give-up count and hung replays", () => {
+  function giveUpStore() {
+    const s = store() as ReturnType<typeof store> & { failGiveUpGet: boolean };
+    const get = s.getItem;
+    s.failGiveUpGet = false;
+    s.getItem = async (k: string) => {
+      if (k === STATUS_QUEUE_GIVEUP_KEY && s.failGiveUpGet) {
+        s.failGiveUpGet = false;
+        throw new Error("AsyncStorage: transient");
+      }
+      return get(k);
+    };
+    return s;
+  }
+
+  it("a transient read never erases give-ups the banner has not shown yet", async () => {
+    const s = giveUpStore();
+    const q = createStatusQueue(s);
+    s.map.set(STATUS_QUEUE_GIVEUP_KEY, "3");
+    s.failGiveUpGet = true;
+    await (q.clearGiveUpCount as (seen?: number) => Promise<void>)(1);
+    expect(await q.giveUpCount()).toBe(3); // untouched; the next banner can still show them
+  });
+
+  it("a transient read in the drain merge never overwrites the stored give-up count", async () => {
+    const s = giveUpStore();
+    const q = createStatusQueue(s);
+    s.map.set(STATUS_QUEUE_GIVEUP_KEY, "4");
+    await q.enqueue({ orderId: "o1", newStatus: "delivered", ts: 1, attempts: 8 });
+    s.failGiveUpGet = true;
+    await q.drain(async () => ({ error: null }));
+    expect(Number(s.map.get(STATUS_QUEUE_GIVEUP_KEY))).toBeGreaterThanOrEqual(4);
+  });
+
+  it("a replay that never settles does not block later drains for good", async () => {
+    vi.useFakeTimers();
+    try {
+      const s = store();
+      const q = createStatusQueue(s);
+      await q.enqueue({ orderId: "o1", newStatus: "en_route", ts: 1 });
+      const hung = vi.fn(() => new Promise<{ error: string | null }>(() => undefined));
+      const first = q.drain(hung);
+      await vi.advanceTimersByTimeAsync(60_000);
+      await first;
+      await q.enqueue({ orderId: "o2", newStatus: "delivered", ts: 2 });
+      const ok = vi.fn(async () => ({ error: null }));
+      await q.drain(ok);
+      expect(ok).toHaveBeenCalledWith("o2", "delivered", undefined);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
