@@ -20,11 +20,13 @@ import ConciergeScreen from './src/screens/ConciergeScreen';
 import { COLORS } from './src/theme';
 import { supabase } from './src/lib/supabase';
 import { hydrateCart } from './src/lib/cart';
-import { onNotificationOpened, orderIdFromUrl, registerForPush } from './src/lib/push';
+import { createPushOpener, onNotificationOpened, pushTarget, registerForPush } from './src/lib/push';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 const navigationRef = createNavigationContainerRef<any>();
+// A tap that arrives before the navigator is ready (cold start) waits for onReady.
+const pushOpener = createPushOpener(navigationRef);
 
 function HomeTabs() {
   return (
@@ -64,10 +66,6 @@ function HomeTabs() {
   );
 }
 
-function openOrder(orderId: string) {
-  if (navigationRef.isReady()) navigationRef.navigate('OrderTracking', { orderId });
-}
-
 export default function App() {
   useEffect(() => {
     hydrateCart();
@@ -78,12 +76,12 @@ export default function App() {
         registerForPush().then(r => { if (r !== 'registered') console.info('[push]', r); });
       }
     });
-    const offTap = onNotificationOpened(openOrder);
+    const offTap = onNotificationOpened(pushOpener.open);
     // Cold start from a notification tap.
     Notifications.getLastNotificationResponseAsync()
       .then(resp => {
-        const id = orderIdFromUrl(resp?.notification.request.content.data?.url);
-        if (id) setTimeout(() => openOrder(id), 300);
+        const target = pushTarget(resp?.notification.request.content.data?.url);
+        if (target) pushOpener.open(target);
       })
       .catch(() => {});
     return () => {
@@ -94,7 +92,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer ref={navigationRef} onReady={pushOpener.flush}>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Main" component={HomeTabs} />
           <Stack.Screen name="Restaurant" component={RestaurantScreen} />

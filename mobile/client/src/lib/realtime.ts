@@ -18,6 +18,10 @@ export function subscribeOrderRow(
   const channel = db
     .channel(name)
     .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `id=eq.${orderId}` }, (payload) => {
+      // place_order INSERTs the row with totals 0 and fills them later in the same
+      // transaction; a late INSERT event would flash "Total 0.00 MDL". The refetch
+      // already has the inserted row — only changes matter here.
+      if (payload.eventType === "INSERT") return;
       if (payload.new && "id" in payload.new) onRow(payload.new as Record<string, unknown>);
     })
     .subscribe((status) => {

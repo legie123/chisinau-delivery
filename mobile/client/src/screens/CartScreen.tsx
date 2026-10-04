@@ -5,18 +5,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { placeOrder, setOrderTip } from '@chisinau/shared-api';
 import { cartSubtotal, setLineQuantity } from '@chisinau/shared-domain';
 import { COLORS } from '../theme';
-import { clearCart, setCart, useCart } from '../lib/cart';
+import { clearCart, getCart, setCart, useCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
-import { createAddress, fetchMyAddresses, isSignedIn, type SavedAddress } from '../lib/api';
+import { createAddress, errorText, fetchLiveMenu, fetchMyAddresses, isSignedIn, type SavedAddress } from '../lib/api';
 import { currentPosition } from '../lib/location';
+import { reconcileLines, type ReconcileResult } from '../lib/cartReconcile';
 import {
+  addressFingerprint,
   buildOrderInput,
-  friendlyPlaceOrderError,
+  defaultAddressChoice,
   newIdempotencyKey,
+  reusableAddressId,
+  runExclusive,
   tipAmount,
+  type CreatedAddress,
   type PaymentChoice,
   type TipChoice,
 } from '../lib/checkout';
+
+const PHONE_REQUIRED = 'Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.';
 
 interface Props {
   navigation: any;
@@ -48,9 +55,22 @@ export default function CartScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   // One key per checkout attempt + the address created by a failed attempt: a retry
-  // returns the SAME order and reuses the SAME address row (web CheckoutForm parity).
+  // returns the SAME order and reuses the SAME address row — but only while the
+  // address draft is unchanged (an edited street/phone is a new row).
   const idempotencyKey = useRef(newIdempotencyKey());
-  const createdAddressId = useRef<string | null>(null);
+  const createdAddress = useRef<CreatedAddress | null>(null);
+  // Once the user picks a chip or types, the saved-address default never overrides it.
+  const addressTouched = useRef(false);
+  const submitLock = useRef(false);
+  // Live-menu reconciliation (web useCartReconcile parity).
+  const [dead, setDead] = useState<Set<string>>(new Set());
+  const [repriced, setRepriced] = useState<ReconcileResult['repriced']>([]);
+  const signature = cart.lines.map(l => l.lineId).sort().join('|');
+
+  const touched = <T,>(set: (v: T) => void) => (v: T) => {
+    addressTouched.current = true;
+    set(v);
+  };
 
   useEffect(() => {
     if (!cart.restaurantId) return;
@@ -71,10 +91,34 @@ export default function CartScreen({ navigation }: Props) {
       fetchMyAddresses()
         .then(list => {
           setAddresses(list);
-          if (list.length > 0) setAddressId(prev => (prev === 'new' ? list[0].id : prev));
+          const wasTouched = addressTouched.current;
+          setAddressId(prev => defaultAddressChoice(prev, list, wasTouched));
+          if (list.length > 0) addressTouched.current = true; // default applied once
         })
         .catch(() => {});
     }, []),
+  );
+
+  // The persisted cart vs the live menu: place_order charges live prices, so the
+  // total shown must be the live one, and a dead line must be named, not fail blind.
+  useFocusEffect(
+    useCallback(() => {
+      const lines = getCart().lines;
+      if (lines.length === 0) return;
+      let stale = false;
+      fetchLiveMenu([...new Set(lines.map(l => l.menuItemId))], [...new Set(lines.flatMap(l => l.optionIds))])
+        .then(live => {
+          if (stale || !live) return;
+          const r = reconcileLines(getCart().lines, live.items, live.options);
+          if (r.repriced.length > 0) {
+            setCart(prev => ({ ...prev, lines: reconcileLines(prev.lines, live.items, live.options).lines }));
+            setRepriced(r.repriced);
+          }
+          setDead(new Set(r.dead.map(d => d.lineId)));
+        })
+        .catch(() => {});
+      return () => { stale = true; };
+    }, [signature]),
   );
 
   const subtotal = cartSubtotal(cart.lines);
@@ -83,60 +127,67 @@ export default function CartScreen({ navigation }: Props) {
   const total = subtotal + deliveryFee + tipMdl;
   const belowMinimum = summary ? subtotal < summary.minOrder : false;
   const selected = addresses.find(a => a.id === addressId);
+  const deadLines = cart.lines.filter(l => dead.has(l.lineId));
 
   async function pinLocation() {
     setLocating(true);
     const p = await currentPosition();
     setLocating(false);
-    if (p) setPin(p);
+    if (p) touched(setPin)(p);
     else setError('Nu am putut obține locația — verifică permisiunile.');
   }
 
-  async function submit() {
-    setError(null);
-    if (!(await isSignedIn())) {
-      navigation.navigate('Login');
-      return;
-    }
-    setPlacing(true);
-    let placedId: string | null = null;
-    try {
-      let deliveryAddressId = addressId === 'new' ? createdAddressId.current : addressId;
-      if (addressId === 'new' && !deliveryAddressId) {
-        if (!street.trim()) throw new Error('Adresa este obligatorie.');
-        if (phone.replace(/\D/g, '').length < 6) throw new Error('Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.');
-        deliveryAddressId = await createAddress({ street_address: street.trim(), contact_phone: phone.trim(), notes: notes.trim(), ...(pin ?? {}) });
-        createdAddressId.current = deliveryAddressId;
-      } else if (selected && !selected.contact_phone) {
-        if (phone.replace(/\D/g, '').length < 6) throw new Error('Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.');
-        const { error: phoneError } = await supabase.from('addresses').update({ contact_phone: phone.trim() }).eq('id', selected.id);
-        if (phoneError) throw new Error(phoneError.message);
-      }
-
-      const input = buildOrderInput(cart, {
-        deliveryAddressId: deliveryAddressId!,
-        paymentMethod: payment,
-        idempotencyKey: idempotencyKey.current,
-        notes: addressId === 'new' ? undefined : notes,
-      });
-      const orderId = await placeOrder(supabase, input);
-      placedId = orderId;
-      if (tipMdl > 0) {
-        try {
-          await setOrderTip(supabase, orderId, tipMdl);
-        } catch {
-          /* order placed; the tip can be added from the tracking screen */
+  // The lock is taken before the first await: a double tap places ONE order and
+  // creates ONE address row (the idempotency key alone surfaced a 23505 as an error).
+  function submit() {
+    return runExclusive(submitLock, async () => {
+      setError(null);
+      setPlacing(true);
+      let placedId: string | null = null;
+      try {
+        if (!(await isSignedIn())) {
+          navigation.navigate('Login');
+          return;
         }
+        const draft = { street, phone, notes, pin };
+        const hasPhone = phone.replace(/\D/g, '').length >= 6;
+        let deliveryAddressId = addressId === 'new' ? reusableAddressId(createdAddress.current, draft) : addressId;
+        if (addressId === 'new' && !deliveryAddressId) {
+          if (!street.trim()) return setError('Adresa este obligatorie.');
+          if (!hasPhone) return setError(PHONE_REQUIRED);
+          deliveryAddressId = await createAddress({ street_address: street.trim(), contact_phone: phone.trim(), notes: notes.trim(), ...(pin ?? {}) });
+          createdAddress.current = { id: deliveryAddressId, fingerprint: addressFingerprint(draft) };
+        } else if (selected && !selected.contact_phone) {
+          if (!hasPhone) return setError(PHONE_REQUIRED);
+          const { error: phoneError } = await supabase.from('addresses').update({ contact_phone: phone.trim() }).eq('id', selected.id);
+          if (phoneError) throw new Error(phoneError.message);
+        }
+
+        const input = buildOrderInput(cart, {
+          deliveryAddressId: deliveryAddressId!,
+          paymentMethod: payment,
+          idempotencyKey: idempotencyKey.current,
+          notes: addressId === 'new' ? undefined : notes,
+        });
+        const orderId = await placeOrder(supabase, input);
+        placedId = orderId;
+        if (tipMdl > 0) {
+          try {
+            await setOrderTip(supabase, orderId, tipMdl);
+          } catch {
+            /* order placed; the tip can be added from the tracking screen */
+          }
+        }
+        clearCart();
+        idempotencyKey.current = newIdempotencyKey();
+        createdAddress.current = null;
+        navigation.replace('OrderTracking', { orderId });
+      } catch (err) {
+        setError(placedId ? 'Comanda a fost plasată.' : errorText(err, 'Nu am putut trimite comanda. Încearcă din nou.'));
+      } finally {
+        setPlacing(false);
       }
-      clearCart();
-      idempotencyKey.current = newIdempotencyKey();
-      createdAddressId.current = null;
-      navigation.replace('OrderTracking', { orderId });
-    } catch (err) {
-      setError(placedId ? 'Comanda a fost plasată.' : friendlyPlaceOrderError(err instanceof Error ? err.message : ''));
-    } finally {
-      setPlacing(false);
-    }
+    });
   }
 
   if (!cart.restaurantId || cart.lines.length === 0) {
@@ -168,13 +219,25 @@ export default function CartScreen({ navigation }: Props) {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Text style={styles.restaurantName}>{cart.restaurantName}</Text>
 
+        {repriced.length > 0 && (
+          <Text style={styles.notice}>
+            Restaurantul a actualizat prețurile: {repriced.map(r => `${r.name} (${r.from}→${r.to} MDL)`).join(', ')}. Totalul de mai jos e cel real.
+          </Text>
+        )}
+        {deadLines.length > 0 && (
+          <Text style={styles.error}>
+            {deadLines.length === 1 ? 'Un articol nu mai este disponibil' : `${deadLines.length} articole nu mai sunt disponibile`} — e marcat mai jos; șterge-l ca să poți continua.
+          </Text>
+        )}
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Produse</Text>
           {cart.lines.map(line => (
-            <View key={line.lineId} style={styles.card}>
+            <View key={line.lineId} style={[styles.card, dead.has(line.lineId) && styles.cardDead]}>
               <View style={styles.rowBetween}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.itemName}>{line.name}</Text>
+                  <Text style={[styles.itemName, dead.has(line.lineId) && styles.itemDead]}>{line.name}</Text>
+                  {dead.has(line.lineId) && <Text style={styles.deadLabel}>Nu mai este disponibil</Text>}
                   {!!line.optionsLabel && <Text style={styles.itemOptions}>{line.optionsLabel}</Text>}
                 </View>
                 <Text style={styles.itemPrice}>{(line.priceMdl * line.quantity).toFixed(2)} MDL</Text>
@@ -199,17 +262,17 @@ export default function CartScreen({ navigation }: Props) {
           <Text style={styles.sectionTitle}>Adresă livrare</Text>
           <View style={styles.chips}>
             {addresses.map(a => (
-              <TouchableOpacity key={a.id} style={[styles.chip, addressId === a.id && styles.chipOn]} onPress={() => setAddressId(a.id)}>
+              <TouchableOpacity key={a.id} style={[styles.chip, addressId === a.id && styles.chipOn]} onPress={() => touched(setAddressId)(a.id)}>
                 <Text style={styles.chipText} numberOfLines={1}>{a.street_address}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={[styles.chip, addressId === 'new' && styles.chipOn]} onPress={() => setAddressId('new')}>
+            <TouchableOpacity style={[styles.chip, addressId === 'new' && styles.chipOn]} onPress={() => touched(setAddressId)('new')}>
               <Text style={styles.chipText}>+ Adresă nouă</Text>
             </TouchableOpacity>
           </View>
           {addressId === 'new' && (
             <>
-              <TextInput style={styles.input} placeholder="Str. Ștefan cel Mare 1, ap. 5" placeholderTextColor={COLORS.textMuted} value={street} onChangeText={setStreet} />
+              <TextInput style={styles.input} placeholder="Str. Ștefan cel Mare 1, ap. 5" placeholderTextColor={COLORS.textMuted} value={street} onChangeText={touched(setStreet)} />
               <TouchableOpacity style={styles.pinBtn} onPress={pinLocation} disabled={locating}>
                 <Ionicons name="location" size={16} color={COLORS.gold} />
                 <Text style={styles.pinText}>{locating ? 'Se caută locația...' : pin ? 'Locație fixată ✓' : 'Fixează locația exactă (opțional)'}</Text>
@@ -217,14 +280,14 @@ export default function CartScreen({ navigation }: Props) {
             </>
           )}
           {needsPhone && (
-            <TextInput style={styles.input} placeholder="Telefon de contact" placeholderTextColor={COLORS.textMuted} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+            <TextInput style={styles.input} placeholder="Telefon de contact" placeholderTextColor={COLORS.textMuted} keyboardType="phone-pad" value={phone} onChangeText={touched(setPhone)} />
           )}
           <TextInput
             style={[styles.input, { minHeight: 60 }]}
             placeholder="Note pentru curier: etaj, interfon..."
             placeholderTextColor={COLORS.textMuted}
             value={notes}
-            onChangeText={setNotes}
+            onChangeText={touched(setNotes)}
             multiline
           />
         </View>
@@ -266,10 +329,10 @@ export default function CartScreen({ navigation }: Props) {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.orderBtn, (placing || belowMinimum || !summary) && { opacity: 0.5 }]}
+        style={[styles.orderBtn, (placing || belowMinimum || !summary || deadLines.length > 0) && { opacity: 0.5 }]}
         activeOpacity={0.9}
         onPress={submit}
-        disabled={placing || belowMinimum || !summary}
+        disabled={placing || belowMinimum || !summary || deadLines.length > 0}
       >
         {placing ? <ActivityIndicator color={COLORS.white} /> : <Ionicons name="bag-check" size={20} color={COLORS.white} />}
         <Text style={styles.orderBtnText}>Plasează comanda · {total.toFixed(2)} MDL</Text>
@@ -291,6 +354,10 @@ const styles = StyleSheet.create({
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
   card: { backgroundColor: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: COLORS.cardBorder },
+  cardDead: { borderColor: COLORS.primary + '60' },
+  itemDead: { textDecorationLine: 'line-through', color: COLORS.textMuted },
+  deadLabel: { fontSize: 12, color: COLORS.primary, fontWeight: '700', marginTop: 2 },
+  notice: { color: COLORS.gold, fontWeight: '600', marginBottom: 12 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, gap: 8 },
   itemName: { fontSize: 15, fontWeight: '600', color: COLORS.white },
   itemOptions: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },

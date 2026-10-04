@@ -4,11 +4,11 @@ import {
   getRatingBreakdown,
   nearbyRestaurants,
   searchMenuItems,
-  RpcError,
 } from "@chisinau/shared-api";
 import { chisinauNow, formatPrepRange, isOpenNow, nextOpeningLabel, type HoursRow } from "@chisinau/shared-domain";
 import { supabase } from "./supabase";
 import type { MenuItem, OptionGroup, Restaurant } from "../types";
+import type { LiveItem, LiveOption } from "./cartReconcile";
 
 // Reads for the customer app. Every RPC goes through @chisinau/shared-api (the same
 // typed call-site the web uses); plain table reads are RLS-scoped selects.
@@ -27,10 +27,7 @@ export const VENUE_LABEL: Record<string, string> = {
   restaurant: "Restaurant",
 };
 
-/** Message for the user from any thrown error (RpcError carries the Romanian one). */
-export function errorText(err: unknown, fallback: string): string {
-  return err instanceof RpcError ? err.userMessage : fallback;
-}
+export { errorText } from "./errors";
 
 type RestaurantRow = {
   id: string; slug: string; name: string; cuisine_type: string; venue_type: string; address: string;
@@ -64,7 +61,7 @@ export async function fetchRestaurants(position?: { lat: number; lng: number } |
   return list.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
 }
 
-function toRestaurant(
+export function toRestaurant(
   r: RestaurantRow,
   estimate: { prep_minutes: number; p90_prep_minutes: number | null } | undefined,
   hours: HoursRow[] | undefined,
@@ -72,8 +69,8 @@ function toRestaurant(
   dow: number,
   time: string,
 ): Restaurant {
-  // No hours rows at all = no schedule configured; place_order is then the judge.
-  const openNow = !hours || hours.length === 0 ? true : isOpenNow(hours, dow, time);
+  // No hours rows = closed, exactly like place_order (restaurant_open_at) and the web.
+  const openNow = isOpenNow(hours ?? [], dow, time);
   return {
     id: r.id,
     slug: r.slug,
@@ -93,7 +90,7 @@ function toRestaurant(
     minOrder: Number(r.min_order_amount_mdl),
     acceptingOrders: r.accepting_orders,
     openNow,
-    nextOpening: openNow || !hours ? null : nextOpeningLabel(hours, dow, time),
+    nextOpening: openNow ? null : nextOpeningLabel(hours ?? [], dow, time),
     distanceM,
     acceptsCatering: r.accepts_catering,
     cateringMin: r.catering_min_amount_mdl,
@@ -127,8 +124,9 @@ export async function fetchMenu(
     cateringMinQty: i.catering_min_qty,
   }));
 
+  // Catering too: place_order enforces required groups on every order type.
   const groups: Record<string, OptionGroup[]> = {};
-  if (mapped.length > 0 && !opts.catering) {
+  if (mapped.length > 0) {
     const { data: rawGroups, error: groupsError } = await supabase
       .from("menu_option_groups")
       .select("id, menu_item_id, name, is_required, min_select, max_select, menu_options(id, name, price_delta_mdl, is_available, sort_order)")
@@ -151,6 +149,19 @@ export async function fetchMenu(
     }
   }
   return { items: mapped, categories: [...new Set(mapped.map((i) => i.category))], groups };
+}
+
+/** Live price/availability of the cart's items and options (cart reconciliation).
+ *  null on any read error: offline keeps the cart as it is. */
+export async function fetchLiveMenu(itemIds: string[], optionIds: string[]): Promise<{ items: LiveItem[]; options: LiveOption[] } | null> {
+  const [{ data: items, error }, { data: options, error: optError }] = await Promise.all([
+    supabase.from("menu_items").select("id, price_mdl, is_available").in("id", itemIds),
+    optionIds.length
+      ? supabase.from("menu_options").select("id, price_delta_mdl, is_available").in("id", optionIds)
+      : Promise.resolve({ data: [] as LiveOption[], error: null }),
+  ]);
+  if (error || optError || !items) return null;
+  return { items, options: options ?? [] };
 }
 
 export async function fetchInsights(restaurantId: string) {

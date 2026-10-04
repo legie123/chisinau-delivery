@@ -48,6 +48,11 @@ export function CateringRequestForm({
       : (restaurants[0]?.id ?? ""),
   );
   const [items, setItems] = useState<MenuItem[]>([]);
+  // Articol → primul grup de opțiuni OBLIGATORIU. Formularul n-are selector de
+  // opțiuni, iar place_order respinge orice comandă fără ele ("alege o opțiune"),
+  // deci asemenea articole se blochează aici, înainte de trimitere.
+  // ponytail: blocate, nu alese — selectorul (ItemModifierModal) când catering-ul web îl cere.
+  const [requiredGroup, setRequiredGroup] = useState<Record<string, string>>({});
   // Cantitățile reluate se păstrează doar cât timp rămâi pe restaurantul de
   // atunci; la schimbarea restaurantului meniul e altul, deci se golesc.
   const [quantities, setQuantities] = useState<Quantities>(prefill?.quantities ?? {});
@@ -82,7 +87,7 @@ export function CateringRequestForm({
     const supabase = createClient();
     supabase
       .from("menu_items")
-      .select("*")
+      .select("*, menu_option_groups(name, is_required)")
       .eq("restaurant_id", restaurantId)
       .eq("is_available", true)
       .order("is_catering_only", { ascending: false })
@@ -93,7 +98,14 @@ export function CateringRequestForm({
           setMenuResult({ forId: restaurantId, reload: menuReload, failed: true });
           return;
         }
-        setItems((data ?? []) as MenuItem[]);
+        const rows = (data ?? []) as (MenuItem & { menu_option_groups: { name: string; is_required: boolean }[] | null })[];
+        setItems(rows);
+        const required: Record<string, string> = {};
+        for (const row of rows) {
+          const group = (row.menu_option_groups ?? []).find((g) => g.is_required);
+          if (group) required[row.id] = group.name;
+        }
+        setRequiredGroup(required);
         // Golirea e corectă când schimbi restaurantul (alt meniu, alte id-uri),
         // dar ar șterge exact ce am reluat dintr-o comandă veche. Condiția e pe
         // restaurantul curent, nu pe un flag consumabil: în dezvoltare React
@@ -128,6 +140,10 @@ export function CateringRequestForm({
     ["not currently accepting orders", "Restaurantul nu acceptă comenzi momentan."],
     ["menu item unavailable", "Un articol din selecție nu mai este disponibil — reîncarcă pagina."],
     ["invalid quantity", "Cantitate invalidă pentru unul dintre articole."],
+    ["alege o opțiune", "Un articol are opțiuni obligatorii și nu se poate comanda la catering — scoate-l din selecție."],
+    ["opțiune invalidă", "Un articol din selecție s-a schimbat — reîncarcă pagina."],
+    ["prea multe opțiuni", "Un articol din selecție s-a schimbat — reîncarcă pagina."],
+    ["prea puține opțiuni", "Un articol din selecție s-a schimbat — reîncarcă pagina."],
   ];
 
   function friendlyError(message: string): string {
@@ -149,6 +165,11 @@ export function CateringRequestForm({
     );
     if (underMin) {
       setError(`„${underMin.name}" se comandă de la minim ${underMin.catering_min_qty} buc.`);
+      return;
+    }
+    const needsOptions = selected.find((item) => requiredGroup[item.id]);
+    if (needsOptions) {
+      setError(`„${needsOptions.name}” are opțiuni obligatorii și nu se poate comanda la catering — scoate-l din selecție.`);
       return;
     }
     if (!eventDate || !eventAddress.trim() || !contactPerson.trim() || !contactPhone.trim()) {
@@ -318,12 +339,18 @@ export function CateringRequestForm({
                   {item.catering_min_qty && item.catering_min_qty > 1 && (
                     <p className="text-xs text-white/50">Minim {item.catering_min_qty} buc.</p>
                   )}
+                  {requiredGroup[item.id] && (
+                    <p className="text-xs text-amber-400">
+                      Are opțiuni obligatorii („{requiredGroup[item.id]}”) — nu se poate comanda la catering.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-white/50">{item.price_mdl} MDL</span>
                   <input
                     type="number"
                     min={0}
+                    disabled={!!requiredGroup[item.id] && !quantities[item.id]}
                     value={quantities[item.id] ?? 0}
                     onChange={(e) => setQty(item, Number(e.target.value))}
                     className="w-20 rounded-lg bg-white/5 px-2.5 py-1.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"

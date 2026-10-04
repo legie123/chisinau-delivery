@@ -4,8 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { CustomerProfile, fetchMyProfile } from '../lib/api';
-import { supabase } from '../lib/supabase';
-import { unregisterPush } from '../lib/push';
+import { signOutAndUnbindPush, UNBIND_FAILED } from '../lib/push';
 
 // Entries with no screen/backend behind them yet stay visible (so the menu
 // doesn't look empty) but are disabled instead of firing dead onPress handlers.
@@ -50,19 +49,26 @@ export default function ProfileScreen({ navigation }: { navigation: any }) {
       {
         text: 'Deconectare',
         style: 'destructive',
-        onPress: async () => {
-          setSigningOut(true);
-          try {
-            await unregisterPush(); // while we still own the token row (RLS)
-          } catch {
-            /* never block sign-out on it */
-          }
-          await supabase.auth.signOut();
-          setSigningOut(false);
-          setProfile(null);
-        },
+        onPress: signOut,
       },
     ]);
+  }
+
+  // The push token is unbound first, while we still own its row (RLS). If that fails
+  // the session is kept: a signed-out phone must not keep getting this user's orders.
+  async function signOut() {
+    setSigningOut(true);
+    try {
+      await signOutAndUnbindPush();
+      setProfile(null);
+    } catch (err) {
+      Alert.alert('Deconectare', err instanceof Error ? err.message : UNBIND_FAILED, [
+        { text: 'Anulează', style: 'cancel' },
+        { text: 'Reîncearcă', onPress: signOut },
+      ]);
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   return (

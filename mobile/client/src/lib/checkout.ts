@@ -36,14 +36,36 @@ export function buildOrderInput(
   };
 }
 
-/** Same mapping as the web CheckoutForm: raw pg text -> Romanian copy. */
-export function friendlyPlaceOrderError(raw: string): string {
-  if (raw.includes("below minimum")) return "Comanda nu atinge minimul restaurantului.";
-  if (raw.includes("not currently accepting")) return "Restaurantul nu acceptă comenzi momentan.";
-  if (raw.includes("1400 MDL")) return "Comenzile peste 1400 MDL se achită cu cardul la livrare — alege «Card (POS)».";
-  if (raw.includes("închis la ora")) return "Restaurantul este închis acum. Alege alt restaurant sau revino mai târziu.";
-  if (raw.includes("menu item unavailable")) return "Un articol din coș nu mai este disponibil — reîncarcă meniul.";
-  if (raw.includes("alege o opțiune")) return "Un produs are opțiuni obligatorii neconfigurate — scoate-l și adaugă-l din nou.";
-  if (raw.includes("obligatorie") || raw.includes("autentificat") || raw.includes("livrării") || raw.includes("adresa")) return raw;
-  return "Nu am putut trimite comanda. Încearcă din nou.";
+// ---- new-address draft ----
+// A failed place_order (closed at that hour, 1400 MDL cash cap...) can come AFTER the
+// address row was inserted. A retry reuses that row only while the draft is exactly
+// what was saved — any edit to street/phone/notes/pin means a new row.
+
+export type AddressDraft = { street: string; phone: string; notes: string; pin: { lat: number; lng: number } | null };
+export type CreatedAddress = { id: string; fingerprint: string };
+
+export function addressFingerprint(d: AddressDraft): string {
+  return JSON.stringify([d.street.trim(), d.phone.trim(), d.notes.trim(), d.pin?.lat ?? null, d.pin?.lng ?? null]);
+}
+
+export function reusableAddressId(created: CreatedAddress | null, draft: AddressDraft): string | null {
+  return created && created.fingerprint === addressFingerprint(draft) ? created.id : null;
+}
+
+/** The first saved address is a default, never an override: once the user picked a
+ *  chip or typed a new address (e.g. before the Login detour), their choice stands. */
+export function defaultAddressChoice(current: string, saved: { id: string }[], touched: boolean): string {
+  return !touched && current === "new" && saved.length > 0 ? saved[0].id : current;
+}
+
+/** Double-tap guard: the lock is taken synchronously, before the first await, so a
+ *  second tap in the same frame finds it held and does nothing. */
+export async function runExclusive(lock: { current: boolean }, fn: () => Promise<void>): Promise<void> {
+  if (lock.current) return;
+  lock.current = true;
+  try {
+    await fn();
+  } finally {
+    lock.current = false;
+  }
 }

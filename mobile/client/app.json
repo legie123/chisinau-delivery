@@ -25,7 +25,12 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION", "POST_NOTIFICATIONS"],
-      "blockedPermissions": ["ACCESS_BACKGROUND_LOCATION", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"],
+      "blockedPermissions": [
+        "ACCESS_BACKGROUND_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -44,6 +49,8 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Folosim locația ca să-ți arătăm restaurantele din apropiere și să fixăm adresa de livrare.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }

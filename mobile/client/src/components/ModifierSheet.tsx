@@ -12,14 +12,16 @@ export default function ModifierSheet({
   groups,
   onClose,
   onAdd,
+  initialQty = 1,
 }: {
   item: MenuItem;
   groups: OptionGroup[];
   onClose: () => void;
   onAdd: (options: ChosenOptions, quantity: number) => void;
+  initialQty?: number; // catering starts at the item's minimum quantity
 }) {
   const [selection, setSelection] = useState<Selection>({});
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(initialQty);
   const ref = { id: item.id, name: item.name, price_mdl: item.priceMdl };
   const chosen = chosenOptions(ref, groups, selection);
   const valid = selectionIsValid(groups, selection);

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // zustand/persist expects localStorage — stub it for node before importing the store.
@@ -101,5 +103,31 @@ describe("cart store — banii clientului", () => {
     const { lines } = useCartStore.getState();
     expect(lines).toHaveLength(1);
     expect(lines[0].menuItemId).toBe("b");
+  });
+});
+
+// Verifier (client-native MED, web half): the catering form sent items with a
+// REQUIRED option group and no option_ids, so place_order always rejected
+// ("alege o opțiune") and the customer saw a generic retry. Source-level: the
+// form has no DOM test harness; these pin the pre-send block + the mapping.
+describe("catering request form — required option groups", () => {
+  const form = readFileSync(path.resolve(__dirname, "../../src/components/customer/CateringRequestForm.tsx"), "utf8");
+
+  it("loads each item's option groups with the menu", () => {
+    expect(form).toMatch(/menu_option_groups\(name, is_required\)/);
+  });
+
+  it("blocks an item with a required group BEFORE place_order, in Romanian", () => {
+    const submit = form.indexOf("async function handleSubmit(");
+    const block = form.indexOf("selected.find((item) => requiredGroup[item.id])");
+    expect(block).toBeGreaterThan(submit);
+    expect(block).toBeLessThan(form.indexOf("await placeOrder("));
+    expect(form.slice(block, form.indexOf("await placeOrder("))).toContain("are opțiuni obligatorii și nu se poate comanda la catering");
+  });
+
+  it("maps the option rejections instead of the generic retry", () => {
+    for (const needle of ["alege o opțiune", "opțiune invalidă", "prea multe opțiuni", "prea puține opțiuni"]) {
+      expect(form).toContain(`["${needle}",`);
+    }
   });
 });

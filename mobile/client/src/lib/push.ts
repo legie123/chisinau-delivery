@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
+import * as SecureStore from "expo-secure-store";
 import { registerDevicePushToken } from "@chisinau/shared-api";
 import { supabase } from "./supabase";
 
@@ -17,7 +18,14 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// The registered token survives app restarts: sign-out must unbind it even in a run
+// where registration failed or was skipped (memory alone forgot it).
+const TOKEN_KEY = "push-expo-token";
 let registeredToken: string | null = null;
+
+function projectId(): string | undefined {
+  return Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+}
 
 /** Best-effort: never blocks the UI, never throws. Returns why it skipped, for logs. */
 export async function registerForPush(): Promise<string> {
@@ -32,14 +40,15 @@ export async function registerForPush(): Promise<string> {
     if (status !== "granted") status = (await Notifications.requestPermissionsAsync()).status;
     if (status !== "granted") return "permission-denied";
 
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-    if (!projectId) return "no-eas-project-id"; // run `eas init` once — see mobile/README.md
+    const id = projectId();
+    if (!id) return "no-eas-project-id"; // run `eas init` once — see mobile/README.md
 
-    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: id });
     const { data } = await supabase.auth.getSession();
     if (!data.session) return "signed-out";
     await registerDevicePushToken(supabase, token, Platform.OS === "ios" ? "ios" : "android");
     registeredToken = token;
+    await SecureStore.setItemAsync(TOKEN_KEY, token).catch(() => undefined);
     return "registered";
   } catch (err) {
     console.warn("[push] registration failed", err);
@@ -47,24 +56,79 @@ export async function registerForPush(): Promise<string> {
   }
 }
 
-/** Call BEFORE signOut: the token row is deleted while we still own it (RLS). */
-export async function unregisterPush(): Promise<void> {
-  if (!registeredToken) return;
-  await supabase.from("device_push_tokens").delete().eq("expo_token", registeredToken);
-  registeredToken = null;
+// This device's token: this run's, the one persisted by an earlier run, or — when
+// neither is known (older build, failed write) — the device's current Expo token.
+async function deviceToken(): Promise<string | null> {
+  if (registeredToken) return registeredToken;
+  const stored = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
+  if (stored) return stored;
+  const { status } = await Notifications.getPermissionsAsync();
+  const id = projectId();
+  if (status !== "granted" || !id) return null; // never had a token to bind
+  return (await Notifications.getExpoPushTokenAsync({ projectId: id })).data;
 }
 
-/** Order id from a notification's `url` ("/orders/<id>" or "/catering/<id>"). */
-export function orderIdFromUrl(url: unknown): string | null {
+/** Call BEFORE signOut: the token row is deleted while we still own it (RLS).
+ *  Throws if it could not be deleted — the caller must not sign out then. */
+export async function unregisterPush(): Promise<void> {
+  const token = await deviceToken();
+  if (!token) return;
+  const { error } = await supabase.from("device_push_tokens").delete().eq("expo_token", token);
+  if (error) throw new Error(error.message);
+  registeredToken = null;
+  await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => undefined);
+}
+
+export const UNBIND_FAILED = "Nu am putut opri notificările pe acest telefon — verifică conexiunea și încearcă din nou.";
+
+/** The only sign-out path: a signed-out phone must never stay bound to the user
+ *  (the drain would keep sending their order notifications to it). On failure the
+ *  session is kept and the error (Romanian) is thrown for a retry. */
+export async function signOutAndUnbindPush(): Promise<void> {
+  try {
+    await unregisterPush();
+  } catch {
+    throw new Error(UNBIND_FAILED);
+  }
+  await supabase.auth.signOut();
+}
+
+// ---- notification taps ----
+
+export type PushTarget = { name: "OrderTracking"; params: { orderId: string } } | { name: "Concierge"; params?: undefined };
+
+/** Screen for a notification's `url` ("/orders/<id>", "/catering/<id>", "/concierge/..."). */
+export function pushTarget(url: unknown): PushTarget | null {
   if (typeof url !== "string") return null;
   const m = url.match(/^\/(?:orders|catering)\/([0-9a-f-]{36})/i);
-  return m ? m[1] : null;
+  if (m) return { name: "OrderTracking", params: { orderId: m[1] } };
+  if (url.startsWith("/concierge")) return { name: "Concierge" };
+  return null;
 }
 
-export function onNotificationOpened(handler: (orderId: string) => void): () => void {
+/** Opens a target now, or keeps it until the navigator is ready (cold start). */
+export function createPushOpener(nav: { isReady(): boolean; navigate(name: string, params?: object): void }) {
+  let pending: PushTarget | null = null;
+  const go = (t: PushTarget) => nav.navigate(t.name, t.params);
+  return {
+    open(t: PushTarget) {
+      if (nav.isReady()) go(t);
+      else pending = t;
+    },
+    /** NavigationContainer onReady. */
+    flush() {
+      if (!pending || !nav.isReady()) return;
+      const t = pending;
+      pending = null;
+      go(t);
+    },
+  };
+}
+
+export function onNotificationOpened(handler: (target: PushTarget) => void): () => void {
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    const id = orderIdFromUrl(response.notification.request.content.data?.url);
-    if (id) handler(id);
+    const t = pushTarget(response.notification.request.content.data?.url);
+    if (t) handler(t);
   });
   return () => sub.remove();
 }
