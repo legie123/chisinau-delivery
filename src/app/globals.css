@@ -1,4 +1,7 @@
-@import "tailwindcss";
+/* source("../.."): scan from the repo root, not process.cwd(). The app shells build
+   with cwd=apps/<name>, where the default would miss every class used in src/.
+   Byte-identical CSS for the monolith (docs/plan/WEB-SHELLS-SPIKE-2026-10-03.md). */
+@import "tailwindcss" source("../..");
 
 /* Brand "Dragons" — paletă portată din mobile/{client,driver}/src/theme.ts.
    Aplicația e integral dark (stil Bolt) — color-scheme: dark face ca TOATE

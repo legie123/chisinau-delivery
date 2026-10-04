@@ -1,0 +1,11 @@
+{
+  "name": "@chisinau/app-master",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node ../../node_modules/next/dist/bin/next dev -H 127.0.0.1 -p 3004",
+    "build": "node ../../node_modules/next/dist/bin/next build",
+    "start": "node ../../node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3004",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p ."
+  }
+}

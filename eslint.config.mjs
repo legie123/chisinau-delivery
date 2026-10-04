@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Expo apps — own toolchain, not part of the Next.js build/lint.
     "mobile/**",
+    // App shells (apps/*): the default '.next/**' only covers the root build output.
+    "apps/*/.next/**",
+    "apps/*/next-env.d.ts",
   ]),
 ]);
 

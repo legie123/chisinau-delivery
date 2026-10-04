@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/apps/*/.next/
 /out/
 
 # production
@@ -59,3 +60,10 @@ tools/simulator/__pycache__/
 
 # agent worktrees (Workflow isolation: worktree)
 .claude/worktrees/
+
+# mobile dev tunnel (scripts/mobile/tunnel.sh) + expo scratch
+mobile/.tunnel.env
+mobile/.tunnel.pid
+mobile/.tunnel.log
+mobile/*/.expo/
+mobile/*/dist/
