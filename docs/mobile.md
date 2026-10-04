@@ -47,11 +47,18 @@ Open the installed "Dragons Curier" app, scan the QR from `dev.sh`. Expo Go cann
   arrive as push, and opening the app must refetch.
 
 ## Security note (read before leaving the tunnel up)
-The tunnel exposes the LOCAL Supabase API (port 54421 only; not the DB, not Studio) to the
-internet at a random `trycloudflare.com` URL. RLS still applies and the anon key is public by
-design — BUT the local stack ships with Supabase's **published** default JWT secret, so anyone who
-finds the URL can sign a `service_role` token and bypass RLS completely. `tunnel.sh` therefore
-**refuses to start** (exit 3) until the secret is rotated:
+The tunnel exposes the LOCAL Supabase **data plane only**, through an allowlist proxy
+(`scripts/mobile/tunnel-proxy.mjs`): `/auth /rest /realtime /storage /functions /graphql` under `/v1`.
+It must never expose the Kong gateway (54421) wholesale: Kong routes `/pg/*` to postgres-meta, which
+runs **arbitrary SQL with no authentication** as role `postgres` (bypasses RLS) — verified on this
+stack (2026-10-04). The proxy normalizes the path before checking it (a raw-URL check let
+`/rest/v1/../../pg/query` through), refuses encoded slashes/backslashes, and is covered by
+`tests/unit/tunnelProxy.test.ts`.
+
+Second risk: the local stack ships with Supabase's **published** default JWT secret, so anyone who
+finds the URL could sign a `service_role` token and bypass RLS through the data plane. `tunnel.sh`
+therefore **refuses to start** (exit 3) until the secret is rotated, and also when the secret cannot be
+read (fail closed):
 
 ```
 # supabase/config.toml, under [auth]
