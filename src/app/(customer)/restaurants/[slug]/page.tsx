@@ -192,7 +192,7 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
         type="application/ld+json"
         // Numele de restaurant/produs vin de la partener: JSON.stringify simplu lăsa "</script>"
         // să închidă blocul (XSS stocat pe pagina publică). jsonForScript escapează < > & U+2028/9.
-        // eslint-disable-next-line react/no-danger -- conținut escapat de jsonForScript
+        // dangerouslySetInnerHTML: conținut escapat de jsonForScript (nu poate închide <script>)
         dangerouslySetInnerHTML={{ __html: jsonForScript(jsonLd) }}
       />
       {/* Cover banner with overlaid identity — Bolt restaurant header */}
