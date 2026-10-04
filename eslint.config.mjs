@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
     // App shells (apps/*): the default '.next/**' only covers the root build output.
     "apps/*/.next/**",
     "apps/*/next-env.d.ts",
+    // Agent git worktrees (.claude/worktrees/*) are whole copies of the repo: linting them
+    // reported a worktree's half-done work as errors of main.
+    ".claude/**",
   ]),
 ]);
 
