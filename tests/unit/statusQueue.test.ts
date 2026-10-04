@@ -102,7 +102,7 @@ describe("offline courier status queue — comanda nu se pierde fără semnal", 
 
   it("drops an entry once it hits the max attempt cap and counts it as given up", async () => {
     await enqueueStatusChange({ orderId: "o1", newStatus: "picked_up", ts: 1 });
-    const advance = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    const advance = vi.fn().mockResolvedValue({ error: "online order cannot be delivered before payment is confirmed" });
     // 8 failed attempts bring the counter to the cap; the 9th drain sees the
     // cap already hit and gives up without calling `advance` again.
     for (let i = 0; i < 8; i++) {
@@ -116,6 +116,16 @@ describe("offline courier status queue — comanda nu se pierde fără semnal", 
     expect(await hasPendingChange("o1")).toBe(false);
     expect(await giveUpCount()).toBe(1);
     await clearGiveUpCount();
+  });
+
+  it("network failures do not use up the attempt budget (a 10-minute dead zone keeps the tap)", async () => {
+    await enqueueStatusChange({ orderId: "o1", newStatus: "delivered", ts: 1 });
+    const offline = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    for (let i = 0; i < 20; i++) await drainPendingQueue(offline); // 20 x 30s drain loop
+    expect(await hasPendingChange("o1")).toBe(true);
+    expect(await giveUpCount()).toBe(0);
+    await drainPendingQueue(vi.fn().mockResolvedValue({ error: null })); // back online
+    expect(await hasPendingChange("o1")).toBe(false);
   });
 
   it("drops an entry older than 24h without retrying it, and counts it as given up", async () => {

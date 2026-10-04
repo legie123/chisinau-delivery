@@ -188,7 +188,10 @@ export function createStatusQueue(storage: KeyValueStorage) {
           }
           // else: success, or invalid transition — drop, resolved either way.
         } catch {
-          remaining.push({ ...entry, attempts: (entry.attempts ?? 0) + 1 }); // still offline / still failing — keep for next drain
+          // A throw is network-shaped in both bindings (business errors come back as
+          // {error}). Being offline is not a failed attempt: callers drain every 30s
+          // regardless of connectivity, so counting it dropped taps after ~4 min.
+          remaining.push(entry); // the 24h age cap still bounds a dead zone
         }
       }
 

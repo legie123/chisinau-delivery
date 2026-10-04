@@ -11,7 +11,12 @@ import type { PushPayload, PushSendOptions } from "@/lib/push/send";
 // courier this push is the only channel an offer has. Per-token errors do not
 // throw; DeviceNotRegistered tokens (app uninstalled, token rotated) are pruned.
 export const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
-const EXPO_BATCH = 100; // Expo's documented max messages per request
+// One token per request: one account can hold tokens of BOTH apps (courier and
+// client are different Expo projects), and Expo answers a request that mixes
+// projects with a 400 PUSH_TOO_MANY_EXPERIENCE_IDS — the whole row then failed
+// 5x and no native push was ever delivered.
+// ponytail: per-token requests (users hold 1-3 tokens); store the app per token if that grows.
+const EXPO_BATCH = 1;
 
 type ExpoTicket =
   | { status: "ok"; id: string }

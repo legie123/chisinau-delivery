@@ -72,27 +72,24 @@ afterEach(() => {
 describe("push drain → Expo fan-out", () => {
   it("sends the outbox row to every Expo token of the user, high priority for offers, and prunes DeviceNotRegistered", async () => {
     claimed.mockResolvedValue([OFFER_ROW]);
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          data: [
-            { status: "ok", id: "t1" },
-            { status: "error", message: "not registered", details: { error: "DeviceNotRegistered" } },
-          ],
-        }),
-        { status: 200 },
-      ),
-    );
+    // One request per token (a user may hold tokens of two Expo projects).
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const [m] = JSON.parse(String(init.body)) as { to: string }[];
+      const ticket =
+        m.to === "ExponentPushToken[dead]"
+          ? { status: "error", message: "not registered", details: { error: "DeviceNotRegistered" } }
+          : { status: "ok", id: "t1" };
+      return new Response(JSON.stringify({ data: [ticket] }), { status: 200 });
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await POST(drainRequest());
     expect(await res.json()).toEqual({ drained: 1, failed: 0 });
 
     expect(webPush).toHaveBeenCalledTimes(1); // web push still goes out
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe(EXPO_PUSH_URL);
-    const messages = JSON.parse(String(init.body));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][0]).toBe(EXPO_PUSH_URL);
+    const messages = fetchMock.mock.calls.flatMap((c) => JSON.parse(String(c[1].body)));
     expect(messages.map((m: { to: string }) => m.to)).toEqual(["ExponentPushToken[live]", "ExponentPushToken[dead]"]);
     expect(messages[0]).toMatchObject({
       title: OFFER_ROW.title,
@@ -128,11 +125,42 @@ describe("push drain → Expo fan-out", () => {
     const outboxUpdate = calls.find((c) => c.table === "notification_outbox" && c.op === "update");
     expect(outboxUpdate?.args[0]).toEqual({ attempts: 1, claimed_at: null });
     expect(calls.some((c) => c.op === "delete")).toBe(false);
+    expect(webPush).toHaveBeenCalledTimes(1); // an Expo outage never costs the web push
+  });
+
+  it("the retry after an Expo failure does not send the web push a second time", async () => {
+    // The real claim returns the row with attempts bumped by the failed run.
+    claimed.mockResolvedValueOnce([OFFER_ROW]).mockResolvedValueOnce([{ ...OFFER_ROW, attempts: 1 }]);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(new Response("down", { status: 503 }))
+        .mockImplementation(async () => new Response(JSON.stringify({ data: [{ status: "ok", id: "a" }] }))),
+    );
+    tokensByUser = { "courier-user": ["ExponentPushToken[live]"] };
+
+    expect(await (await POST(drainRequest())).json()).toEqual({ drained: 0, failed: 1 });
+    expect(await (await POST(drainRequest())).json()).toEqual({ drained: 1, failed: 0 });
+    expect(webPush).toHaveBeenCalledTimes(1);
+  });
+
+  it("never mixes tokens in one Expo request (courier + client app = two Expo projects → 400)", async () => {
+    claimed.mockResolvedValue([OFFER_ROW]);
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const msgs = JSON.parse(String(init.body)) as unknown[];
+      if (msgs.length > 1) return new Response(JSON.stringify({ errors: [{ code: "PUSH_TOO_MANY_EXPERIENCE_IDS" }] }), { status: 400 });
+      return new Response(JSON.stringify({ data: [{ status: "ok", id: "a" }] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await (await POST(drainRequest())).json()).toEqual({ drained: 1, failed: 0 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("customer status rows go normal priority on the default channel", async () => {
     claimed.mockResolvedValue([{ ...OFFER_ROW, tag: "order-xyz" }]);
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [{ status: "ok", id: "a" }, { status: "ok", id: "b" }] })));
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: [{ status: "ok", id: "a" }] })));
     vi.stubGlobal("fetch", fetchMock);
 
     await POST(drainRequest());

@@ -79,9 +79,11 @@ export async function POST(req: Request) {
         // MAX_ATTEMPTS, then the claim RPC (attempts < 5) stops picking it up.
         // A 429 here is Chrome/FCM rate-limiting the push service, not an app bug.
         const payload = { title: r.title, body: r.body, url: r.url, tag: r.tag ?? undefined };
-        await sendPushToUser(r.user_id, payload, pushOptionsForTag(r.tag));
+        // Web push only on the FIRST attempt: it never throws, so a row that comes back
+        // for a retry has already sent it — the retry is for the native leg only.
+        if (attempts === 1) await sendPushToUser(r.user_id, payload, pushOptionsForTag(r.tag));
         // Native apps (Expo tokens). Throws on a transport failure → the row is
-        // retried like any other failed attempt; web push collapses the repeat by tag.
+        // retried like any other failed attempt.
         await sendExpoPushToUser(admin, r.user_id, payload, pushOptionsForTag(r.tag));
         await admin.from("notification_outbox").update({ sent_at: now, attempts }).eq("id", r.id);
         drained++;
