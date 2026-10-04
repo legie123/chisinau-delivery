@@ -40,6 +40,8 @@ const OWNERSHIP: Array<[string, AppId]> = [
   ["/platform", "master"],
   ["/master", "master"],
   ["/api/platform", "master"],
+  // View-as ("vezi ca"): read-only monolith pages for a viewed user, served by the master shell.
+  ["/view", "master"],
 ];
 
 // Served by EVERY app itself (never redirected): auth, shared API, PWA plumbing, dev doorway.

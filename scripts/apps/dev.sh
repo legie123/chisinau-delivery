@@ -24,7 +24,7 @@ PORT="${APP_PORT:-$DEFAULT_PORT}"
 WRAP=(env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin")
 
 # Local Supabase URL / anon / service-role keys from the running local stack (never printed).
-eval "$("${WRAP[@]}" supabase status -o env 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY')"
+eval "$("${WRAP[@]}" supabase status -o env 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY|^JWT_SECRET')"
 if [ -z "${API_URL:-}" ]; then
   echo "✗ Local Supabase isn't running. Start it first:  bash scripts/supabase-up.sh" >&2
   exit 1
@@ -34,8 +34,13 @@ fi
 # password lives only in the gitignored scripts/.dev-local.env.
 ENABLE_MASTER_DOORWAY="false"
 MASTER_DOORWAY_USER="${MASTER_DOORWAY_USER:-dragon}"
+VIEW_AS_JWT_SECRET=""
 if [ "$APP" = "master" ]; then
   ENABLE_MASTER_DOORWAY="true"
+  # View-as ("vezi ca") signs read-only viewer JWTs with the project JWT secret — server-side
+  # env only, never NEXT_PUBLIC_*. Locally it is Supabase's published default: rotate it before
+  # any exposure (docs/mobile.md). Other shells never receive it.
+  VIEW_AS_JWT_SECRET="${JWT_SECRET:-}"
   # shellcheck disable=SC1091
   [ -f scripts/.dev-local.env ] && source scripts/.dev-local.env
 fi
@@ -56,6 +61,7 @@ OSRM_URL="${OSRM_URL:-http://localhost:5010}" \
 ENABLE_MASTER_DOORWAY="$ENABLE_MASTER_DOORWAY" \
 MASTER_DOORWAY_USER="$MASTER_DOORWAY_USER" \
 MASTER_DOORWAY_PASS="${MASTER_DOORWAY_PASS:-}" \
+SUPABASE_JWT_SECRET="$VIEW_AS_JWT_SECRET" \
 nohup node ../../node_modules/next/dist/bin/next dev -H 127.0.0.1 -p "$PORT" > "$LOG" 2>&1 &
 disown
 

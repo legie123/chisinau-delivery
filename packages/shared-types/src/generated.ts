@@ -2621,6 +2621,68 @@ export type Database = {
           },
         ]
       }
+      view_as_sessions: {
+        Row: {
+          admin_id: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          reason: string
+          started_at: string
+          target_app: string
+          target_user_id: string
+        }
+        Insert: {
+          admin_id: string
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          reason: string
+          started_at?: string
+          target_app: string
+          target_user_id: string
+        }
+        Update: {
+          admin_id?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          reason?: string
+          started_at?: string
+          target_app?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "view_as_sessions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "admin_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "view_as_sessions_admin_id_fkey"
+            columns: ["admin_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "view_as_sessions_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "view_as_sessions_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       admin_courier_pilot_kpis: {
@@ -3339,6 +3401,7 @@ export type Database = {
       }
       dispatch_order: { Args: { p_order_id: string }; Returns: string }
       effective_cash_cap: { Args: { p_courier_id: string }; Returns: number }
+      end_view_as: { Args: { p_session: string }; Returns: undefined }
       erase_customer_pii: {
         Args: { p_customer_id: string }
         Returns: undefined
@@ -3635,6 +3698,10 @@ export type Database = {
         Returns: string
       }
       start_online_payment: { Args: { p_order_id: string }; Returns: string }
+      start_view_as: {
+        Args: { p_app: string; p_reason: string; p_target: string }
+        Returns: string
+      }
       submit_catering_quote: {
         Args: { p_order_id: string; p_quoted_total_mdl: number }
         Returns: undefined
@@ -3666,6 +3733,7 @@ export type Database = {
         Args: { p_courier_id: string; p_reason: string }
         Returns: string
       }
+      viewer_session_live: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

@@ -21,6 +21,8 @@ export function mapPgError(error: PostgrestError): string {
       return "Acțiunea a fost deja efectuată.";
     case "23503": // foreign_key_violation
       return "Elementul nu mai există.";
+    case "42501": // insufficient_privilege — e.g. a read-only view-as session ("vezi ca")
+      return "Nu ai permisiunea pentru această acțiune.";
     case "P0001": {
       // raise exception — the RPC's own message is already Romanian-friendly for
       // the guarded paths; surface it, with a safe fallback.

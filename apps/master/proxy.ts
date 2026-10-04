@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { proxy as monolithProxy } from "@/proxy";
 import { APP_HOME, appOrigin, foreignRedirect } from "@/lib/apps/registry";
-import { fetchRole, updateSession } from "@/lib/supabase/middleware";
+import { fetchRole, redirectWithSessionCookies, updateSession } from "@/lib/supabase/middleware";
+import { VIEW_HOME, VIEW_PREFIX, fromViewPath } from "@/lib/viewAs/paths";
+import { VIEW_AS_COOKIE, readViewerToken } from "@/lib/viewAs/token";
 
-// Master shell (:3004). Owns /platform/*, /master/*, /api/platform/* (src/lib/apps/registry.ts).
+// Master shell (:3004). Owns /platform/*, /master/*, /api/platform/*, /view/* (src/lib/apps/registry.ts).
 // Role gating here is UX only — RLS is the boundary, and the ai route re-checks inside.
 
 const isUnder = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
@@ -28,6 +30,24 @@ export async function proxy(request: NextRequest) {
   // Foreign path → owner app, same hostname (the auth cookie is host-scoped), same path + query.
   const foreign = foreignRedirect("master", { pathname, search, protocol }, request.headers.get("host"));
   if (foreign) return NextResponse.redirect(foreign);
+
+  // View-as (/view/*): a monolith page for the viewed user, read-only by the DB role `viewer`.
+  // Gate: a valid viewer token minted for the admin signed in right now, and a page that this
+  // surface's view shows. Anything else → back to the picker, cookie cleared.
+  if (isUnder(pathname, VIEW_PREFIX)) {
+    const { response, user } = await updateSession(request);
+    const claims = readViewerToken(request.cookies.get(VIEW_AS_COOKIE)?.value);
+    if (!claims || !user || claims.act.sub !== user.id) {
+      const res = redirectWithSessionCookies(request, response, new URL("/platform/view-as?e=expirat", request.url));
+      res.cookies.set(VIEW_AS_COOKIE, "", { path: VIEW_PREFIX, maxAge: 0 });
+      return res;
+    }
+    if (pathname === VIEW_PREFIX || !fromViewPath(claims.view_as_app, pathname)) {
+      const home = new URL(VIEW_PREFIX + VIEW_HOME[claims.view_as_app], request.url);
+      return redirectWithSessionCookies(request, response, home);
+    }
+    return response;
+  }
 
   // /platform: the monolith gate as-is — platform_admin only, dev autologin admin@test.md,
   // production without a session → /login?next=.

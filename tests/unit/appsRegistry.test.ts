@@ -22,6 +22,10 @@ describe("ownerOf — path ownership across the 4 apps", () => {
     expect(ownerOf("/platform/orders/abc")).toBe("master");
     expect(ownerOf("/master/enter/curier")).toBe("master");
     expect(ownerOf("/api/platform/ai")).toBe("master");
+    // view-as mirror of the monolith pages (segment-bounded: "/viewer" would stay the client's)
+    expect(ownerOf("/view/orders")).toBe("master");
+    expect(ownerOf("/view/restaurant/orders")).toBe("master");
+    expect(ownerOf("/viewer")).toBe("client");
   });
 
   it("everything else is the client's", () => {
