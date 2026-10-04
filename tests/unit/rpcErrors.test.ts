@@ -104,5 +104,11 @@ describe("screens never render a raw supabase error message", () => {
     expect(storageErrorText({ message: "mime type image/gif is not supported" })).toBe("Formatul fișierului nu e acceptat.");
     expect(storageErrorText({ message: "new row violates row-level security policy", statusCode: "403" })).toMatch(/permisiunea/);
     expect(storageErrorText({ message: "fetch failed" })).toMatch(/^Încărcarea a eșuat/);
+    // the real StorageApiError shape: status is the wrapper's 400, statusCode the real code
+    expect(storageErrorText({ message: "new row violates row-level security policy", status: 400, statusCode: "403" })).toMatch(/permisiunea/);
+    expect(storageErrorText({ message: "The resource already exists", status: 400, statusCode: "409" })).toMatch(/există deja/);
+    expect(storageErrorText({ message: "The source image could not be decoded." })).toMatch(/nu poate fi citită/);
+    const pg = (code: string, message: string) => mapPgError({ code, message, details: "", hint: "", name: "PostgrestError" } as never);
+    expect(pg("23505", 'duplicate key value violates unique constraint "profiles_pkey"')).toMatch(/Există deja un cont/);
   });
 });

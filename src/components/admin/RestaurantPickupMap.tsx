@@ -9,19 +9,27 @@ import { ReconnectNotice } from "@/components/shared/ReconnectNotice";
 
 // Restaurant-side pickup coordination: the assigned courier heading to the
 // restaurant, live. RLS (courier_locations_partner_read) only exposes the courier
-// while the order is courier_assigned, so this naturally clears after pickup.
+// while the order is courier_assigned AND the point is under 2 min old. The marker
+// follows the same rule on an open page: it goes away 2 min after the last real fix
+// (a frozen point used to keep an ETA for the whole leg), and a successful empty
+// refetch clears it; a failed refetch changes nothing.
+const FRESH_MS = 120_000;
+
 export function RestaurantPickupMap({
   restaurant,
   courierId,
   courierName,
   initialCourier,
+  initialAt,
 }: {
   restaurant: MapPoint;
   courierId: string;
   courierName: string | null;
   initialCourier: MapPoint | null;
+  initialAt?: string | null;
 }) {
   const [pos, setPos] = useState<MapPoint | null>(initialCourier);
+  const [seenAt, setSeenAt] = useState<number | null>(initialAt ? Date.parse(initialAt) : null);
   // O hartă e cel mai convingător fel de a minți: marcatorul rămâne pe ecran,
   // arată exact ca o poziție curentă și nu are cum să pară vechi. Fără poll și
   // fără semnal de degradare, un websocket căzut lăsa bucătăria să creadă că
@@ -39,13 +47,26 @@ export function RestaurantPickupMap({
   // consumatori (`OffersLive`, `OrderQueueLive`).
   const refetch = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("courier_locations")
-      .select("lat, lng")
+      .select("lat, lng, updated_at")
       .eq("courier_id", courierId)
       .maybeSingle();
-    if (data?.lat != null && data?.lng != null) setPos({ lat: data.lat, lng: data.lng });
+    if (error) return;
+    if (data?.lat != null && data?.lng != null) {
+      setPos({ lat: data.lat, lng: data.lng });
+      setSeenAt(Date.parse(data.updated_at));
+    } else {
+      setPos(null);
+    }
   }, [courierId]);
+
+  // The marker expires with the point: 2 min after the last real fix, like the RLS bound.
+  useEffect(() => {
+    if (seenAt == null) return;
+    const id = setTimeout(() => setPos(null), Math.max(0, seenAt + FRESH_MS - Date.now()));
+    return () => clearTimeout(id);
+  }, [seenAt]);
 
   useEffect(() => {
     const supabase = createClient();

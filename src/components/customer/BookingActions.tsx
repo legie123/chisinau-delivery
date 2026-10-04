@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { cancelVenueBooking, confirmVenueBooking } from "@chisinau/shared-api";
+import { cancelVenueBooking, confirmVenueBooking, RpcError } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/client";
 import { markBookingConfirmed } from "@/components/customer/BookingConfirmedFocus";
 
@@ -44,7 +44,7 @@ export function BookingActions({
         }
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "A apărut o eroare.");
+        setError(err instanceof RpcError ? err.userMessage : "Nu am putut actualiza rezervarea. Încearcă din nou.");
       }
     });
   }

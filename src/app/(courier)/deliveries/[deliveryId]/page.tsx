@@ -13,14 +13,18 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: courier } = await supabase
+  // A FAILED read is not "this delivery is gone": only an empty answer means reassigned or missing.
+  // A failed one goes to the error boundary (with retry) instead of "Livrarea nu există" + GPS off.
+  const { data: courier, error: courierError } = await supabase
     .from("couriers")
     .select("id")
     .eq("user_id", user?.id ?? "")
     .maybeSingle();
+  if (courierError) throw new Error("Nu am putut încărca livrarea. Încearcă din nou.");
   if (!courier) notFound();
 
-  const { data: order } = await supabase.from("orders").select("*").eq("id", deliveryId).single();
+  const { data: order, error: orderError } = await supabase.from("orders").select("*").eq("id", deliveryId).maybeSingle();
+  if (orderError) throw new Error("Nu am putut încărca livrarea. Încearcă din nou.");
   if (!order) notFound();
 
   const typedOrder = order as Order;
@@ -60,7 +64,7 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
-      <DeliveryLive orderId={typedOrder.id} />
+      <DeliveryLive orderId={typedOrder.id} status={typedOrder.status} />
       <h1 className="mb-5 text-2xl font-bold text-white">Livrare {typedOrder.order_number}</h1>
 
       <DeliveryProgress status={typedOrder.status} />

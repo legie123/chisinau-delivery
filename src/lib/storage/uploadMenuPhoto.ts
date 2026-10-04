@@ -24,7 +24,10 @@ function assertMenuPhotoDimensions(bitmap: ImageBitmap): void {
 // Resize/re-encode client-side before upload, matching the pattern already
 // proven at La Fratii Bikes — keeps menu photos small without a server step.
 async function compressImage(file: File, validate?: (bitmap: ImageBitmap) => void): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
+  // HEIC, PDF or a corrupt file: the browser throws "The source image could not be decoded." (EN).
+  const bitmap = await createImageBitmap(file).catch(() => {
+    throw new Error("Imaginea nu poate fi citită — încearcă o fotografie JPG sau PNG.");
+  });
   validate?.(bitmap);
   const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);

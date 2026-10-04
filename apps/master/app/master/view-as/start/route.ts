@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { mapPgError } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/server";
 import { VIEW_HOME, VIEW_PREFIX } from "@/lib/viewAs/paths";
 import {
@@ -54,7 +55,12 @@ export async function POST(request: NextRequest) {
   });
   if (error || !session) {
     // start_view_as raises Romanian messages; PGRST202 = the function is missing (migration not applied).
-    const why = error?.code === "PGRST202" ? "Vizualizarea nu e instalată în baza de date (lipsește migrarea viewer)." : error?.message;
+    const why =
+      error?.code === "PGRST202"
+        ? "Vizualizarea nu e instalată în baza de date (lipsește migrarea viewer)."
+        : error
+          ? mapPgError(error)
+          : undefined;
     return backToPicker(request, why ?? "Vizualizarea nu a pornit.");
   }
 

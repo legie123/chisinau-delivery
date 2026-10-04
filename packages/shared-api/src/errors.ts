@@ -82,6 +82,7 @@ export const KNOWN_ERRORS: [string, string][] = [
   ["ledger-ul de payout este imutabil", "O plată decontată nu se mai modifică — corecția se face printr-o tranzacție nouă."],
   // unique constraints a user can hit (23505 names the constraint)
   ["restaurants_slug_key", "Slug-ul este deja folosit de alt restaurant — alege altul."],
+  ["profiles_pkey", "Există deja un cont pentru această persoană — invitația nu a creat nimic nou."],
   ["effective_from_key", "Există deja o versiune care intră în vigoare exact la acest moment — alege alt moment."],
 ];
 
@@ -125,12 +126,15 @@ export function mapPgError(error: PostgrestError): string {
 /** Supabase Storage upload errors (menu photos, delivery proof, KYC): Romanian, never raw. */
 export function storageErrorText(error: { message?: string; status?: number; statusCode?: string | number }): string {
   const msg = error.message ?? "";
-  const status = Number(error.status ?? error.statusCode);
+  // StorageApiError.status is the HTTP status of the wrapper (always 400); statusCode is the real one.
+  const status = Number(error.statusCode ?? error.status);
   if (status === 413 || /exceeded the maximum allowed size|payload too large|too large/i.test(msg)) return "Fișierul e prea mare.";
   if (/mime type|invalid_mime_type|not supported/i.test(msg)) return "Formatul fișierului nu e acceptat.";
   if (status === 401 || status === 403 || /row-level security|unauthorized|not allowed/i.test(msg)) {
     return "Nu ai permisiunea să încarci acest fișier.";
   }
+  if (status === 409 || /already exists|duplicate/i.test(msg)) return "Fișierul există deja — alege-l din nou.";
+  if (/could not be decoded|decode/i.test(msg)) return "Imaginea nu poate fi citită — încearcă o fotografie JPG sau PNG.";
   return "Încărcarea a eșuat — verifică conexiunea și încearcă din nou.";
 }
 

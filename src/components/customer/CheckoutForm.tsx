@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { confirmOnlinePayment, placeOrder, setOrderTip, startOnlinePayment } from "@chisinau/shared-api";
+import { confirmOnlinePayment, placeOrder, RpcError, setOrderTip, startOnlinePayment } from "@chisinau/shared-api";
 import { createClient } from "@/lib/supabase/client";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
 import { useCartReconcile } from "@/hooks/useCartReconcile";
@@ -349,7 +349,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
       clear();
       router.push(`/orders/${payStep.orderId}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Plata nu a putut fi confirmată. Încearcă din nou.");
+      setError(err instanceof RpcError ? err.userMessage : "Plata nu a putut fi confirmată. Încearcă din nou.");
       setPending(false);
     }
   }

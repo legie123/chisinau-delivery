@@ -42,11 +42,12 @@ export function DocumentUpload({
       }
 
       const ext = file.name.split(".").pop()?.toLowerCase() || "bin";
-      const path = `${user.id}/${applicationId}-${docType}.${ext}`;
+      // A fresh path per attempt, plain INSERT: a retry to the same path needed an UPDATE policy
+      // kyc-documents deliberately lacks (a recorded KYC file must not be swappable), so every
+      // retry after a failed addKycDocument was refused for good (verifier, 2026-10-04).
+      const path = `${user.id}/${applicationId}-${docType}-${crypto.randomUUID()}.${ext}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("kyc-documents")
-        .upload(path, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage.from("kyc-documents").upload(path, file);
       if (uploadError) {
         setStatus("error");
         setError(storageErrorText(uploadError));
