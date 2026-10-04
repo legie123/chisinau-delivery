@@ -38,9 +38,13 @@ export function DeliveryLive({ orderId }: { orderId: string }) {
   // Reasignarea e rară dar scumpă, iar curierul e pe stradă: 15s e destul de
   // des ca să prindă pierderea comenzii înainte să bată la ușa restaurantului,
   // fără să reîmprospăteze pagina sub degetul lui la fiecare secundă.
+  // Și cu realtime sănătos: după admin_reassign_courier RLS ascunde chiar UPDATE-ul
+  // care ar anunța pierderea, deci abonarea nu se declanșează niciodată, iar pagina
+  // veche transmitea clientului poziția fostului curier (verificator, 2026-10-04).
+  // La 30s pagina se re-randează, comanda dispărută dă notFound și hook-ul GPS se
+  // demontează.
   useEffect(() => {
-    if (!degraded) return;
-    const id = setInterval(() => router.refresh(), 15000);
+    const id = setInterval(() => router.refresh(), degraded ? 15000 : 30000);
     return () => clearInterval(id);
   }, [degraded, router]);
 
