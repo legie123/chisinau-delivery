@@ -49,10 +49,12 @@ begin
 
   -- Postgres grants EXECUTE to PUBLIC on every new function: a migration that forgets
   -- `revoke execute ... from public` hands its function to the viewer. This is the tripwire.
+  -- The fix needs BOTH lines: postgres-owned functions in public get no default grant to the API
+  -- roles (pg_default_acl = {postgres=X}), so a bare revoke locks customers out with 42501.
   select string_agg(p.oid::regprocedure::text, ', ') into v_bad from pg_proc p
   where p.pronamespace = 'public'::regnamespace and has_function_privilege('public', p.oid, 'EXECUTE');
   if v_bad is not null then
-    raise exception 'FAIL 73.a4: public functions executable by PUBLIC (add revoke execute ... from public): %', v_bad;
+    raise exception 'FAIL 73.a4: public functions executable by PUBLIC: % — fix: revoke execute on function <fn> from public; grant execute on function <fn> to <the roles that call it: anon / authenticated / service_role>', v_bad;
   end if;
   raise notice 'PASS 73.a4: no public function is executable by PUBLIC';
 

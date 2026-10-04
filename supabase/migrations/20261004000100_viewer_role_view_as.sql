@@ -291,6 +291,17 @@ begin
     cross join (values ('anon'), ('authenticated'), ('service_role')) as api(rolname)
     where p.pronamespace = 'public'::regnamespace;
 
+  -- Hard rule 7: the shared remote project also holds the dormant Trade-AI objects. Every sweep
+  -- below skips them, so the remote sync never touches their grants, policies or function ACLs
+  -- (verifier, 2026-10-04). Same name predicate as 20261003000100; functions by the same prefixes.
+  create temp table _trade_ai on commit drop as
+    select 'pg_class'::regclass as cat, c.oid from pg_class c
+    where c.relnamespace = 'public'::regnamespace
+      and (c.relname like 'poly%' or c.relname like 'gladiator%' or c.relname in ('equity_history', 'syndicate_audits'))
+    union all
+    select 'pg_proc'::regclass, p.oid from pg_proc p
+    where p.pronamespace = 'public'::regnamespace and (p.proname like 'poly%' or p.proname like 'gladiator%');
+
   -- 5a. SELECT on every relation in public that authenticated can SELECT (effective privilege).
   for r in
     select c.oid::regclass as rel
@@ -298,6 +309,7 @@ begin
     where c.relnamespace = 'public'::regnamespace
       and c.relkind in ('r', 'p', 'v', 'm', 'f')
       and has_table_privilege('authenticated', c.oid, 'SELECT')
+      and c.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_class'::regclass)
   loop
     execute format('grant select on %s to viewer', r.rel);
     n_grants := n_grants + 1;
@@ -313,6 +325,7 @@ begin
       and pol.polcmd in ('r', '*')
       and 'authenticated'::regrole = any (pol.polroles)
       and not 'viewer'::regrole = any (pol.polroles)
+      and c.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_class'::regclass)
   loop
     select string_agg(case when x.oid = 0 then 'public' else quote_ident(pg_get_userbyid(x.oid)) end, ', ')
       into v_roles
@@ -327,6 +340,8 @@ begin
     from pg_class c
     where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p') and c.relrowsecurity
       and has_table_privilege('viewer', c.oid, 'SELECT')
+      and c.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_class'::regclass)
+      and not exists (select 1 from pg_policy pol where pol.polrelid = c.oid and pol.polname = 'viewer_session_live')
   loop
     execute format(
       'create policy viewer_session_live on %s as restrictive for select to viewer using ((select public.viewer_session_live()))',
@@ -346,6 +361,7 @@ begin
                       where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
       and exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) x
                   where x.grantee = 0 and x.privilege_type = 'EXECUTE')
+      and p.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_proc'::regclass)
   loop
     if r.a then execute format('grant execute on routine %s to anon', r.fn); end if;
     if r.u then execute format('grant execute on routine %s to authenticated', r.fn); end if;
@@ -389,6 +405,7 @@ begin
   -- G1 SELECT parity with authenticated (public).
   select count(*) into n_bad from pg_class c
   where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p', 'v', 'm', 'f')
+    and c.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_class'::regclass)
     and has_table_privilege('authenticated', c.oid, 'SELECT') <> has_table_privilege('viewer', c.oid, 'SELECT');
   if n_bad > 0 then raise exception 'viewer guard G1: % relations differ in SELECT from authenticated', n_bad; end if;
 
@@ -401,8 +418,11 @@ begin
   if n_bad > 0 then raise exception 'viewer guard G2: % relations writable by viewer', n_bad; end if;
 
   -- G3 no VOLATILE function in public is executable by viewer (sim 73 also keeps PUBLIC at zero).
+  --    Trade-AI functions keep their own ACL (rule 7): reachable only through PUBLIC, exactly as
+  --    by the admin's own session, so the viewer gains nothing there.
   select count(*) into n_bad from pg_proc p
   where p.pronamespace = 'public'::regnamespace and p.provolatile = 'v'
+    and p.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_proc'::regclass)
     and has_function_privilege('viewer', p.oid, 'EXECUTE');
   if n_bad > 0 then raise exception 'viewer guard G3: % volatile public functions executable by viewer', n_bad; end if;
 
@@ -414,9 +434,17 @@ begin
   -- G5 every SELECT/ALL policy that applies to authenticated also applies to viewer.
   select count(*) into n_bad from pg_policy pol join pg_class c on c.oid = pol.polrelid
   where c.relnamespace = 'public'::regnamespace
+    and c.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_class'::regclass)
     and pol.polcmd in ('r', '*') and 'authenticated'::regrole = any (pol.polroles)
     and not 'viewer'::regrole = any (pol.polroles);
   if n_bad > 0 then raise exception 'viewer guard G5: % policies miss viewer', n_bad; end if;
+
+  -- G7 hard rule 7: no Trade-AI relation gained a viewer grant or a viewer policy.
+  select count(*) into n_bad from _trade_ai t
+  where t.cat = 'pg_class'::regclass
+    and (exists (select 1 from pg_class c, aclexplode(c.relacl) x where c.oid = t.oid and x.grantee = 'viewer'::regrole)
+      or exists (select 1 from pg_policy pol where pol.polrelid = t.oid and 'viewer'::regrole = any (pol.polroles)));
+  if n_bad > 0 then raise exception 'viewer guard G7: % Trade-AI relations touched', n_bad; end if;
 
   -- G6 viewer inherits nothing.
   if exists (select 1 from pg_auth_members where member = 'viewer'::regrole)
