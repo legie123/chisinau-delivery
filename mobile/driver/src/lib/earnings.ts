@@ -79,3 +79,11 @@ export function offerNetLabel(
 export function historyNet(o: EarningsOrder, commission: CommissionSource): number | null {
   return netForOrder(o, commission);
 }
+
+// payouts.period_start/end are DATES ("2026-11-02"): `new Date` reads them as UTC midnight, so they
+// are formatted in UTC — in the phone's zone a courier west of UTC saw every period a day early.
+// Same as the web's fmtDate (src/app/(courier)/earnings/page.tsx).
+export function payoutPeriodLabel(start: string, end: string): string {
+  const fmt = (d: string) => new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", timeZone: "UTC" });
+  return `${fmt(start)} – ${fmt(end)}`;
+}

@@ -63,9 +63,30 @@ describe("offer push tap → Map tab + immediate refetch", () => {
     const app = readFileSync(path.join(root, "App.tsx"), "utf8");
     expect(app).toMatch(/onOfferTapped\(/);
     expect(app).toMatch(/<NavigationContainer ref=\{navRef\} onReady=\{flushOfferTap\}>/);
-    expect(app).toMatch(/navRef\.navigate\('Main', \{ screen: 'Map', params: \{ offerTapAt: Date\.now\(\) \} \}\)/);
+    expect(app).toMatch(/navRef\.navigate\('Main', \{ screen: 'Map', params: \{ offerTapAt: Date\.now\(\) \} \}, \{ pop: true \}\)/);
     const map = readFileSync(path.join(root, "src/screens/MapScreen.tsx"), "utf8");
     expect(map).toMatch(/if \(offerTapAt\) void refreshOffer\(\);/);
+  });
+
+  it("from a stale ActiveDelivery the tap goes BACK to the Main tabs, not a second MainTabs on top (LOW)", async () => {
+    // The app's own stack (App.tsx: Main + ActiveDelivery) on React Navigation 7's real StackRouter.
+    const { StackRouter, CommonActions } = await import("@react-navigation/routers");
+    const router = StackRouter({});
+    const options = { routeNames: ["Main", "ActiveDelivery"], routeParamList: {}, routeGetIdList: {} };
+    const stale = router.getStateForAction(
+      router.getInitialState(options),
+      CommonActions.navigate("ActiveDelivery", { order: { id: "o1" } }),
+      options,
+    )!;
+    const tap = { screen: "Map", params: { offerTapAt: 1 } };
+    // navigate(name, params) PUSHES in v7: a second MapScreen polling, the dead order kept underneath.
+    const pushed = router.getStateForAction(stale, CommonActions.navigate("Main", tap), options)!;
+    expect(pushed.routes.map((r) => r.name)).toEqual(["Main", "ActiveDelivery", "Main"]);
+    // { pop: true } — what App.tsx passes — returns to the Main already at the bottom.
+    const popped = router.getStateForAction(stale, CommonActions.navigate("Main", tap, { pop: true }), options)!;
+    expect(popped.routes.map((r) => r.name)).toEqual(["Main"]);
+    expect(popped.routes[0].key).toBe(stale.routes[0].key);
+    expect(popped.routes[0].params).toEqual(tap); // its tab navigator opens Map with the fresh offerTapAt
   });
 
   it("an offer tapped on ActiveDelivery opens the offer unless the server still has a delivery on his hands (LOW)", () => {

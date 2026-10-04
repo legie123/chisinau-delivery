@@ -16,6 +16,7 @@ import {
   type PricingVersion,
 } from "@chisinau/shared-domain";
 import type { OfferId, OrderId } from "@chisinau/shared-types";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import {
   fetchCommissionPct,
@@ -86,10 +87,12 @@ export async function signIn(email: string, password: string): Promise<string | 
   return null;
 }
 
-/** App start: is the stored session a courier's? No session / no couriers row → false (and signed out). Offline → trusted. */
+/** App start: is the stored session a courier's? Signed out / no couriers row → false (and signed out). Offline or lapsed → trusted. */
 export async function restoreCourierSession(): Promise<boolean> {
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) return false;
+  const { data, error } = await supabase.auth.getSession();
+  // No session + a retryable refresh failure = a stored session that lapsed in a dead zone (auth-js
+  // keeps it): "cannot tell", not the login screen. A revoked one is removed (SIGNED_OUT) → false.
+  if (!data.session) return isAuthRetryableFetchError(error);
   const courierId = await getMyCourierId().catch(() => undefined); // undefined = cannot tell right now
   if (courierId !== null) return true;
   await supabase.auth.signOut({ scope: "local" });
@@ -100,7 +103,8 @@ export async function restoreCourierSession(): Promise<boolean> {
 // no background GPS, no push token, and no "online" status that would keep
 // sending them offers they can no longer see. A step that fails is RETURNED
 // (Romanian) and the session is kept, so the courier can retry with signal —
-// unless `force`, the explicit „Deconectează oricum”.
+// `force` (the explicit „Deconectează oricum”) skips those, but not the local
+// sign-out itself: when that fails he is still signed in, and is told so.
 export async function signOut(force = false): Promise<string | null> {
   if (!force) {
     // couriers.status alone is not proof of "no delivery": a cash-cap auto-offline turns an
@@ -134,14 +138,18 @@ export async function signOut(force = false): Promise<string | null> {
     return `Deconectarea nu e completă: ${failed.join("; ")}. Nu te-am deconectat — încearcă din nou.`;
   }
   courierIdCache = null;
-  try {
-    await supabase.auth.signOut({ scope: "local" });
-  } catch {
-    // Clearing the local session threw (e.g. an Android keystore error): still signed in.
-    await registerForPush().catch(() => undefined);
-    return "Deconectarea nu e completă: sesiunea nu a putut fi închisă pe acest telefon. Încearcă din nou.";
+  const local = await supabase.auth.signOut({ scope: "local" }).catch(() => null);
+  if (!local) {
+    // Clearing the local session threw (e.g. an Android keystore error) — possibly after /logout
+    // already revoked it on the server, so the push token is NOT bound again on it (verifier, 2026-10-04).
+    const push = pushDeleted ? " Notificările de oferte sunt oprite pe acest telefon." : "";
+    return `Deconectarea nu e completă: sesiunea nu a putut fi închisă pe acest telefon.${push} Încearcă din nou.`;
   }
-  return null;
+  if (!local.error) return null;
+  // auth-js RETURNS this and keeps the session when /logout is not confirmed (no signal, GoTrue
+  // 5xx/429, a lapsed session): still signed in, so a token deleted above is bound again.
+  if (pushDeleted) await registerForPush().catch(() => undefined);
+  return "Deconectarea nu e completă: serverul nu a confirmat închiderea sesiunii. Nu te-am deconectat — încearcă din nou când ai semnal.";
 }
 
 const ACTIVE_DELIVERY_STATUSES = ["courier_assigned", "picked_up", "en_route"];
@@ -161,11 +169,15 @@ export async function hasActiveDelivery(): Promise<boolean> {
 }
 
 // couriers RLS (couriers_self_read) only returns the caller's own row.
+// null = signed in, not a courier. No session at hand is a lapse (refresh failing, keychain
+// mid-rewrite) as often as a sign-out — and a signed-out phone is on the login screen anyway — so
+// it throws "cannot tell": as null it stopped GPS mid-delivery in MapScreen and let an offer tap
+// or a sign-out through hasActiveDelivery (verifier, 2026-10-04).
 let courierIdCache: { userId: string; courierId: string | null } | null = null;
 export async function getMyCourierId(): Promise<string | null> {
   const { data: session } = await supabase.auth.getSession();
   const userId = session.session?.user.id;
-  if (!userId) return null;
+  if (!userId) throw new TypeError("network: no courier session");
   if (courierIdCache?.userId === userId) return courierIdCache.courierId;
   const { data, error } = await supabase.from("couriers").select("id").maybeSingle();
   if (error) throw new Error(error.message);

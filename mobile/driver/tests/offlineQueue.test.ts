@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   status: "cancelled",
   visible: true, // false = RLS hides the order (reassigned to another courier)
-  session: true, // false = the session lapsed: the read went out as anon (also no row)
+  session: true, // false = the session lapsed: the client refuses the read (an anon one would see no row)
   connected: true,
   failGet: false,
   store: new Map<string, string>(),
@@ -23,16 +23,19 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
-// PostgREST on 0 rows: .single() errors (PGRST116), .maybeSingle() returns null.
+// PostgREST on 0 rows: .single() errors (PGRST116), .maybeSingle() returns null. With no session
+// the app's client does not send the read at all: it answers "network: no courier session".
 const zeroRows = { code: "PGRST116", message: "Cannot coerce the result to a single JSON object", details: "The result contains 0 rows", hint: null };
 vi.mock("../src/lib/supabase", () => ({
   supabase: {
-    auth: { getSession: async () => ({ data: { session: h.session ? { user: { id: "k" } } : null } }) },
     from: () => ({
       select: () => ({
         eq: () => ({
           single: async () => (h.visible ? { data: { status: h.status }, error: null } : { data: null, error: zeroRows }),
-          maybeSingle: async () => ({ data: h.visible ? { status: h.status } : null, error: null }),
+          maybeSingle: async () =>
+            h.session
+              ? { data: h.visible ? { status: h.status } : null, error: null }
+              : { data: null, error: { message: "network: no courier session" } },
         }),
       }),
     }),

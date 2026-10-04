@@ -178,11 +178,14 @@ describe("sign-out failures are surfaced, not console.warn'ed (LOW a)", () => {
     expect(h.signOutCalls).toBe(0);
   });
 
-  it("the local sign-out throws (keystore) → Romanian message, token bound again, never the raw error", async () => {
+  it("the local sign-out throws (keystore) → Romanian message, never the raw error; the token is NOT bound again", async () => {
+    // auth-js clears the keychain AFTER /logout revoked the session on the server: binding the
+    // push token on it kept this phone receiving the courier's offers after the session died (LOW).
     h.signOutThrows = true;
     const msg = await api.signOut();
     expect(msg).toMatch(/sesiunea nu a putut fi închisă/);
-    expect(h.calls).toContain("bindPushToken");
+    expect(msg).toMatch(/Notificările de oferte sunt oprite/);
+    expect(h.calls).toEqual(["stopGPS", "deletePushToken"]);
   });
 });
 

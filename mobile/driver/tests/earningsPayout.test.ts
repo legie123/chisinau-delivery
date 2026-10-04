@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fetchCommissionPct, fetchEarningsSince, fetchTodayEarnings, fetchWeekEarnings, historyNet } from "../src/lib/earnings";
 
@@ -68,6 +70,17 @@ describe("Azi / Săptămâna aceasta are Europe/Chisinau windows on a phone set 
     const { db, filters } = fakeDb([]);
     await fetchTodayEarnings(db, "c1", 15, new Date("2026-08-14T07:00:00Z"));
     expect(filters).toContain("gte(delivered_at,2026-08-13T21:00:00.000Z)");
+  });
+
+  it("a payout period is labelled with its own dates, not the day before (LOW: dates read as UTC instants)", async () => {
+    const { payoutPeriodLabel } = (await import("../src/lib/earnings")) as Record<string, unknown> as {
+      payoutPeriodLabel?: (start: string, end: string) => string;
+    };
+    expect(typeof payoutPeriodLabel).toBe("function");
+    expect(payoutPeriodLabel!("2026-11-02", "2026-11-08")).toBe("2 nov. – 8 nov."); // was "1 nov. – 7 nov."
+    const screen = readFileSync(path.resolve(__dirname, "../src/screens/EarningsScreen.tsx"), "utf8");
+    expect(screen).toMatch(/payoutPeriodLabel\(p\.periodStart, p\.periodEnd\)/);
+    expect(screen).not.toMatch(/toLocaleDateString/);
   });
 
   it("the week is Monday 00:00 .. next Monday 00:00 Chisinau", async () => {

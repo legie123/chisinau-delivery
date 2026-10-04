@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { fetchEarningsSummary, fetchCashStatus, userMessage, EarningsSummary, PayoutRow } from '../lib/api';
+import { payoutPeriodLabel } from '../lib/earnings';
 import type { CourierCashStatus } from '@chisinau/shared-api';
 
 const PAYOUT_STATUS_LABEL: Record<PayoutRow['status'], string> = {
@@ -17,11 +18,6 @@ const PAYOUT_STATUS_COLOR: Record<PayoutRow['status'], string> = {
   failed: COLORS.primary,
   pending: COLORS.gold,
 };
-
-function formatPeriod(start: string, end: string) {
-  const fmt = (d: string) => new Date(d).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short' });
-  return `${fmt(start)} – ${fmt(end)}`;
-}
 
 // Mirrors src/app/(courier)/earnings/page.tsx: this calendar week NET after
 // the live commission (shared-domain summarizeEarnings — the model payouts use),
@@ -138,7 +134,7 @@ export default function EarningsScreen() {
               summary.payouts.map((p) => (
                 <View key={p.id} style={styles.payoutCard}>
                   <View style={styles.payoutHeader}>
-                    <Text style={styles.payoutPeriod}>{formatPeriod(p.periodStart, p.periodEnd)}</Text>
+                    <Text style={styles.payoutPeriod}>{payoutPeriodLabel(p.periodStart, p.periodEnd)}</Text>
                     <View
                       style={[
                         styles.statusBadge,

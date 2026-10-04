@@ -11,14 +11,18 @@ const h = vi.hoisted(() => {
     hasStartedThrows: false,
     order: { status: "en_route", courier_id: "c1" } as { status: string; courier_id: string } | null,
     orderReadFails: false,
-    session: true, // false = the session lapsed (reads go out as anon)
+    session: true, // false = the session lapsed: the client refuses the read (src/lib/supabase.ts)
     orderGate: null as Promise<void> | null, // holds the orders read in flight
+    platform: { OS: "android" as "android" | "ios" },
+    options: null as null | { timeInterval: number; distanceInterval: number },
     queue: [] as { orderId: string; newStatus: string }[],
     channels: [] as { name: string; sends: unknown[]; onStatus: ((s: string) => void) | null; removed: boolean }[],
     upserts: [] as unknown[],
   };
   return { store, state };
 });
+
+vi.mock("react-native", () => ({ Platform: h.state.platform }));
 
 vi.mock("expo-task-manager", () => ({
   defineTask: (_name: string, fn: typeof h.state.task) => {
@@ -35,8 +39,9 @@ vi.mock("expo-location", () => ({
     if (h.state.hasStartedThrows) throw new Error("TaskManager not ready");
     return h.state.started;
   }),
-  startLocationUpdatesAsync: vi.fn(async () => {
+  startLocationUpdatesAsync: vi.fn(async (_task: string, options: typeof h.state.options) => {
     h.state.started = true;
+    h.state.options = options;
   }),
   stopLocationUpdatesAsync: vi.fn(async () => {
     h.state.started = false;
@@ -59,14 +64,13 @@ vi.mock("../src/lib/supabase", () => {
     eq: () => ordersQuery,
     maybeSingle: async () => {
       await h.state.orderGate;
-      return h.state.orderReadFails
-        ? { data: null, error: { message: "TypeError: Network request failed" } }
-        : { data: h.state.order, error: null };
+      if (h.state.orderReadFails) return { data: null, error: { message: "TypeError: Network request failed" } };
+      if (!h.state.session) return { data: null, error: { message: "network: no courier session" } };
+      return { data: h.state.order, error: null };
     },
   };
   return {
     supabase: {
-      auth: { getSession: async () => ({ data: { session: h.state.session ? { user: { id: "u1" } } : null } }) },
       realtime: { setAuth: async () => undefined },
       channel: (name: string) => {
         const c = { name, sends: [] as unknown[], onStatus: null as ((s: string) => void) | null, removed: false };
@@ -114,10 +118,12 @@ beforeEach(async () => {
     orderReadFails: false,
     session: true,
     orderGate: null,
+    options: null,
     queue: [],
     channels: [],
     upserts: [],
   });
+  h.state.platform.OS = "android";
 });
 
 describe("first fix is not lost (LOW: send before the private channel joined)", () => {
@@ -172,7 +178,7 @@ describe("GPS privacy: positions only during picked_up / en_route (MED)", () => 
     expect(h.state.started).toBe(false);
   });
 
-  it("row hidden because the session LAPSED (anon read): keeps tracking, sends nothing, does not stop", async () => {
+  it("the session LAPSED (the read is refused, not answered with no row): keeps tracking, sends nothing, does not stop", async () => {
     h.state.order = null;
     h.state.session = false;
     await gps.startDeliveryTracking("o1", "c1");
@@ -239,6 +245,46 @@ describe("Android start refused in the background is retried (LOW)", () => {
     await resume(); // app back in the foreground
     expect(h.state.started).toBe(true);
     expect(await gps.trackedOrderId()).toBe("o1");
+  });
+});
+
+describe("a courier waiting at the pickup stays on the restaurant's map (LOW: 2-min RLS bound, 20261004000700)", () => {
+  // The OS side, as expo-location 19 configures it: a fix every timeInterval, dropped when the phone
+  // moved less than distanceInterval since the last one delivered (Android setMinUpdateDistanceMeters).
+  async function standStill(ms: number) {
+    const { timeInterval, distanceInterval } = h.state.options!;
+    const t0 = Date.now();
+    let now = t0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const upsertAt: number[] = [];
+    try {
+      for (let delivered = 0; now - t0 <= ms; now += timeInterval) {
+        const moved = delivered === 0 ? Infinity : 0; // same spot at the restaurant's door
+        if (moved < distanceInterval) continue;
+        delivered += 1;
+        const before = h.state.upserts.length;
+        await h.state.task!(fix(47.01));
+        if (h.state.upserts.length > before) upsertAt.push(now);
+      }
+      return { upsertAt, end: now - timeInterval, t0 };
+    } finally {
+      clock.mockRestore();
+    }
+  }
+
+  it("Android: 2 min standing still, the courier_locations row is never older than ~50 s", async () => {
+    h.state.order = { status: "courier_assigned", courier_id: "c1" };
+    await gps.startDeliveryTracking("o1", "c1");
+    const { upsertAt, end } = await standStill(120_000);
+    expect(upsertAt.length).toBeGreaterThanOrEqual(3); // was 1: the 25 m filter delivered no fix after it
+    expect(end - upsertAt[upsertAt.length - 1]).toBeLessThan(60_000);
+    expect(sentPoints()).toEqual([]); // courier_assigned: still nothing to the customer
+  });
+
+  it("iOS keeps its 25 m filter (no timeInterval there: 0 would mean a fix and a server read per second)", async () => {
+    h.state.platform.OS = "ios";
+    await gps.startDeliveryTracking("o1", "c1");
+    expect(h.state.options).toMatchObject({ timeInterval: 10_000, distanceInterval: 25 });
   });
 });
 

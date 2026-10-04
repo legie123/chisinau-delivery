@@ -7,20 +7,27 @@ import { advanceThrough, makeQueueAdvance } from "../src/lib/advance";
 // against the real transition map, raises "invalid transition" otherwise, and
 // can drop off the network.
 function fakeDb(initial: string) {
-  // visible=false: RLS hides the row (reassigned to another courier — or, with session=false, a
-  // lapsed session whose request went out with the anon key).
+  // visible=false: RLS hides the row from the courier's own token (reassigned to another courier).
+  // session=false: the session lapsed — the app's client then never sends the read (an anon one
+  // would see no row too) and answers it with this network-shaped error (src/lib/supabase.ts; on
+  // the real supabase-js in lapsedSession.test.ts).
   const state = { status: initial, offline: false, visible: true, session: true, hops: [] as { to: string; paid: unknown }[] };
   const networkError = { message: "TypeError: Network request failed", code: "", details: "", hint: "" };
+  const noSession = { message: "network: no courier session" };
   const zeroRows = { message: "Cannot coerce the result to a single JSON object", code: "PGRST116", details: "The result contains 0 rows", hint: "" };
   const row = () => (state.visible ? { status: state.status } : null);
   const db = {
-    auth: { getSession: async () => ({ data: { session: state.session ? { user: { id: "k" } } : null } }) },
     from: () => ({
       select: () => ({
         eq: () => ({
           single: async () =>
             state.offline ? { data: null, error: networkError } : row() ? { data: row(), error: null } : { data: null, error: zeroRows },
-          maybeSingle: async () => (state.offline ? { data: null, error: networkError } : { data: row(), error: null }),
+          maybeSingle: async () =>
+            state.offline
+              ? { data: null, error: networkError }
+              : state.session
+                ? { data: row(), error: null }
+                : { data: null, error: noSession },
         }),
       }),
     }),
@@ -115,9 +122,9 @@ describe("offline queue replay (BLOCKER: 'pickup + deliver in a dead zone' must 
     expect(state.hops).toEqual([]);
   });
 
-  it("a LAPSED session (anon key, row hidden) keeps 'am livrat' queued — it is not a reassignment", async () => {
-    // Token expired while offline and the refresh failed: supabase-js sends the anon key, RLS
-    // returns no row. e35e10d read that as "reassigned" and dropped the tap with no banner.
+  it("a LAPSED session keeps 'am livrat' queued — it is not a reassignment", async () => {
+    // Token expired while offline and the refresh failed: an anon read would see no row, which
+    // e35e10d read as "reassigned" (dropped with no banner). The client refuses to send it instead.
     const { db, state } = fakeDb("en_route");
     state.visible = false;
     state.session = false;

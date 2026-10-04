@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import * as TaskManager from "expo-task-manager";
@@ -73,16 +74,13 @@ async function readTracking(): Promise<Tracking | null> {
   return raw ? (JSON.parse(raw) as Tracking) : null;
 }
 
-// undefined = could not ask the server (offline); null = not this courier's order any more.
+// undefined = could not ask the server (offline, or no courier session: the client refuses to send
+// the read then, ./supabase); null = not this courier's order any more — a no-row answer can only
+// come from a read made with the courier's own token.
 async function serverStatus(t: Tracking): Promise<string | null | undefined> {
   try {
     const { data, error } = await supabase.from("orders").select("status, courier_id").eq("id", t.orderId).maybeSingle();
     if (error) return undefined;
-    if (!data) {
-      // A lapsed session reads as anon and sees no row: that is "cannot tell", not "not mine".
-      const { data: s } = await supabase.auth.getSession();
-      if (!s.session) return undefined;
-    }
     return data && data.courier_id === t.courierId ? data.status : null;
   } catch {
     return undefined;
@@ -147,7 +145,11 @@ export async function startDeliveryTracking(orderId: string, courierId: string):
     await Location.startLocationUpdatesAsync(LOCATION_TASK, {
       accuracy: Location.Accuracy.High,
       timeInterval: 10_000,
-      distanceInterval: 25,
+      // Android: a fix every 10 s even standing still (the web's ~10 s cadence), so the 45 s upsert
+      // keeps a courier waiting at the pickup inside the restaurant's 2-min RLS bound
+      // (20261004000700); 25 m gated every fix on movement and he vanished from its map. iOS has no
+      // timeInterval: 0 there means a fix (and a server read) per second, so iOS stays at 25 m.
+      distanceInterval: Platform.OS === "android" ? 0 : 25,
       pausesUpdatesAutomatically: false,
       activityType: Location.ActivityType.OtherNavigation,
       showsBackgroundLocationIndicator: true,

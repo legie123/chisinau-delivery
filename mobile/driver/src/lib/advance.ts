@@ -22,16 +22,11 @@ export async function advanceThrough(
   paymentConfirmed?: boolean,
 ): Promise<void> {
   const { data, error } = await db.from("orders").select("status").eq("id", orderId).maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) {
-    // No row: the order is another courier's now (admin_reassign_courier) — OR this phone's session
-    // lapsed (token expired, refresh failed) and supabase-js sent the anon key, which RLS answers
-    // with no row too. Only the first is final: a lapsed session must keep "am livrat" queued
-    // (verifier, 2026-10-04: it dropped the tap silently and closed a live delivery).
-    const { data: s } = await db.auth.getSession();
-    if (!s.session) throw new TypeError("network: no courier session");
-    throw new Error(`invalid transition reassigned -> ${target}`);
-  }
+  if (error) throw new Error(error.message); // also "network: no courier session" (./supabase): stays queued
+  // No row for a read made WITH the courier's token — the app's client never sends it without one
+  // (./supabase) — so the order is another courier's now (admin_reassign_courier). A session check
+  // after the read raced a refresh and dropped a queued "am livrat" (verifier, 2026-10-04).
+  if (!data) throw new Error(`invalid transition reassigned -> ${target}`);
   let current = data.status as OrderStatus;
   if (current === target) return;
 

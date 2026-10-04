@@ -117,9 +117,12 @@ export default function App() {
       .then(setSignedIn)
       .catch((err: unknown) => console.warn('[auth] getSession', err))
       .finally(() => setChecking(false));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) setSignedIn(false);
-      if (event === 'SIGNED_OUT') void stopDeliveryTracking().catch((err: unknown) => console.warn('[gps] stop', err));
+    // Only a real sign-out leaves: INITIAL_SESSION also comes without a session when the stored one
+    // lapsed (refresh failing in a dead zone) — "cannot tell", as in restoreCourierSession.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event !== 'SIGNED_OUT') return;
+      setSignedIn(false);
+      void stopDeliveryTracking().catch((err: unknown) => console.warn('[gps] stop', err));
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -131,7 +134,9 @@ export default function App() {
   const flushOfferTap = useCallback(() => {
     if (!pendingOfferTap.current || !navRef.isReady()) return;
     pendingOfferTap.current = false;
-    const toOffer = () => navRef.navigate('Main', { screen: 'Map', params: { offerTapAt: Date.now() } });
+    // pop: back to the Main tabs already at the bottom of the stack — React Navigation 7's navigate
+    // pushed a second MainTabs over a stale ActiveDelivery (verifier, 2026-10-04).
+    const toOffer = () => navRef.navigate('Main', { screen: 'Map', params: { offerTapAt: Date.now() } }, { pop: true });
     if (navRef.getCurrentRoute()?.name !== 'ActiveDelivery') return toOffer();
     // On ActiveDelivery the push is stale only while the server still has an order on his hands
     // (offers go to online couriers): going to Map would pop a live delivery. A screen left open
