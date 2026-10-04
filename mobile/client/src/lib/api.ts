@@ -42,21 +42,25 @@ const RESTAURANT_COLS =
 /** Restaurants that DELIVER (spa/lounges are booked, not ordered — same as the web list).
  *  With a position, nearby_restaurants sorts them by distance (fail-open to alphabetical). */
 export async function fetchRestaurants(position?: { lat: number; lng: number } | null): Promise<Restaurant[]> {
-  const [{ data, error }, { data: hours }, nearby] = await Promise.all([
-    supabase.from("restaurants").select(RESTAURANT_COLS).eq("is_active", true).in("venue_type", ["restaurant", "sushi_bar"]).order("name"),
-    supabase.from("restaurant_hours").select("restaurant_id, day_of_week, opens_at, closes_at, is_closed"),
+  // Hours embedded per restaurant: a separate whole-table read is cut at PostgREST
+  // max_rows (1000), and every restaurant past the cut showed closed.
+  const [{ data, error }, nearby] = await Promise.all([
+    supabase
+      .from("restaurants")
+      .select(`${RESTAURANT_COLS}, restaurant_hours(restaurant_id, day_of_week, opens_at, closes_at, is_closed)`)
+      .eq("is_active", true)
+      .in("venue_type", ["restaurant", "sushi_bar"])
+      .order("name"),
     position ? nearbyRestaurants(supabase, position.lat, position.lng, 15, 50) : Promise.resolve([]),
   ]);
   if (error) throw new Error(error.message);
-  const rows = (data ?? []) as RestaurantRow[];
+  const rows = (data ?? []) as (RestaurantRow & { restaurant_hours: HoursRow[] })[];
   const estimates = await getPrepEstimates(supabase, rows.map((r) => r.id));
   const byId = new Map(estimates.map((e) => [e.restaurant_id, e]));
   const distance = new Map(nearby.map((n) => [n.id, n.distance_m]));
-  const hoursBy = new Map<string, HoursRow[]>();
-  for (const h of (hours ?? []) as HoursRow[]) hoursBy.set(h.restaurant_id, [...(hoursBy.get(h.restaurant_id) ?? []), h]);
   const { dow, time } = chisinauNow();
 
-  const list = rows.map((r) => toRestaurant(r, byId.get(r.id), hoursBy.get(r.id), distance.get(r.id) ?? null, dow, time));
+  const list = rows.map((r) => toRestaurant(r, byId.get(r.id), r.restaurant_hours, distance.get(r.id) ?? null, dow, time));
   if (distance.size === 0) return list;
   return list.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
 }

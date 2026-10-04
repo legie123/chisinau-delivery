@@ -46,14 +46,18 @@ export async function registerForPush(): Promise<string> {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: id });
     const { data } = await supabase.auth.getSession();
     if (!data.session) return "signed-out";
-    await registerDevicePushToken(supabase, token, Platform.OS === "ios" ? "ios" : "android");
-    registeredToken = token;
-    await SecureStore.setItemAsync(TOKEN_KEY, token).catch(() => undefined);
+    await bind(token);
     return "registered";
   } catch (err) {
     console.warn("[push] registration failed", err);
     return "error";
   }
+}
+
+async function bind(token: string): Promise<void> {
+  await registerDevicePushToken(supabase, token, Platform.OS === "ios" ? "ios" : "android");
+  registeredToken = token;
+  await SecureStore.setItemAsync(TOKEN_KEY, token).catch(() => undefined);
 }
 
 // This device's token: this run's, the one persisted by an earlier run, or — when
@@ -76,31 +80,43 @@ async function deviceToken(): Promise<string | null> {
 }
 
 /** Call BEFORE signOut: the token row is deleted while we still own it (RLS).
- *  Throws if it could not be deleted — the caller must not sign out then. */
-export async function unregisterPush(): Promise<void> {
+ *  Throws if it could not be deleted — the caller must not sign out then.
+ *  Returns the token it unbound (null: this phone never had one). */
+export async function unregisterPush(): Promise<string | null> {
   const token = await deviceToken();
-  if (!token) return;
+  if (!token) return null;
   const { error } = await supabase.from("device_push_tokens").delete().eq("expo_token", token);
   if (error) throw new Error(error.message);
   registeredToken = null;
   await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => undefined);
+  return token;
 }
 
 export const UNBIND_FAILED = "Nu am putut opri notificările pe acest telefon — verifică conexiunea și încearcă din nou.";
 export const SIGN_OUT_FAILED = "Nu am putut încheia sesiunea — verifică conexiunea și încearcă din nou.";
+export const SIGN_OUT_FAILED_PUSH_OFF =
+  "Nu am putut încheia sesiunea, iar notificările sunt oprite pe acest telefon până repornești aplicația — verifică conexiunea și încearcă din nou.";
 
 /** The only sign-out path: a signed-out phone must never stay bound to the user
  *  (the drain would keep sending their order notifications to it). On failure the
- *  session is kept and the error (Romanian) is thrown for a retry. */
+ *  session is kept and the error (Romanian) is thrown for a retry.
+ *  ponytail: a session lost any other way (expiry, revoked refresh token) can't delete its
+ *  row any more (RLS, expired JWT); the drain must skip tokens whose session is gone. */
 export async function signOutAndUnbindPush(): Promise<void> {
+  let token: string | null;
   try {
-    await unregisterPush();
+    token = await unregisterPush();
   } catch {
     throw new Error(UNBIND_FAILED);
   }
+  // Local, like every other sign-out in the repo: the default ("global") also ends this
+  // user's sessions on their other phones, which then sit signed out but still bound.
   // A logout request that can't reach the server resolves { error } and KEEPS the session.
-  const { error } = await supabase.auth.signOut();
-  if (error) throw new Error(SIGN_OUT_FAILED);
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  if (!error) return;
+  // Still signed in, but this phone's row is already gone: bind it back, or say push is off.
+  const rebound = !token || (await bind(token).then(() => true, () => false));
+  throw new Error(rebound ? SIGN_OUT_FAILED : SIGN_OUT_FAILED_PUSH_OFF);
 }
 
 // ---- notification taps ----
