@@ -7,7 +7,7 @@ import {
   attachProofOfDelivery,
   recordGeofenceHit,
 } from "@/app/(courier)/deliveries/actions";
-import { useBroadcastCourierLocation } from "@/hooks/useBroadcastCourierLocation";
+import { courierGpsMode, useBroadcastCourierLocation } from "@/hooks/useBroadcastCourierLocation";
 import { useOfflinePendingStatusQueue } from "@/hooks/useOfflinePendingStatusQueue";
 import type { MapPoint } from "@/components/shared/DeliveryMap";
 import { haversineM } from "@/lib/routing/route";
@@ -132,12 +132,12 @@ export function DeliveryStatusControls({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Broadcast GPS while the food is with the courier.
-  const broadcasting = order.status === "picked_up" || order.status === "en_route";
-  const { error: geoError } = useBroadcastCourierLocation(order.id, courierId, broadcasting);
+  // GPS from accept: the restaurant's pickup map until pickup, the customer's live map after.
+  const gpsMode = courierGpsMode(order.status);
+  const { error: geoError } = useBroadcastCourierLocation(order.id, courierId, gpsMode);
 
   // Order 5 — pickup/dropoff geofence hint. Own lightweight watch (independent
-  // of useBroadcastCourierLocation, which is only active picked_up/en_route and
+  // of useBroadcastCourierLocation, which runs only while the order is the courier's and
   // is scoped to the courier's live-tracking broadcast, not this hint). A soft
   // discreet chip only — never blocks, never gates any button.
   const [myPos, setMyPos] = useState<MapPoint | null>(null);
@@ -211,10 +211,14 @@ export function DeliveryStatusControls({
           {ORDER_STATUS_LABEL[order.status]}
         </span>
       </div>
-      {broadcasting && (
+      {gpsMode && (
         <p className="flex items-center gap-2 px-1 text-xs text-white/50">
           <span className={`h-2 w-2 rounded-full ${geoError ? "bg-primary" : "animate-pulse bg-emerald-400"}`} aria-hidden />
-          {geoError ? `GPS indisponibil: ${geoError}` : "Locația ta se transmite live clientului"}
+          {geoError
+            ? `GPS indisponibil: ${geoError}`
+            : gpsMode === "broadcast"
+              ? "Locația ta se transmite live clientului"
+              : "Locația ta se transmite restaurantului până la ridicare"}
         </p>
       )}
       {/* Order 5 — discreet proximity chip. Never blocks anything; just a hint. */}
