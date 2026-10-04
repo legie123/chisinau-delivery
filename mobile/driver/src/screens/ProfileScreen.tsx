@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, userMessage, CourierProfile, CourierStatus } from '../lib/api';
@@ -52,25 +53,43 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
 
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([getMyCourierProfile(), fetchDeliveredOrdersCount(), fetchAcceptanceRate()])
-      .then(([p, d, rate]) => {
-        if (!mounted) return;
-        setProfile(p);
-        setDeliveries(d);
-        setAcceptRate(rate);
-      })
-      .catch((err: unknown) => {
-        if (mounted) Alert.alert('Profilul nu s-a încărcat', userMessage(err));
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Every focus (bottom tabs stay mounted): status and counts follow the shift.
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      Promise.all([getMyCourierProfile(), fetchDeliveredOrdersCount(), fetchAcceptanceRate()])
+        .then(([p, d, rate]) => {
+          if (!mounted) return;
+          setProfile(p);
+          setDeliveries(d);
+          setAcceptRate(rate);
+        })
+        .catch((err: unknown) => {
+          if (mounted) Alert.alert('Profilul nu s-a încărcat', userMessage(err));
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+      return () => {
+        mounted = false;
+      };
+    }, []),
+  );
+
+  // A failed step keeps the session and says what failed; „Deconectează oricum” forces it.
+  const handleSignOut = async (force = false) => {
+    try {
+      const problem = await signOut(force);
+      if (problem) {
+        Alert.alert('Deconectare incompletă', problem, [
+          { text: 'Renunță', style: 'cancel' },
+          { text: 'Deconectează oricum', style: 'destructive', onPress: () => void handleSignOut(true) },
+        ]);
+      }
+    } catch (err) {
+      Alert.alert('Deconectare', userMessage(err));
+    }
+  };
 
   const handleToggleOnline = async () => {
     if (!profile || profile.status === 'on_delivery' || toggling) return;
@@ -150,7 +169,7 @@ export default function ProfileScreen() {
               key={i}
               style={styles.menuItem}
               activeOpacity={0.7}
-              onPress={item.label === 'Deconectare' ? () => signOut().catch((err: unknown) => Alert.alert('Deconectare', userMessage(err))) : undefined}
+              onPress={item.label === 'Deconectare' ? () => void handleSignOut() : undefined}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
                 <Ionicons name={item.icon as any} size={20} color={item.color} />

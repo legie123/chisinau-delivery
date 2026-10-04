@@ -15,9 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
-import { CHISINAU_CENTER, markArrivedAtRestaurant } from '../lib/api';
+import { CHISINAU_CENTER, getMyCourierId, markArrivedAtRestaurant, userMessage } from '../lib/api';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
-import { stopDeliveryTracking } from '../lib/backgroundLocation';
+import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
 import { useDevicePosition } from '../hooks/useDevicePosition';
 
 const { width } = Dimensions.get('window');
@@ -45,10 +45,28 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   const swipeX = useRef(new Animated.Value(0)).current;
 
   // Broadcasting to the customer runs in the BACKGROUND task
-  // (src/lib/backgroundLocation.ts, started on accept), so it survives a locked
-  // screen. This hook only draws the courier's own marker.
-  const broadcasting = status !== 'delivered';
+  // (src/lib/backgroundLocation.ts, started at pickup — the web's window), so it
+  // survives a locked screen. This hook only draws the courier's own marker.
+  const broadcasting = status === 'delivering';
+  const [gpsWarning, setGpsWarning] = useState<string | null>(null);
   const { position: livePosition, error: geoError } = useDevicePosition();
+
+  const stopGps = () => stopDeliveryTracking().catch((e: unknown) => console.warn('[gps] stop', e));
+
+  // From pickup on (also when the swipe was queued offline: the task holds
+  // until the server confirms en_route, see lib/gpsGate).
+  const startGps = () => {
+    getMyCourierId()
+      .then((courierId) => (courierId ? startDeliveryTracking(order.id, courierId) : null))
+      .then(setGpsWarning)
+      .catch((e: unknown) => setGpsWarning(userMessage(e, 'GPS-ul în fundal nu a putut porni.')));
+  };
+
+  // Cancelled or advanced elsewhere: nothing to do here any more.
+  const closeWith = (message: string) => {
+    void stopGps();
+    Alert.alert('Comanda nu mai e activă', message, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+  };
 
   // Soft ops signal only (wait-time KPI), never a gate on the delivery.
   const handleArrived = async () => {
@@ -74,25 +92,32 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
           if (status === 'pickup') {
             // One target (en_route); the hops in between are walked by
             // advanceThrough, online now or from the offline queue later.
-            const { error } = await advanceOrEnqueue(order.id, 'en_route');
+            const { error, closed } = await advanceOrEnqueue(order.id, 'en_route');
             if (error) {
-              Alert.alert('Eroare', error);
               swipeX.setValue(0);
+              if (closed) closeWith(error);
+              else Alert.alert('Eroare', error);
               return;
             }
             setStatus('delivering');
+            startGps();
             swipeX.setValue(0);
           } else if (status === 'delivering') {
             Alert.alert('Încasare', 'Ai încasat plata (cash/POS)?', [
               {
                 text: 'Da, încasat',
                 onPress: async () => {
-                  const { error, queued } = await advanceOrEnqueue(order.id, 'delivered', true);
-                  if (error) { Alert.alert('Eroare', error); swipeX.setValue(0); return; }
-                  setStatus('delivered');
-                  if (!queued) {
-                    stopDeliveryTracking().catch((e: unknown) => console.warn('[gps] stop', e));
+                  const { error, queued, closed } = await advanceOrEnqueue(order.id, 'delivered', true);
+                  if (error) {
+                    swipeX.setValue(0);
+                    if (closed) closeWith(error);
+                    else Alert.alert('Eroare', error);
+                    return;
                   }
+                  setStatus('delivered');
+                  // Delivered on the phone = the customer stops seeing the courier,
+                  // even while the confirmation still waits in the offline queue.
+                  void stopGps();
                   Alert.alert(
                     queued ? 'Salvat fără semnal' : '✅ Livrare finalizată!',
                     queued
@@ -225,7 +250,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
             <View style={styles.gpsBanner}>
               <View style={[styles.gpsDot, geoError ? styles.gpsDotError : null]} />
               <Text style={styles.gpsBannerText}>
-                {geoError ?? 'Locația ta se transmite live clientului'}
+                {gpsWarning ?? geoError ?? 'Locația ta se transmite live clientului'}
               </Text>
             </View>
           )}

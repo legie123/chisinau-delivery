@@ -19,7 +19,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
     const message = await signIn(email.trim(), password);
     setPending(false);
     if (message) {
-      setError("Autentificare eșuată. Verifică emailul și parola.");
+      setError(message); // Romanian: wrong credentials, no signal, or not a courier account
       return;
     }
     onSignedIn();

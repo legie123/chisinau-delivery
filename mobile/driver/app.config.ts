@@ -69,7 +69,9 @@ const config: ExpoConfig = {
       },
     ],
     "expo-task-manager",
-    "expo-secure-store",
+    // The app never uses Face ID: without this the plugin adds an English
+    // NSFaceIDUsageDescription to Info.plist.
+    ["expo-secure-store", { faceIDPermission: false }],
   ],
   extra: {
     eas: process.env.EAS_PROJECT_ID ? { projectId: process.env.EAS_PROJECT_ID } : undefined,

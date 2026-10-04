@@ -8,10 +8,23 @@ import {
   setCourierOnlineStatus,
   type CourierCashStatus,
 } from "@chisinau/shared-api";
-import { isNetworkError, type EarningsSummary as MoneySummary } from "@chisinau/shared-domain";
+import {
+  COMMISSION_PCT,
+  isNetworkError,
+  type CommissionSource,
+  type EarningsSummary as MoneySummary,
+  type PricingVersion,
+} from "@chisinau/shared-domain";
 import type { OfferId, OrderId } from "@chisinau/shared-types";
 import { supabase } from "./supabase";
-import { fetchCommissionPct, fetchTodayEarnings, fetchWeekEarnings, historyNet, offerNetLabel } from "./earnings";
+import {
+  fetchCommissionPct,
+  fetchPricingHistory,
+  fetchTodayEarnings,
+  fetchWeekEarnings,
+  historyNet,
+  offerNetLabel,
+} from "./earnings";
 import { stopDeliveryTracking } from "./backgroundLocation";
 import { unregisterPush } from "./push";
 
@@ -50,21 +63,62 @@ export interface DriverOrder {
   lng: number;
 }
 
+const NOT_A_COURIER = "Contul acesta nu este de curier. Intră cu contul primit de la dispecerat.";
+
+/** Romanian error, or null once a COURIER is signed in. Any other account is signed out again on the spot. */
 export async function signIn(email: string, password: string): Promise<string | null> {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  return error ? error.message : null;
+  if (error) return isNetworkError(error) ? userMessage(error) : "Autentificare eșuată. Verifică emailul și parola.";
+  // A customer/restaurant account used to get in: the status button spun on "…"
+  // forever and the phone registered a push token for a non-courier.
+  courierIdCache = null;
+  let courierId: string | null;
+  try {
+    courierId = await getMyCourierId();
+  } catch (err) {
+    await supabase.auth.signOut({ scope: "local" });
+    return userMessage(err, "Nu am putut verifica contul de curier. Încearcă din nou.");
+  }
+  if (!courierId) {
+    await supabase.auth.signOut({ scope: "local" });
+    return NOT_A_COURIER;
+  }
+  return null;
+}
+
+/** App start: is the stored session a courier's? No session / no couriers row → false (and signed out). Offline → trusted. */
+export async function restoreCourierSession(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return false;
+  const courierId = await getMyCourierId().catch(() => undefined); // undefined = cannot tell right now
+  if (courierId !== null) return true;
+  await supabase.auth.signOut({ scope: "local" });
+  return false;
 }
 
 // Sign-out must leave nothing running on this phone for the previous courier:
 // no background GPS, no push token, and no "online" status that would keep
-// sending them offers they can no longer see.
-export async function signOut(): Promise<void> {
-  await stopDeliveryTracking().catch((err) => console.warn("[signOut] stop tracking", err));
-  await unregisterPush();
+// sending them offers they can no longer see. A step that fails is RETURNED
+// (Romanian) and the session is kept, so the courier can retry with signal —
+// unless `force`, the explicit „Deconectează oricum”.
+export async function signOut(force = false): Promise<string | null> {
+  const failed: string[] = [];
   const offlineError = await setOnline(false);
-  if (offlineError) console.warn("[signOut] set offline", offlineError);
+  if (offlineError) failed.push(`statusul nu a trecut pe offline (${offlineError})`);
+  await stopDeliveryTracking().catch((err: unknown) => {
+    console.warn("[signOut] stop tracking", err);
+    failed.push("GPS-ul nu s-a oprit");
+  });
+  await unregisterPush().catch((err: unknown) => {
+    console.warn("[signOut] unregister push", err);
+    failed.push("notificările nu au fost oprite pe acest telefon");
+  });
+  if (failed.length > 0 && !force) {
+    return `Deconectarea nu e completă: ${failed.join("; ")}. Altfel poți primi în continuare oferte pe acest telefon. Încearcă din nou când ai semnal.`;
+  }
   courierIdCache = null;
   await supabase.auth.signOut({ scope: "local" });
+  return null;
 }
 
 // couriers RLS (couriers_self_read) only returns the caller's own row.
@@ -81,14 +135,29 @@ export async function getMyCourierId(): Promise<string | null> {
 }
 
 // The live commission changes rarely (versioned config); one read per 5 min
-// keeps a 10s offer poll from doubling its request count.
+// keeps a 10s offer poll from doubling its request count. A FAILED read is
+// never cached: the documented default serves this call only and the next call
+// asks again (it used to pin the fallback for 5 minutes).
 const PCT_TTL_MS = 5 * 60_000;
 let pctCache: { at: number; pct: number } | null = null;
 export async function getCommissionPct(): Promise<number> {
   if (pctCache && Date.now() - pctCache.at < PCT_TTL_MS) return pctCache.pct;
   const pct = await fetchCommissionPct(supabase);
+  if (pct === null) return COMMISSION_PCT;
   pctCache = { at: Date.now(), pct };
   return pct;
+}
+
+// What DELIVERED orders are settled with: each order's pricing version at its
+// delivered_at (pricing_config_at — what admin_generate_payouts pays). The live
+// rate only when the history read soft-fails to [] (also never cached).
+let historyCache: { at: number; history: PricingVersion[] } | null = null;
+export async function getCommission(): Promise<CommissionSource> {
+  if (historyCache && Date.now() - historyCache.at < PCT_TTL_MS) return historyCache.history;
+  const history = await fetchPricingHistory(supabase);
+  if (history.length === 0) return getCommissionPct();
+  historyCache = { at: Date.now(), history };
+  return history;
 }
 
 function formatAddress(a: {
@@ -235,7 +304,7 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
   const courierId = await getMyCourierId();
   const empty = { ordersCount: 0, grossMdl: 0, commissionMdl: 0, netMdl: 0, pendingCount: 0 };
   if (!courierId) return { rows: [], today: empty };
-  const pct = await getCommissionPct();
+  const commission = await getCommission();
   const [{ data, error }, today] = await Promise.all([
     supabase
       .from("orders")
@@ -244,7 +313,7 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
       .eq("courier_id", courierId)
       .order("delivered_at", { ascending: false, nullsFirst: false })
       .limit(50),
-    fetchTodayEarnings(supabase, courierId, pct),
+    fetchTodayEarnings(supabase, courierId, commission),
   ]);
   if (error) throw new Error(error.message);
 
@@ -255,7 +324,7 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
       orderNumber: o.order_number,
       restaurant: (o.restaurants as unknown as { name: string } | null)?.name ?? "Restaurant",
       time: d.toLocaleString("ro-RO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
-      netMdl: historyNet(o, pct),
+      netMdl: historyNet(o, commission),
     };
   });
   return { rows, today };
@@ -265,7 +334,7 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
 export async function fetchTodaySummary(): Promise<MoneySummary | null> {
   const courierId = await getMyCourierId();
   if (!courierId) return null;
-  return fetchTodayEarnings(supabase, courierId, await getCommissionPct());
+  return fetchTodayEarnings(supabase, courierId, await getCommission());
 }
 
 // ---------- Push dispatch (dispatch_offers) ----------
@@ -424,10 +493,11 @@ export interface EarningsSummary {
 export async function fetchEarningsSummary(): Promise<EarningsSummary | null> {
   const courierId = await getMyCourierId();
   if (!courierId) return null;
-  const commissionPct = await getCommissionPct();
+  // Banner = the live rate; the week's money = each order's own version.
+  const [commissionPct, commission] = await Promise.all([getCommissionPct(), getCommission()]);
 
   const [week, { data: payoutRows, error: payoutsError }] = await Promise.all([
-    fetchWeekEarnings(supabase, courierId, commissionPct),
+    fetchWeekEarnings(supabase, courierId, commission),
     supabase
       .from("payouts")
       .select("*")

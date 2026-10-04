@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { fetchEarningsSummary, fetchCashStatus, userMessage, EarningsSummary, PayoutRow } from '../lib/api';
@@ -32,24 +33,29 @@ export default function EarningsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([fetchEarningsSummary(), fetchCashStatus()])
-      .then(([s, c]) => {
-        if (!mounted) return;
-        setSummary(s);
-        setCash(c);
-      })
-      .catch((err: unknown) => {
-        if (mounted) setError(userMessage(err, 'Câștigurile nu s-au putut încărca.'));
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Every focus, not once: bottom tabs stay mounted, so a load-once screen kept
+  // the first visit's week total for the whole session.
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      Promise.all([fetchEarningsSummary(), fetchCashStatus()])
+        .then(([s, c]) => {
+          if (!mounted) return;
+          setSummary(s);
+          setCash(c);
+          setError(null);
+        })
+        .catch((err: unknown) => {
+          if (mounted) setError(userMessage(err, 'Câștigurile nu s-au putut încărca.'));
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+      return () => {
+        mounted = false;
+      };
+    }, []),
+  );
 
   return (
     <View style={styles.container}>

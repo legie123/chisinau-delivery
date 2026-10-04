@@ -1,8 +1,14 @@
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { registerDevicePushToken } from "@chisinau/shared-api";
 import { supabase } from "./supabase";
+import { watchOfferTaps } from "./offerTap";
+
+// The token registered for the signed-in courier, kept so sign-out can delete
+// it WITHOUT minting it again (getExpoPushTokenAsync needs the network).
+const TOKEN_KEY = "dragons-push-token";
 
 // Native push = the only way a backgrounded courier learns about a 30s offer
 // (timers/sockets don't run reliably in the background). The token goes to
@@ -57,6 +63,7 @@ export async function registerForPush(): Promise<string | null> {
     const token = await currentToken();
     if (!token) return "Notificări indisponibile în acest build (lipsește proiectul EAS).";
     await registerDevicePushToken(supabase, token, Platform.OS === "ios" ? "ios" : "android");
+    await AsyncStorage.setItem(TOKEN_KEY, token).catch(() => undefined); // unregister falls back to re-minting
     return null;
   } catch (err) {
     console.warn("[push] register failed", err);
@@ -64,12 +71,16 @@ export async function registerForPush(): Promise<string | null> {
   }
 }
 
-/** On sign-out: this phone must stop receiving the previous courier's offers. */
+/** On sign-out: this phone must stop receiving the previous courier's offers. Throws when it could not. */
 export async function unregisterPush(): Promise<void> {
-  try {
-    const token = await currentToken();
-    if (token) await supabase.from("device_push_tokens").delete().eq("expo_token", token);
-  } catch (err) {
-    console.warn("[push] unregister failed", err);
-  }
+  const token = (await AsyncStorage.getItem(TOKEN_KEY).catch(() => null)) ?? (await currentToken());
+  if (!token) return;
+  const { error } = await supabase.from("device_push_tokens").delete().eq("expo_token", token);
+  if (error) throw new Error(error.message);
+  await AsyncStorage.removeItem(TOKEN_KEY).catch(() => undefined);
+}
+
+/** Offer push tapped (warm or cold start) → handler. Returns the unsubscribe. */
+export function onOfferTapped(handler: () => void): () => void {
+  return watchOfferTaps(Notifications, handler);
 }

@@ -24,7 +24,11 @@ scripts/mobile/tunnel.sh [minutes]  # default 90; writes mobile/.tunnel.env; sel
 scripts/mobile/dev.sh driver        # or client; --tunnel instead of --lan if the phone is off the Wi-Fi
 scripts/mobile/tunnel-down.sh       # stop early
 ```
-`dev.sh` refuses to start if `mobile/.tunnel.env` is missing or older than its TTL.
+`dev.sh` refuses to start if `mobile/.tunnel.env` is missing or older than its TTL. It runs
+`expo start --dev-client --clear`, and any local `npx expo export` needs `--clear` too: Metro's
+transform cache is not keyed on `EXPO_PUBLIC_*`, so a stale Supabase URL can stay inlined silently
+(EAS cloud builds start clean). The dev client itself is `expo-dev-client`, a dependency of the
+driver app (`eas.json` profile `development`).
 
 ## Build and install the dev client (once per native change)
 ```
@@ -40,11 +44,12 @@ Open the installed "Dragons Curier" app, scan the QR from `dev.sh`. Expo Go cann
   `device_push_tokens` for that user. Copy the `ExponentPushToken[...]` into
   https://expo.dev/notifications and send a test; with the app backgrounded and then killed it must
   show a notification.
-- **Background GPS**: go online, accept/start a delivery, lock the phone, walk/drive 5+ min. Check
-  `courier_locations` rows keep arriving (timestamps advance while locked), and the customer map
-  (`mobile/client` or the web tracking page) follows the courier.
-- **Offers in background**: with the courier app backgrounded, create an order; the offer must
-  arrive as push, and opening the app must refetch.
+- **Background GPS**: go online, accept a delivery — no position may reach the customer yet — then
+  swipe "am ridicat", lock the phone, walk/drive 5+ min. Check `courier_locations` rows keep arriving
+  (timestamps advance while locked), and the customer map (`mobile/client` or the web tracking page)
+  follows the courier. After "am livrat" (also offline) the "Livrare în curs" notification must go.
+- **Offers in background**: with the courier app backgrounded on the Câștiguri tab, create an
+  order; the offer must arrive as push, and tapping it must open the Hartă tab with the offer card.
 
 ## Security note (read before leaving the tunnel up)
 The tunnel exposes the LOCAL Supabase **data plane only**, through an allowlist proxy

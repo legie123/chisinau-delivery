@@ -34,7 +34,7 @@ din `../../packages` prin `metro.config.js` + `tsconfig.json` paths — fără `
   `EXPO_PUBLIC_SUPABASE_ANON_KEY`; opțional `GOOGLE_MAPS_ANDROID_API_KEY` (hartă Android),
   `EAS_PROJECT_ID` (push). Local în `.env.local`; pe EAS: `eas env:create`.
 - Verificare: `npm run typecheck`, `npm test` (vitest din rădăcină),
-  `npx expo export --platform android|ios`, `npm run smoke:order` (comandă reală pe Supabase-ul
+  `npx expo export --clear --platform android|ios` (`--clear`: cache-ul Metro nu ține cont de `EXPO_PUBLIC_*`), `npm run smoke:order` (comandă reală pe Supabase-ul
   local, apoi anulată; scriptul tipărește id-urile de curățat).
 - Build: `eas init` (o dată) → `eas build --profile preview --platform android|ios` din `mobile/client`.
   EAS urcă tot repo-ul git, deci `packages/` ajunge în build.

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,9 +12,12 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import ActiveDeliveryScreen from './src/screens/ActiveDeliveryScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import { supabase } from './src/lib/supabase';
-import { registerForPush } from './src/lib/push';
+import { onOfferTapped, registerForPush } from './src/lib/push';
+import { restoreCourierSession } from './src/lib/api';
 import { stopDeliveryTracking } from './src/lib/backgroundLocation';
 import { useOfflineSync } from './src/hooks/useOfflineSync';
+
+const navRef = createNavigationContainerRef<any>();
 
 const COLORS = {
   surface: '#1A1A2E',
@@ -105,18 +108,39 @@ export default function App() {
   const [signedIn, setSignedIn] = useState(false);
   const [pushWarning, setPushWarning] = useState<string | null>(null);
 
+  // Only a COURIER session gets in: a stored session is checked against the
+  // couriers row here, a fresh login in signIn() (LoginScreen → onSignedIn).
+  // onAuthStateChange therefore only ever signs OUT — SIGNED_IN fires before
+  // that check and used to let a customer account in (and register its push).
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => setSignedIn(!!session))
+    restoreCourierSession()
+      .then(setSignedIn)
       .catch((err: unknown) => console.warn('[auth] getSession', err))
       .finally(() => setChecking(false));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSignedIn(!!session);
-      if (event === 'SIGNED_OUT') void stopDeliveryTracking();
+      if (!session) setSignedIn(false);
+      if (event === 'SIGNED_OUT') void stopDeliveryTracking().catch((err: unknown) => console.warn('[gps] stop', err));
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Offer push tapped → the Map tab (the only place the OfferCard renders),
+  // with a fresh param so MapScreen refetches the live offer at once. A tap that
+  // cold-starts the app waits for the navigator (onReady).
+  const pendingOfferTap = useRef(false);
+  const flushOfferTap = useCallback(() => {
+    if (!pendingOfferTap.current || !navRef.isReady()) return;
+    pendingOfferTap.current = false;
+    navRef.navigate('Main', { screen: 'Map', params: { offerTapAt: Date.now() } });
+  }, []);
+  useEffect(
+    () =>
+      onOfferTapped(() => {
+        pendingOfferTap.current = true;
+        flushOfferTap();
+      }),
+    [flushOfferTap],
+  );
 
   // Push registration per signed-in session (also refreshes last_seen_at).
   useEffect(() => {
@@ -142,7 +166,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <NavigationContainer>
+      <NavigationContainer ref={navRef} onReady={flushOfferTap}>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />

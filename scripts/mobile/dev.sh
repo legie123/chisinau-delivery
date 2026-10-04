@@ -26,4 +26,6 @@ fi
 echo "Starting $APP ($MODE) -> $EXPO_PUBLIC_SUPABASE_URL"
 echo "Open the installed DEV CLIENT on the phone and scan the QR below (Expo Go cannot run this app)."
 cd "mobile/$APP"
-exec npx expo start --dev-client "$MODE"
+# --clear: the Metro transform cache is not keyed on EXPO_PUBLIC_*, so without it a
+# previous run's (dead) tunnel URL can stay inlined in the bundle.
+exec npx expo start --dev-client --clear "$MODE"

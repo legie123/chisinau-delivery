@@ -28,7 +28,8 @@ import {
   CourierStatus,
   DriverOrder,
 } from '../lib/api';
-import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
+import { resumeDeliveryTracking, startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
+import { BROADCAST_STATUSES } from '../lib/gpsGate';
 import { useDevicePosition } from '../hooks/useDevicePosition';
 import { useLiveOffer } from '../hooks/useLiveOffer';
 import OfferCard from '../components/OfferCard';
@@ -38,11 +39,12 @@ type Order = DriverOrder;
 
 interface Props {
   navigation: any;
+  route?: { params?: { offerTapAt?: number } };
 }
 
 const REFRESH_MS = 15_000;
 
-export default function MapScreen({ navigation }: Props) {
+export default function MapScreen({ navigation, route }: Props) {
   // The SERVER owns availability. null = not loaded yet; the app never assumes
   // "online" (it used to force set_courier_online_status(online) on every launch).
   const [courierStatus, setCourierStatus] = useState<CourierStatus | null>(null);
@@ -97,7 +99,13 @@ export default function MapScreen({ navigation }: Props) {
   useEffect(() => {
     const interval = setInterval(() => void refreshAll(), REFRESH_MS);
     const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refreshAll();
+      if (state !== 'active') return;
+      void refreshAll();
+      // A start attempted while backgrounded (Android refuses the foreground
+      // service then) is re-armed here instead of never.
+      resumeDeliveryTracking()
+        .then((warning) => warning && setTrackingWarning(warning))
+        .catch((err: unknown) => setTrackingWarning(userMessage(err, 'GPS-ul în fundal nu a putut porni.')));
     });
     return () => {
       clearInterval(interval);
@@ -105,27 +113,30 @@ export default function MapScreen({ navigation }: Props) {
     };
   }, [refreshAll]);
 
-  // Background GPS follows the delivery: on while one is in flight, off once it
-  // is delivered / cancelled / reassigned (the next refresh sees no active order).
-  const activeOrderId = activeDelivery?.order.id ?? null;
+  // Offer push tapped (App.tsx navigates here with a fresh offerTapAt): fetch
+  // the live offer now instead of waiting for the next poll.
+  const offerTapAt = route?.params?.offerTapAt;
+  useEffect(() => {
+    if (offerTapAt) void refreshOffer();
+  }, [offerTapAt, refreshOffer]);
+
+  // Background GPS follows the delivery LEG, like the web: on only while the
+  // order is picked_up / en_route, off on accept-but-not-picked-up and once it
+  // is delivered / cancelled / reassigned (the next refresh sees no such order).
+  // The task re-checks the order itself on every fix (lib/gpsGate).
+  const broadcastOrderId =
+    activeDelivery && BROADCAST_STATUSES.includes(activeDelivery.status) ? activeDelivery.order.id : null;
   useEffect(() => {
     if (!activeLoaded) return;
-    if (activeOrderId && courierId) {
-      startDeliveryTracking(activeOrderId, courierId)
+    if (broadcastOrderId && courierId) {
+      startDeliveryTracking(broadcastOrderId, courierId)
         .then(setTrackingWarning)
         .catch((err: unknown) => setTrackingWarning(userMessage(err, 'GPS-ul în fundal nu a putut porni.')));
     } else {
       setTrackingWarning(null);
       stopDeliveryTracking().catch((err: unknown) => console.warn('[gps] stop', err));
     }
-  }, [activeLoaded, activeOrderId, courierId]);
-
-  const beginTracking = (orderId: string) => {
-    if (!courierId) return;
-    startDeliveryTracking(orderId, courierId)
-      .then(setTrackingWarning)
-      .catch((e: unknown) => setTrackingWarning(userMessage(e, 'GPS-ul în fundal nu a putut porni.')));
-  };
+  }, [activeLoaded, broadcastOrderId, courierId]);
 
   // Explicit, server-confirmed toggle. On error the server state is re-read and
   // the reason is shown (e.g. "ai o livrare activă", cash cap reached).
@@ -156,7 +167,7 @@ export default function MapScreen({ navigation }: Props) {
     }
     const { order } = liveOffer;
     setLiveOffer(null);
-    beginTracking(order.id);
+    // No GPS yet: the customer sees the courier only from pickup (ActiveDelivery starts it).
     navigation.navigate('ActiveDelivery', { order: { ...order, status: 'courier_assigned' } });
     void refreshAll();
   };
@@ -204,7 +215,6 @@ export default function MapScreen({ navigation }: Props) {
       void refreshAll();
       return;
     }
-    beginTracking(order.id);
     navigation.navigate('ActiveDelivery', { order: { ...order, status: 'courier_assigned' } });
     hideOrderCard();
     void refreshAll();

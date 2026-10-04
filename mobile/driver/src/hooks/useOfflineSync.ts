@@ -56,10 +56,11 @@ export function useOfflineSync(enabled: boolean) {
     };
   }, [enabled]);
 
+  // Clears only what the banner showed: a give-up recorded since stays for the next banner.
   const dismissGiveUp = useCallback(async () => {
-    await statusQueue.clearGiveUpCount();
-    setGivenUp(0);
-  }, []);
+    await statusQueue.clearGiveUpCount(givenUp);
+    setGivenUp(await statusQueue.giveUpCount());
+  }, [givenUp]);
 
   return { pending, givenUp, dismissGiveUp };
 }
