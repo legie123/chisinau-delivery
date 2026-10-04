@@ -3387,6 +3387,10 @@ export type Database = {
         Args: { target_courier: string }
         Returns: boolean
       }
+      customer_sees_courier_point: {
+        Args: { point_at: string; target_courier: string }
+        Returns: boolean
+      }
       decline_catering_quote: {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
@@ -3618,6 +3622,10 @@ export type Database = {
       }
       restaurant_open_at: {
         Args: { p_at: string; p_restaurant_id: string }
+        Returns: boolean
+      }
+      restaurant_sees_courier_point: {
+        Args: { point_at: string; target_courier: string }
         Returns: boolean
       }
       review_onboarding_application: {

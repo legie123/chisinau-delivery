@@ -66,17 +66,16 @@ export default async function RestaurantOrdersPage() {
 
   // Pickup coordination: a courier assigned to one of our orders is heading here.
   const assigned = orderList.find((o) => o.status === "courier_assigned" && o.courier_id);
-  let pickupCourier: { id: string; name: string | null; pos: { lat: number; lng: number } | null; at: string | null } | null = null;
+  let pickupCourier: { id: string; name: string | null; pos: { lat: number; lng: number } | null } | null = null;
   if (assigned?.courier_id && restaurantPoint) {
     const [{ data: cl }, { data: c }] = await Promise.all([
-      supabase.from("courier_locations").select("lat, lng, updated_at").eq("courier_id", assigned.courier_id).maybeSingle(),
+      supabase.from("courier_locations").select("lat, lng").eq("courier_id", assigned.courier_id).maybeSingle(),
       supabase.from("couriers").select("full_name").eq("id", assigned.courier_id).maybeSingle(),
     ]);
     pickupCourier = {
       id: assigned.courier_id,
       name: (c as { full_name: string } | null)?.full_name ?? null,
       pos: cl?.lat != null && cl?.lng != null ? { lat: cl.lat, lng: cl.lng } : null,
-      at: (cl as { updated_at?: string } | null)?.updated_at ?? null,
     };
   }
 
@@ -157,11 +156,11 @@ export default async function RestaurantOrdersPage() {
       {restaurantPoint && pickupCourier && (
         <div className="mt-6">
           <RestaurantPickupMap
+            key={pickupCourier.id}
             restaurant={restaurantPoint}
             courierId={pickupCourier.id}
             courierName={pickupCourier.name}
             initialCourier={pickupCourier.pos}
-            initialAt={pickupCourier.at}
           />
         </div>
       )}
