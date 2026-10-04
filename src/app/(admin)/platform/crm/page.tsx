@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { mapPgError } from "@chisinau/shared-api";
 import { SectionTabs, crmTabs } from "@/components/admin/SectionTabs";
 
 type AdminCustomerRow = {
@@ -82,7 +83,7 @@ export default async function PlatformCrmPage({
       </form>
 
       {error ? (
-        <p className="text-red-400">Nu am putut încărca clienții: {error.message}</p>
+        <p className="text-red-400">Nu am putut încărca clienții. {mapPgError(error)}</p>
       ) : rows.length === 0 ? (
         <p className="rounded-2xl bg-white/[0.04] px-4 py-8 text-center text-sm text-white/50 ring-1 ring-white/[0.06]">
           Niciun client{q ? " găsit pentru căutare" : " încă"}.

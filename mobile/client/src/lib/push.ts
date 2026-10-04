@@ -112,7 +112,14 @@ export async function signOutAndUnbindPush(): Promise<void> {
   // Local, like every other sign-out in the repo: the default ("global") also ends this
   // user's sessions on their other phones, which then sit signed out but still bound.
   // A logout request that can't reach the server resolves { error } and KEEPS the session.
-  const { error } = await supabase.auth.signOut({ scope: "local" });
+  let error: unknown;
+  try {
+    ({ error } = await supabase.auth.signOut({ scope: "local" }));
+  } catch {
+    // A THROW comes after the server call, from clearing the local session (e.g. an Android
+    // keystore error): never show that raw English text, and do not re-bind a revoked session.
+    throw new Error(SIGN_OUT_FAILED);
+  }
   if (!error) return;
   // Still signed in, but this phone's row is already gone: bind it back, or say push is off.
   const rebound = !token || (await bind(token).then(() => true, () => false));

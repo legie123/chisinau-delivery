@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { mapPgError } from "@chisinau/shared-api";
 import { SectionTabs, ordersTabs } from "@/components/admin/SectionTabs";
 import { ORDER_STATUS_LABEL, type Order, type OrderStatus, type PaymentStatus } from "@/lib/types/domain";
 
@@ -61,7 +62,7 @@ export default async function PlatformOrdersPage({
     return (
       <main className="flex-1 px-6 py-10">
         <h1 className="mb-6 text-2xl font-semibold">Toate comenzile</h1>
-        <p className="text-red-400">Nu am putut încărca comenzile: {ordersRes.error.message}</p>
+        <p className="text-red-400">Nu am putut încărca comenzile. {mapPgError(ordersRes.error)}</p>
       </main>
     );
   }

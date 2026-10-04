@@ -154,3 +154,19 @@ describe("restaurant list hours survive PostgREST max_rows", () => {
     expect(list.filter((r) => !r.openNow).map((r) => r.id)).toEqual([]);
   });
 });
+
+// Verifier round 2: auth-js clears the local session AFTER the server call; when that throws
+// (Android keystore), signOut rejects instead of returning { error } and the Profile alert showed
+// the raw English text. It is reported in Romanian, and the token is not bound again.
+describe("a sign-out that throws while clearing the local session", () => {
+  it("is reported in Romanian, never as the raw storage error", async () => {
+    h.state.secure.set("push-expo-token", TOKEN);
+    h.signOut.mockImplementationOnce(async () => {
+      throw new Error("Could not delete item from keystore");
+    });
+    const push = await import("../src/lib/push");
+    const err = await push.signOutAndUnbindPush().then(() => null, (e: Error) => e);
+    expect(err?.message).toBe(push.SIGN_OUT_FAILED);
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+});

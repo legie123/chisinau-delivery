@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { storageErrorText } from "@chisinau/shared-api";
 import { addKycDocument } from "@/app/(customer)/devino-partener/actions";
 
 type Status = "idle" | "uploading" | "done" | "error";
@@ -48,7 +49,7 @@ export function DocumentUpload({
         .upload(path, file, { upsert: true });
       if (uploadError) {
         setStatus("error");
-        setError(uploadError.message);
+        setError(storageErrorText(uploadError));
         return;
       }
 

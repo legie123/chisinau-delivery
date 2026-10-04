@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { authErrorText, mapPgError, RpcError } from "@chisinau/shared-api";
+import { authErrorText, mapPgError, RpcError, storageErrorText } from "@chisinau/shared-api";
 
 const p0001 = (message: string) => ({ code: "P0001", message, details: "", hint: "", name: "PostgrestError" }) as never;
 
@@ -68,5 +68,41 @@ describe("server actions never return a raw supabase error message", () => {
       "Valoare invalidă — verifică câmpurile completate.",
     );
     expect(pg("23502", 'null value in column "name" violates not-null constraint')).toBe("Lipsește un câmp obligatoriu.");
+    // a duplicate slug used to read "Acțiunea a fost deja efectuată." — the admin left, no restaurant existed
+    expect(pg("23505", 'duplicate key value violates unique constraint "restaurants_slug_key"')).toMatch(/^Slug-ul este deja folosit/);
+    expect(pg("23505", 'duplicate key value violates unique constraint "dispatch_offers_one_live_per_order"')).toBe("Acțiunea a fost deja efectuată.");
+  });
+});
+
+// Round 2: the same leak outside actions.ts — a read error rendered as `{error.message}`, a storage
+// upload error shown via setError(uploadError.message) or thrown verbatim, a `?e=` redirect param.
+describe("screens never render a raw supabase error message", () => {
+  // `(?<!\$)`: a template literal `${error.message}` in a server log line is not a screen.
+  const RAW = /(?<!\$)\{\s*(error|\w+Error|\w+Res\.error)\.message\s*\}|searchParams\.set\([^)]*\.message\)|set(Error|Status)\((error|\w+Error)\.message\)/;
+  it("no raw .message in JSX, setError or redirect params under src/ and apps/", () => {
+    const repo = path.join(__dirname, "../..");
+    const hits: string[] = [];
+    const walk = (dir: string) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        if (["node_modules", ".next", "graphify-out"].includes(e.name)) continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.(ts|tsx)$/.test(e.name)) {
+          readFileSync(p, "utf8").split("\n").forEach((l, i) => {
+            if (RAW.test(l)) hits.push(`${path.relative(repo, p)}:${i + 1}`);
+          });
+        }
+      }
+    };
+    walk(path.join(repo, "src"));
+    walk(path.join(repo, "apps"));
+    expect(hits).toEqual([]);
+  });
+
+  it("storage upload errors are Romanian", () => {
+    expect(storageErrorText({ message: "The object exceeded the maximum allowed size", statusCode: "413" })).toBe("Fișierul e prea mare.");
+    expect(storageErrorText({ message: "mime type image/gif is not supported" })).toBe("Formatul fișierului nu e acceptat.");
+    expect(storageErrorText({ message: "new row violates row-level security policy", statusCode: "403" })).toMatch(/permisiunea/);
+    expect(storageErrorText({ message: "fetch failed" })).toMatch(/^Încărcarea a eșuat/);
   });
 });

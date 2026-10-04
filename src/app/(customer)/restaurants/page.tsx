@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getPrepEstimates } from "@chisinau/shared-api";
+import { getPrepEstimates, mapPgError } from "@chisinau/shared-api";
 import { RestaurantBrowser } from "@/components/customer/RestaurantBrowser";
 import type { PrepEstimate, Restaurant } from "@/lib/types/domain";
 
@@ -94,7 +94,7 @@ export default async function RestaurantsPage() {
   if (error) {
     return (
       <main className="flex-1 px-5 py-10">
-        <p className="text-red-500">Nu am putut încărca restaurantele: {error.message}</p>
+        <p className="text-red-500">Nu am putut încărca restaurantele. {mapPgError(error)}</p>
       </main>
     );
   }

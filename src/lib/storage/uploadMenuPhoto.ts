@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { storageErrorText } from "@chisinau/shared-api";
 
 const MAX_DIMENSION = 1280;
 const JPEG_QUALITY = 0.82;
@@ -61,7 +62,7 @@ async function uploadCompressedPhoto(
     contentType: "image/jpeg",
     cacheControl: "31536000",
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(storageErrorText(error));
   return path;
 }
 

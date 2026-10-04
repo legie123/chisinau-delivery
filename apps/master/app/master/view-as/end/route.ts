@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { mapPgError } from "@chisinau/shared-api";
 import { VIEW_PREFIX } from "@/lib/viewAs/paths";
 import { VIEW_AS_COOKIE } from "@/lib/viewAs/token";
 
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     // The admin's own session (no /view cookie on /master/*).
     const supabase = await createClient();
     const { error } = await supabase.rpc("end_view_as", { p_session: session });
-    if (error) to.searchParams.set("e", error.message);
+    if (error) to.searchParams.set("e", mapPgError(error));
   }
 
   const response = NextResponse.redirect(to, 303);

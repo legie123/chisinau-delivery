@@ -80,6 +80,9 @@ export const KNOWN_ERRORS: [string, string][] = [
   ["suprataxa trebuie sa fie >= 0", "Suprataxa trebuie să fie ≥ 0."],
   ["dispatch_scoring_config este imutabil", "Configurația de dispecerizare nu se modifică pe loc — creează o versiune nouă."],
   ["ledger-ul de payout este imutabil", "O plată decontată nu se mai modifică — corecția se face printr-o tranzacție nouă."],
+  // unique constraints a user can hit (23505 names the constraint)
+  ["restaurants_slug_key", "Slug-ul este deja folosit de alt restaurant — alege altul."],
+  ["effective_from_key", "Există deja o versiune care intră în vigoare exact la acest moment — alege alt moment."],
 ];
 
 const ROMANIAN_DIACRITICS = /[ăâîșțşţĂÂÎȘȚŞŢ]/;
@@ -96,8 +99,8 @@ export function romanianRaiseText(raw: string | null | undefined): string | null
 
 export function mapPgError(error: PostgrestError): string {
   switch (error.code) {
-    case "23505": // unique_violation — e.g. duplicate live offer / double claim
-      return "Acțiunea a fost deja efectuată.";
+    case "23505": // unique_violation: a constraint a user can hit names itself; else a double claim
+      return romanianRaiseText(error.message) ?? "Acțiunea a fost deja efectuată.";
     case "23503": // foreign_key_violation
       return "Elementul nu mai există.";
     case "42501": // insufficient_privilege — e.g. a read-only view-as session ("vezi ca")
@@ -117,6 +120,18 @@ export function mapPgError(error: PostgrestError): string {
     default:
       return "A apărut o eroare. Încearcă din nou.";
   }
+}
+
+/** Supabase Storage upload errors (menu photos, delivery proof, KYC): Romanian, never raw. */
+export function storageErrorText(error: { message?: string; status?: number; statusCode?: string | number }): string {
+  const msg = error.message ?? "";
+  const status = Number(error.status ?? error.statusCode);
+  if (status === 413 || /exceeded the maximum allowed size|payload too large|too large/i.test(msg)) return "Fișierul e prea mare.";
+  if (/mime type|invalid_mime_type|not supported/i.test(msg)) return "Formatul fișierului nu e acceptat.";
+  if (status === 401 || status === 403 || /row-level security|unauthorized|not allowed/i.test(msg)) {
+    return "Nu ai permisiunea să încarci acest fișier.";
+  }
+  return "Încărcarea a eșuat — verifică conexiunea și încearcă din nou.";
 }
 
 /** GoTrue (auth) errors, e.g. an admin invite: Romanian by code, never the raw English text. */
