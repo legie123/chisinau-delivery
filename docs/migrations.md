@@ -4,6 +4,7 @@ Source of truth for **why** each migration exists. One line per file in `supabas
 `scripts/check-doc-drift.sh` fails if a migration file has no entry here.
 Moved out of CLAUDE.md on 2026-08-24 (it was ~60% of the file); content below is verbatim.
 
+- `20261004000600_payouts_chisinau_dates` — `admin_generate_payouts` recreat din corpul live cu o singură deltă în toate cele 4 predicate (restaurant: totaluri + linii, curier: totaluri + linii): perioada de plată e în date calendaristice Chișinău (`(delivered_at at time zone 'Europe/Chisinau')::date`), nu UTC. O livrare luni 00:00–02:59 ora locală intra în plata săptămânii anterioare, în timp ce aplicația și web-ul curierului o numărau în săptămâna nouă. Liniile deja plătite rămân înghețate; `not exists payout_orders` împiedică plata dublă. Sim 78.
 - `20261004000500_kpi_satisfaction_week_chisinau` — `admin_courier_pilot_kpis` recreat din definiția live cu o singură deltă: fereastra de satisfacție pe 4 săptămâni pornește din lunea Chișinăului (`now() at time zone 'Europe/Chisinau'`), ca cheile sondajului din 20261004000200; luni 00:00–02:59 ora locală prindea o săptămână veche în plus. `security_invoker` și grant-urile neschimbate. Sim 77.
 - `20261004000400_config_versions_unique_instant` — index unic pe `effective_from` în `pricing_config`, `cash_policy`, `courier_tariff_config`, `dispatch_scoring_config`: două versiuni la același moment n-aveau câștigător definit (`order by effective_from desc limit 1`), iar plata (`pricing_config_at`) și aplicația/web-ul (`pctAt`) alegeau rânduri diferite — 12,78 MDL/comandă pe o taxă de 50 MDL. O corecție rămâne un rând nou, la un moment ulterior. Sim 76; sim 27 folosea două versiuni la același `now()` și compara de fapt baza cu ea însăși — acum momente distincte + aserțiune că alpha1=500 e cea în vigoare.
 - `20261004000300_viewer_cash_status_live_session` — `get_courier_cash_status()` recreat din corpul live cu o singură deltă: un apelant cu rolul JWT `viewer` are nevoie de sesiune „vezi ca” vie (`viewer_session_live()`), altfel 42501. Funcția e SECURITY DEFINER și pe allowlist-ul viewer-ului, deci politicile restrictive `viewer_session_live` nu se aplicau în ea: după „Ieși” tokenul încă citea soldul de numerar al curierului până la expirarea JWT. ACL neschimbat. Sim 75.
@@ -38,7 +39,7 @@ Moved out of CLAUDE.md on 2026-08-24 (it was ~60% of the file); content below is
 - `20260717001900_ws3_postgis_geo` — PostGIS geo columns + nearby_restaurants + location guards.
 - `20260717002000_backtest_hardening` — adversarial fixes (catering confirm guard, rating column guard, capacity locks).
 - `20260717002100_ws3b_private_location_channel` — private realtime GPS channel RLS.
-- `20260717002200_grants_parity` — grant parity across the RPC surface.
+- `20260717002200_grants_parity` — (Editată pe loc 2026-10-04, înainte de orice sincronizare remote: secvențele și rutinele primesc grant-uri una câte una, cu aceeași excludere Trade-AI ca tabelele — regula 7; local identic.) grant parity across the RPC surface.
 - `20260717002300_fix_profile_role_escalation` — block self role-escalation on profiles.
 - `20260717002400_backtest2_hardening` — round-2 adversarial hardening.
 - `20260717002500_dispatch_plausible` — dispatch skips implausible/teleporting couriers.

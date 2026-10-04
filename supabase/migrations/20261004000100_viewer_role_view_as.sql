@@ -421,8 +421,12 @@ begin
   --    Trade-AI functions keep their own ACL (rule 7): reachable only through PUBLIC, exactly as
   --    by the admin's own session, so the viewer gains nothing there.
   select count(*) into n_bad from pg_proc p
+  --    Extension members are skipped like in 5d (they keep PUBLIC by design): a pg_trgm or vector
+  --    installed in public on the remote would otherwise abort the sync here.
   where p.pronamespace = 'public'::regnamespace and p.provolatile = 'v'
     and p.oid not in (select t.oid from _trade_ai t where t.cat = 'pg_proc'::regclass)
+    and not exists (select 1 from pg_depend d
+                    where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
     and has_function_privilege('viewer', p.oid, 'EXECUTE');
   if n_bad > 0 then raise exception 'viewer guard G3: % volatile public functions executable by viewer', n_bad; end if;
 

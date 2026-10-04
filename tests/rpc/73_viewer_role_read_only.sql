@@ -43,6 +43,7 @@ begin
 
   select string_agg(p.oid::regprocedure::text, ', ') into v_bad from pg_proc p
   where p.pronamespace = 'public'::regnamespace and p.provolatile = 'v'
+    and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e')
     and has_function_privilege('viewer', p.oid, 'EXECUTE');
   if v_bad is not null then raise exception 'FAIL 73.a3: VOLATILE functions executable by viewer: %', v_bad; end if;
   raise notice 'PASS 73.a3: viewer executes no VOLATILE public function';
@@ -52,7 +53,8 @@ begin
   -- The fix needs BOTH lines: postgres-owned functions in public get no default grant to the API
   -- roles (pg_default_acl = {postgres=X}), so a bare revoke locks customers out with 42501.
   select string_agg(p.oid::regprocedure::text, ', ') into v_bad from pg_proc p
-  where p.pronamespace = 'public'::regnamespace and has_function_privilege('public', p.oid, 'EXECUTE');
+  where p.pronamespace = 'public'::regnamespace and has_function_privilege('public', p.oid, 'EXECUTE')
+    and not exists (select 1 from pg_depend d where d.classid = 'pg_proc'::regclass and d.objid = p.oid and d.deptype = 'e');
   if v_bad is not null then
     raise exception 'FAIL 73.a4: public functions executable by PUBLIC: % — fix: revoke execute on function <fn> from public; grant execute on function <fn> to <the roles that call it: anon / authenticated / service_role>', v_bad;
   end if;

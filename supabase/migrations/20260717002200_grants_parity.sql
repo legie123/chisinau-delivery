@@ -28,8 +28,27 @@ begin
   end loop;
 end $$;
 
-grant all on all sequences in schema public to anon, authenticated, service_role;
-grant execute on all routines in schema public to service_role; -- service_role bypasses RLS anyway
+-- Sequences and routines one by one with the same Trade-AI exclusion (hard rule 7): the schema-wide
+-- `grant ... on all sequences / all routines` rewrote their ACLs on the remote sync too. Edited in
+-- place before any remote sync (verifier round 2, 2026-10-04); locally the result is identical.
+do $$
+declare r record;
+begin
+  for r in
+    select c.oid::regclass as seq from pg_class c
+    where c.relnamespace = 'public'::regnamespace and c.relkind = 'S'
+      and c.relname not similar to '(poly|polymarket|gladiator|equity_history|syndicate_audits)%'
+  loop
+    execute format('grant all on sequence %s to anon, authenticated, service_role', r.seq);
+  end loop;
+  for r in
+    select p.oid::regprocedure as fn from pg_proc p
+    where p.pronamespace = 'public'::regnamespace
+      and p.proname not similar to '(poly|polymarket|gladiator)%'
+  loop
+    execute format('grant execute on routine %s to service_role', r.fn); -- service_role bypasses RLS anyway
+  end loop;
+end $$;
 
 -- Future app tables/sequences inherit the same posture (matches Supabase defaults).
 alter default privileges for role postgres in schema public grant all on tables to anon, authenticated, service_role;
