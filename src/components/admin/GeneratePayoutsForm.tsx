@@ -1,34 +1,28 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { currentWeekRange } from "@chisinau/shared-domain";
 import { generatePayouts } from "@/app/(admin)/platform/payouts/actions";
 
-function toISODate(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+// Default to the previous full Chisinau week (Monday..Sunday) — the payout period
+// (admin_generate_payouts buckets by Chisinau date). It used the browser's local
+// clock, so a UTC or far-east browser proposed the wrong week near midnight.
+const addDays = (iso: string, n: number) => {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
-// Default to the previous full week (Monday..Sunday) — the natural weekly
-// payout period.
-function lastWeekRange() {
-  const now = new Date();
-  const dowFromMonday = (now.getDay() + 6) % 7; // 0 = Monday
-  const thisMonday = new Date(now);
-  thisMonday.setDate(now.getDate() - dowFromMonday);
-  const lastMonday = new Date(thisMonday);
-  lastMonday.setDate(thisMonday.getDate() - 7);
-  const lastSunday = new Date(lastMonday);
-  lastSunday.setDate(lastMonday.getDate() + 6);
-  return { start: toISODate(lastMonday), end: toISODate(lastSunday) };
+export function lastChisinauWeek(now = new Date()) {
+  const { startDate } = currentWeekRange(now); // this week's Chisinau Monday
+  return { start: addDays(startDate, -7), end: addDays(startDate, -1) };
 }
 
 const inputClass =
   "rounded-xl bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60 [color-scheme:dark]";
 
 export function GeneratePayoutsForm() {
-  const def = lastWeekRange();
+  const def = lastChisinauWeek();
   const [start, setStart] = useState(def.start);
   const [end, setEnd] = useState(def.end);
   const [pending, startTransition] = useTransition();

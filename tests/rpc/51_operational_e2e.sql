@@ -81,7 +81,7 @@ begin
 
   -- 6. payouts settle courier + restaurant
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, true);
-  perform public.admin_generate_payouts(date_trunc('month', now())::date, (date_trunc('month', now())+interval '1 month - 1 day')::date);
+  perform public.admin_generate_payouts(date_trunc('month', now() at time zone 'Europe/Chisinau')::date, (date_trunc('month', now() at time zone 'Europe/Chisinau')+interval '1 month - 1 day')::date);
   select count(*) into v_lines from public.payout_orders where order_id = v_oid;
   if v_lines < 2 then raise exception 'FAIL payout: only % lines (need courier+restaurant)', v_lines; end if;
 

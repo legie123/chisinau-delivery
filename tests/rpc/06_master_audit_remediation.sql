@@ -84,7 +84,7 @@ begin
   values ('standard','a0000000-0000-0000-0000-000000000001', v_rest, 'delivered','online_gateway','paid', 1000, 0, 1000, 0, now())
   returning id into v_oid;
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, true);
-  perform public.admin_generate_payouts(current_date, current_date);
+  perform public.admin_generate_payouts((now() at time zone 'Europe/Chisinau')::date, (now() at time zone 'Europe/Chisinau')::date);
   -- now change platform commission, THEN refund → clawback must use the settled gross, not recompute
   update public.platform_settings set restaurant_commission_pct = 50 where id;
   update public.orders set payment_status = 'refunded' where id = v_oid;

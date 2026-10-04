@@ -98,16 +98,16 @@ begin
   returning id into v_oid;
 
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, true);
-  perform public.admin_generate_payouts(current_date, current_date);
+  perform public.admin_generate_payouts((now() at time zone 'Europe/Chisinau')::date, (now() at time zone 'Europe/Chisinau')::date);
 
   select gross_mdl, orders_count into v_gross, v_cnt from public.payouts
-   where recipient_type='restaurant' and recipient_id=v_rest and period_start=current_date;
+   where recipient_type='restaurant' and recipient_id=v_rest and period_start=(now() at time zone 'Europe/Chisinau')::date;
   if v_gross is null or v_gross < 5000 then raise exception 'FAIL S_PAYOUT: restaurant catering gross % (expected >=5000)', v_gross; end if;
 
   -- re-run same period: ledger must prevent a second settlement (gross unchanged)
-  perform public.admin_generate_payouts(current_date, current_date);
+  perform public.admin_generate_payouts((now() at time zone 'Europe/Chisinau')::date, (now() at time zone 'Europe/Chisinau')::date);
   select gross_mdl into v_gross2 from public.payouts
-   where recipient_type='restaurant' and recipient_id=v_rest and period_start=current_date;
+   where recipient_type='restaurant' and recipient_id=v_rest and period_start=(now() at time zone 'Europe/Chisinau')::date;
   if v_gross2 <> v_gross then raise exception 'FAIL S_PAYOUT: re-run double-paid (% -> %)', v_gross, v_gross2; end if;
   raise notice 'PASS S_PAYOUT: restaurant paid for catering (gross=%), re-run idempotent', v_gross;
 end $$;
@@ -123,7 +123,7 @@ begin
           200, 20, 220, 0, now(), 'c9a68659-0734-413e-95d0-87cd21f4a0f7')
   returning id into v_oid;
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, true);
-  perform public.admin_generate_payouts(current_date, current_date);
+  perform public.admin_generate_payouts((now() at time zone 'Europe/Chisinau')::date, (now() at time zone 'Europe/Chisinau')::date);
   select count(*) into v_inpayout from public.payout_orders where order_id = v_oid;
   if v_inpayout <> 0 then raise exception 'FAIL S_UNPAID: unpaid order was paid out (% ledger rows)', v_inpayout; end if;
   select count(*) into v_inqueue from public.admin_payment_queue where id = v_oid;

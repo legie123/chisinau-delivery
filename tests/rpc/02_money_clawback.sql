@@ -11,7 +11,7 @@ begin
           1000, 65, 1065, 0, now(), 'c9a68659-0734-413e-95d0-87cd21f4a0f7')
   returning id into v_oid;
   perform set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, true);
-  perform public.admin_generate_payouts(current_date, current_date);      -- settle it
+  perform public.admin_generate_payouts((now() at time zone 'Europe/Chisinau')::date, (now() at time zone 'Europe/Chisinau')::date);      -- settle it
   update public.payouts set status='paid', paid_at=now() where status='pending';  -- recipients paid
 
   -- now refund the delivered+paid+settled order

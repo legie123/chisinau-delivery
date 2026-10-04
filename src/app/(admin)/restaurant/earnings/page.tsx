@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { daysAgoIso } from "@/lib/time";
+import { currentWeekRange } from "@chisinau/shared-domain";
 import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { Payout } from "@/lib/types/domain";
 
 // "Câștiguri" for the restaurant partner: this-week gross sales (subtotal of
-// delivered standard orders in the last 7 days) plus the weekly payouts the
+// delivered orders in the Chisinau week Mon–Sun — the payout period, migration
+// 20261004000600; it was a rolling 7×24 h window) plus the weekly payouts the
 // platform settles to them (net = gross − platform commission). RLS
 // (has_restaurant_access) scopes payouts to the partner's own restaurant.
 const fmtDate = (d: string) =>
@@ -48,7 +49,7 @@ export default async function RestaurantEarningsPage() {
     );
   }
 
-  const weekAgo = daysAgoIso(7);
+  const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
 
   const [{ data: weekOrders }, { data: payoutRows }] = await Promise.all([
     // Money basis matches the Wave-1 payout logic: paid + keyed off delivered_at,
@@ -59,7 +60,8 @@ export default async function RestaurantEarningsPage() {
       .eq("restaurant_id", staffRow.restaurant_id)
       .eq("status", "delivered")
       .eq("payment_status", "paid")
-      .gte("delivered_at", weekAgo),
+      .gte("delivered_at", weekStart.toISOString())
+      .lt("delivered_at", weekEnd.toISOString()),
     supabase
       .from("payouts")
       .select("*")

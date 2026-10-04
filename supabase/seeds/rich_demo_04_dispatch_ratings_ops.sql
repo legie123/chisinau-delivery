@@ -71,9 +71,9 @@ where c.id = v.id;
 -- Historical week: settle everything delivered through yesterday, then mark paid.
 -- Current day: settle today's deliveries, leave pending. (delivered_at was stamped in file 03.)
 select set_config('request.jwt.claims', json_build_object('sub','a0000000-0000-0000-0000-000000000004','role','authenticated')::text, false);
-select public.admin_generate_payouts((current_date - 7)::date, (current_date - 1)::date);
+select public.admin_generate_payouts(((now() at time zone 'Europe/Chisinau')::date - 7)::date, ((now() at time zone 'Europe/Chisinau')::date - 1)::date);
 update public.payouts set status = 'paid', paid_at = now() - interval '1 day' where status = 'pending';
-select public.admin_generate_payouts(current_date, current_date);
+select public.admin_generate_payouts((now() at time zone 'Europe/Chisinau')::date, (now() at time zone 'Europe/Chisinau')::date);
 select set_config('request.jwt.claims', '', false);
 
 -- ============================================================================
