@@ -39,7 +39,7 @@ begin
   --         real bucket to prove non-empty partner-owned data. Runner rolls
   --         back the whole transaction — no persistence outside this sim. ====
   update public.orders
-  set status = 'delivered', delivered_at = now(), created_at = now(), total_mdl = 845
+  set status = 'delivered', delivered_at = now(), created_at = now(), subtotal_mdl = 800, delivery_fee_mdl = 45, tip_mdl = 0, total_mdl = 845
   where id = v_order;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_partner, 'role', 'authenticated')::text, true);
@@ -47,10 +47,11 @@ begin
   -- ==== 1. partner sees own restaurant's hourly row for THIS hour, non-zero ====
   select orders_count, revenue_mdl into v_orders_count, v_revenue
   from public.restaurant_analytics_hourly
-  where restaurant_id = v_own_restaurant and hour_of_day = extract(hour from now())::int;
+  where restaurant_id = v_own_restaurant and hour_of_day = extract(hour from (now() at time zone 'Europe/Chisinau'))::int;  -- Chisinau hour (20261004001200)
   if v_orders_count is null then raise exception 'FAIL: partner sees no hourly bucket at all for own restaurant''s current hour'; end if;
   if v_orders_count < 1 then raise exception 'FAIL: hourly orders_count = % for own restaurant (expected >= 1 after the forced delivered order)', v_orders_count; end if;
-  if v_revenue < 845 then raise exception 'FAIL: hourly revenue_mdl = % (expected >= 845)', v_revenue; end if;
+  -- revenue = the food value payouts use (subtotal 800), NOT the total with the 45 MDL delivery fee
+  if v_revenue < 800 then raise exception 'FAIL: hourly revenue_mdl = % (expected >= 800, the food value)', v_revenue; end if;
 
   -- full 24-hour zero-filled grid present for the own restaurant
   select count(*) into v_hourly_count from public.restaurant_analytics_hourly where restaurant_id = v_own_restaurant;
@@ -59,7 +60,7 @@ begin
   -- ==== 2. partner sees own restaurant's daily row for TODAY, non-zero ====
   select orders_count, revenue_mdl into v_orders_count, v_revenue
   from public.restaurant_analytics_daily
-  where restaurant_id = v_own_restaurant and day = current_date;
+  where restaurant_id = v_own_restaurant and day = (now() at time zone 'Europe/Chisinau')::date;
   if v_orders_count is null or v_orders_count < 1 then raise exception 'FAIL: daily orders_count = % for own restaurant today (expected >= 1)', v_orders_count; end if;
 
   select count(*) into v_daily_count from public.restaurant_analytics_daily where restaurant_id = v_own_restaurant;

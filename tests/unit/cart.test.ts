@@ -145,3 +145,12 @@ describe("cart reconciliation — reorder with decimal option prices", () => {
     expect(r.lines[0]).toBe(line);
   });
 });
+
+// The catering page kept "Ofertă confirmată — comanda e în lucru" over a DELIVERED order (cross-app
+// E2E audit, 2026-10-04): delivered is terminal like cancelled / rejected.
+describe("catering tracking page — a delivered order is terminal", () => {
+  it("isTerminal covers delivered", () => {
+    const src = readFileSync(path.join(__dirname, "../../src/components/customer/CateringTracking.tsx"), "utf8");
+    expect(src).toMatch(/const isTerminal =[^;]*"delivered"/);
+  });
+});

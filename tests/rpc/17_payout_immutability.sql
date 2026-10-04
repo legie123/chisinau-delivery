@@ -15,6 +15,12 @@ begin
   values ('restaurant', v_rest, (now() - interval '7 days')::date, now()::date, 1, 100, 20, 80, 'pending')
   returning id into v_pid;
 
+  -- the settled ledger line is written while the payout is still pending (the generator's own path);
+  -- once PAID, lines can no longer be added or deleted (20261004001000, sim 81)
+  select id into v_oid from public.orders limit 1;
+  insert into public.payout_orders (payout_id, order_id, recipient_type, gross_mdl, net_mdl)
+  values (v_pid, v_oid, 'restaurant', 100, 80);
+
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin,'role','authenticated')::text, true);
   perform public.admin_mark_payout_paid(v_pid);
   if (select status from public.payouts where id = v_pid) <> 'paid' then raise exception 'FAIL: pending→paid transition blocked'; end if;
@@ -30,10 +36,6 @@ begin
   if not v_raised then raise exception 'FAIL: a paid payout was deletable'; end if;
 
   -- settled ledger row: financial edit blocked, reversed_at allowed
-  select id into v_oid from public.orders limit 1;
-  insert into public.payout_orders (payout_id, order_id, recipient_type, gross_mdl, net_mdl)
-  values (v_pid, v_oid, 'restaurant', 100, 80);
-
   v_raised := false;
   begin update public.payout_orders set net_mdl = 5 where payout_id = v_pid and order_id = v_oid; exception when others then v_raised := true; end;
   if not v_raised then raise exception 'FAIL: settled ledger financial field was editable'; end if;

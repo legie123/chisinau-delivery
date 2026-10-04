@@ -132,7 +132,9 @@ export function CateringTracking({
     });
   }
 
-  const isTerminal = order.status === "cancelled" || order.status === "rejected";
+  // delivered is terminal too: the page kept saying "Ofertă confirmată — comanda e în lucru" over a
+  // delivered order (cross-app E2E audit, 2026-10-04).
+  const isTerminal = order.status === "cancelled" || order.status === "rejected" || order.status === "delivered";
   const hasQuote =
     (details.quote_status === "quoted" || details.quote_status === "confirmed") &&
     details.quoted_total_mdl != null;
