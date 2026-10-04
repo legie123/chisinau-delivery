@@ -10,6 +10,9 @@ import { isLocalRequestHost } from "@/lib/local/noLogin";
 const SECTOR: Record<string, { email: string; to: string }> = {
   client: { email: "client@test.md", to: "/restaurants" },
   curier: { email: "curier@test.md", to: "/deliveries" },
+  // A free courier for live demos: curier@test.md carries the seeded courier_assigned order
+  // e0..17 that sims 73/79 rely on, so he can never take a new offer.
+  "curier-demo": { email: "vlad.ciobanu.courier@test.md", to: "/deliveries" },
   restaurant: { email: "partener@test.md", to: "/restaurant/orders" },
   platform: { email: "admin@test.md", to: "/platform" },
 };

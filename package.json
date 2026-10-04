@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:rpc": "bash scripts/test-rpc.sh",
+    "test:e2e": "vitest run --config vitest.e2e.config.mts",
     "db:types": "supabase gen types typescript --local > packages/shared-types/src/generated.ts",
     "typecheck": "tsc --noEmit",
     "verify": "bash scripts/check-type-drift.sh && bash scripts/check-doc-drift.sh && bash scripts/check-local-exposure.sh && bash scripts/check-sim-hours.sh && tsc --noEmit && vitest run"
