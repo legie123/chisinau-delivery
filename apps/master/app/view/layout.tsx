@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { jsonForScript } from "@/lib/seo/safeJson";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isViewerClient } from "@/lib/supabase/viewer";
@@ -32,7 +33,7 @@ export default async function ViewLayout({ children }: { children: React.ReactNo
           from window. Set while the HTML is parsed — before any child component hydrates and opens
           a client in an effect. The token is read-only by the DB and refused by GoTrue; the cookie
           copy stays httpOnly for the server. */}
-      <script dangerouslySetInnerHTML={{ __html: `window.__VIEW_AS_TOKEN__=${JSON.stringify(token)};` }} />
+      <script dangerouslySetInnerHTML={{ __html: `window.__VIEW_AS_TOKEN__=${jsonForScript(token)};` }} />
       <ViewAsChrome
         token={token}
         app={claims.view_as_app}

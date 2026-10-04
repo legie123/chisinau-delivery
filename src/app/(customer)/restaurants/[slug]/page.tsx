@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { jsonForScript } from "@/lib/seo/safeJson";
 import { createClient } from "@/lib/supabase/server";
 import { getPrepEstimates, getPopularHours, getRatingBreakdown } from "@chisinau/shared-api";
 import { CoverImage } from "@/components/customer/CoverImage";
@@ -189,8 +190,10 @@ export default async function RestaurantMenuPage({ params }: { params: Promise<{
       <SectorBackdrop sector="customer" intensity="ambient" />
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger -- JSON-LD generat de noi din date proprii
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // Numele de restaurant/produs vin de la partener: JSON.stringify simplu lăsa "</script>"
+        // să închidă blocul (XSS stocat pe pagina publică). jsonForScript escapează < > & U+2028/9.
+        // eslint-disable-next-line react/no-danger -- conținut escapat de jsonForScript
+        dangerouslySetInnerHTML={{ __html: jsonForScript(jsonLd) }}
       />
       {/* Cover banner with overlaid identity — Bolt restaurant header */}
       <CoverImage
