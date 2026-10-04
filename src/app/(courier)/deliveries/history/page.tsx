@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { currentWeekRange, netForOrder, summarizeEarnings } from "@/app/(courier)/_lib/earnings";
+import { getPublicPricingHistory } from "@chisinau/shared-api";
+import { COMMISSION_PCT, currentWeekRange, netForOrder, summarizeEarnings } from "@/app/(courier)/_lib/earnings";
 import type { Order } from "@/lib/types/domain";
 
 // "Istoric Livrări" — every delivered order, newest first. #3b/#3c: the
@@ -27,15 +28,23 @@ export default async function DeliveryHistoryPage() {
     );
   }
 
-  const { data: delivered } = await supabase
-    .from("orders")
-    .select(
-      "id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, restaurant_id, restaurants(name)",
-    )
-    .eq("courier_id", courier.id)
-    .eq("status", "delivered")
-    .order("delivered_at", { ascending: false, nullsFirst: false })
-    .limit(50);
+  const [{ data: delivered }, pricingHistory, { data: pricing }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select(
+        "id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, restaurant_id, restaurants(name)",
+      )
+      .eq("courier_id", courier.id)
+      .eq("status", "delivered")
+      .order("delivered_at", { ascending: false, nullsFirst: false })
+      .limit(50),
+    getPublicPricingHistory(supabase),
+    supabase.rpc("current_pricing_config"),
+  ]);
+  // Each order's commission = the pricing version in effect at its delivered_at
+  // (what the payout pays); the live rate only if the history read soft-fails.
+  const livePct = (pricing as { courier_commission_pct: number } | null)?.courier_commission_pct ?? COMMISSION_PCT;
+  const commission = pricingHistory.length > 0 ? pricingHistory : livePct;
 
   type HistoryRow = Pick<
     Order,
@@ -47,12 +56,12 @@ export default async function DeliveryHistoryPage() {
   };
   const orders = (delivered ?? []) as unknown as HistoryRow[];
 
-  const { start: weekStart, end: weekEnd } = currentWeekRange();
+  const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
   const weekOrders = orders.filter((o) => {
     const at = new Date(o.delivered_at ?? o.updated_at);
     return at >= weekStart && at < weekEnd;
   });
-  const weekSummary = summarizeEarnings(weekOrders);
+  const weekSummary = summarizeEarnings(weekOrders, commission);
 
   const formatTime = new Intl.DateTimeFormat("ro-RO", {
     hour: "2-digit",
@@ -83,7 +92,7 @@ export default async function DeliveryHistoryPage() {
       ) : (
         <ul className="flex flex-col gap-3">
           {orders.map((order) => {
-            const net = netForOrder(order);
+            const net = netForOrder(order, commission);
             const at = new Date(order.delivered_at ?? order.updated_at);
             return (
               <li

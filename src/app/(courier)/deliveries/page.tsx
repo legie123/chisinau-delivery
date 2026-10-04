@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { createClient } from "@/lib/supabase/server";
-import { getCourierCashStatus } from "@chisinau/shared-api";
+import { getCourierCashStatus, getPublicPricingHistory } from "@chisinau/shared-api";
 import { CourierCommandBar } from "@/components/courier/CourierCommandBar";
 import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
 import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
@@ -11,7 +11,13 @@ import { SatisfactionPrompt } from "@/components/courier/SatisfactionPrompt";
 import { CashFloatStatus } from "@/components/courier/CashFloatStatus";
 import { PushOptIn } from "@/components/shared/PushOptIn";
 import { SectorBackdrop } from "@/components/immersive/SectorBackdrop";
-import { COMMISSION_PCT, currentWeekRange, summarizeEarnings, type EarningsOrder } from "@/app/(courier)/_lib/earnings";
+import {
+  COMMISSION_PCT,
+  currentWeekRange,
+  summarizeEarnings,
+  todayStart,
+  type EarningsOrder,
+} from "@/app/(courier)/_lib/earnings";
 import { ORDER_STATUS_LABEL, type DispatchOffer, type Order } from "@/lib/types/domain";
 
 export default async function DeliveriesPage() {
@@ -35,15 +41,17 @@ export default async function DeliveriesPage() {
     );
   }
 
-  // Faza 5 #5 — same Mon-Sun boundary the earnings page + payout periods use.
-  const weekStartIso = currentWeekRange().start.toISOString().slice(0, 10);
+  // Faza 5 #5 — săptămâna sondajului = lunea din calendarul Chișinăului, aceeași
+  // cheie pe care submit_courier_satisfaction o scrie (nu toISOString(), care
+  // dădea duminica precedentă pe un server în ora Chișinăului).
+  const now = new Date();
+  const { startDate: weekStartIso } = currentWeekRange(now);
 
   // Ziua curentă în ora Chișinăului — banii de azi sunt prima întrebare a
   // curierului, iar până acum nu se vedeau nicăieri pe ecranul principal.
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const dayStart = todayStart(now);
 
-  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }, { data: survey }, cashStatus, { data: todayDone }] =
+  const [{ data: activeOrders }, { data: availableOrders }, { data: liveOffer }, { data: survey }, cashStatus, { data: todayDone }, pricingHistory] =
     await Promise.all([
       supabase
         .from("orders")
@@ -69,10 +77,12 @@ export default async function DeliveriesPage() {
       getCourierCashStatus(supabase).catch(() => null),
       supabase
         .from("orders")
-        .select("courier_fee_mdl, delivery_fee_mdl, tip_mdl, payment_status")
+        .select("courier_fee_mdl, delivery_fee_mdl, tip_mdl, payment_status, delivered_at")
         .eq("courier_id", courier.id)
         .eq("status", "delivered")
-        .gte("delivered_at", todayStart.toISOString()),
+        .gte("delivered_at", dayStart.toISOString()),
+      // Comisionul fiecărei livrări = versiunea în vigoare la delivered_at, ca payout-ul.
+      getPublicPricingHistory(supabase),
     ]);
 
   // Comisionul viu, o singură citire pentru tot ecranul: și cifra zilei, și
@@ -94,7 +104,12 @@ export default async function DeliveriesPage() {
   // („N livrări neîncasate nu apar aici"). Două formule pentru aceeași
   // întrebare au dat, previzibil, două răspunsuri: pe datele de azi ale
   // curierului de test, 118 MDL pe ecranul principal față de 71 MDL decontați.
-  const todaySummary = summarizeEarnings((todayDone ?? []) as EarningsOrder[], commissionPct);
+  // Istoricul tarifelor dă comisionul fiecărei comenzi la delivered_at (ca
+  // payout-ul); dacă citirea lui eșuează (vine []), rămâne rata vie.
+  const todaySummary = summarizeEarnings(
+    (todayDone ?? []) as EarningsOrder[],
+    pricingHistory.length > 0 ? pricingHistory : commissionPct,
+  );
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">

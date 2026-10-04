@@ -72,7 +72,8 @@ export function CourierOfflineSync() {
   }, [router]);
 
   function dismissGiveUp() {
-    void clearGiveUpCount();
+    // Clear only what the banner showed — a give-up recorded since stays for the next one.
+    void clearGiveUpCount(givenUp).then(giveUpCount).then(setGivenUp);
     setGivenUp(0);
   }
 

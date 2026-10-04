@@ -9,6 +9,12 @@
 //         final stamped at delivered; falls back to the flat delivery fee for
 //         any order that predates the tariff or never got a final stamped)
 //   net = (fee + tip_mdl) - round(fee * commission_pct / 100, 2)
+// rounded PER ORDER, half away from zero on the exact decimal (Postgres numeric
+// round), then summed — done here in integer bani, never on floats: 21.90 × 15%
+// = 3.285 is 3.2849999… as a double and would round the wrong way.
+// commission_pct is the pricing_config version in effect at the order's
+// delivered_at (pricing_config_at). Pass the public pricing history to get
+// that per order; a bare number applies one rate to every order.
 // i.e. tips are the courier's in full; commission is taken on the delivery
 // fee only. Only status='delivered' AND payment_status='paid' orders count —
 // anything else is "pending" (#3c: cash not yet collected / online not yet
@@ -23,18 +29,103 @@ export function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-// Monday 00:00 .. next Monday 00:00, in the server's local time — the same
-// week boundary admin payout periods use (src/lib/time.ts lastWeekRange),
-// just for the CURRENT, still-open week instead of the last closed one.
-export function currentWeekRange(now: Date = new Date()): { start: Date; end: Date } {
-  const day = now.getDay(); // 0=Sun..6=Sat
-  const daysSinceMonday = (day + 6) % 7;
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(now.getDate() - daysSinceMonday);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 7);
-  return { start, end };
+// MDL (2 decimals, numeric(10,2) in the DB) → integer bani.
+const toBani = (mdl: number | string | null | undefined) => Math.round(Number(mdl ?? 0) * 100);
+
+// Postgres round(fee * pct / 100, 2) on exact decimals, in bani. pct is
+// numeric(5,2), so fee_bani × pct_hundredths is an exact integer; /10_000 → bani.
+function commissionBani(feeBani: number, pct: number): number {
+  const p = feeBani * Math.round(pct * 100);
+  return Math.sign(p) * Math.floor((Math.abs(p) + 5000) / 10_000);
+}
+
+// One row of public_pricing_history() (shared-api getPublicPricingHistory).
+export type PricingVersion = { effective_from: string; courier_pct: number | string };
+// One rate for every order, or the history to resolve each order's own rate.
+export type CommissionSource = number | readonly PricingVersion[];
+
+// pricing_config_at(): latest version with effective_from <= ts (null ts = now).
+// No version yet → fallbackPct, as the payout falls back to platform_settings.
+// ponytail: compares at millisecond precision; Postgres keeps microseconds.
+export function pctAt(
+  history: readonly PricingVersion[],
+  deliveredAtIso: string | null | undefined,
+  fallbackPct: number = COMMISSION_PCT,
+): number {
+  const ts = deliveredAtIso ? Date.parse(deliveredAtIso) : Date.now();
+  let best: PricingVersion | null = null;
+  for (const v of history) {
+    const from = Date.parse(v.effective_from);
+    if (from <= ts && (!best || from >= Date.parse(best.effective_from))) best = v;
+  }
+  return best ? Number(best.courier_pct) : fallbackPct;
+}
+
+function pctFor(o: { delivered_at?: string | null }, commission: CommissionSource): number {
+  return typeof commission === "number" ? commission : pctAt(commission, o.delivered_at);
+}
+
+// --- Europe/Chisinau calendar (service time), independent of the device zone ---
+// Built on first use, not at import: every app imports this package's index.
+let zoneParts: Intl.DateTimeFormat | null = null;
+
+// Chisinau wall clock at instant `ms`, read back as if it were UTC.
+function wallAsUtc(ms: number): number {
+  zoneParts ??= new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Chisinau",
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+  const p: Record<string, number> = {};
+  for (const x of zoneParts.formatToParts(new Date(ms))) if (x.type !== "literal") p[x.type] = Number(x.value);
+  return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second); // some engines print midnight as 24
+}
+
+// Chisinau 00:00 of calendar day (y, m0, d) as an instant. Midnight is never in
+// a DST gap/overlap there (the switches happen at 03:00/04:00 local).
+function chisinauMidnight(y: number, m0: number, d: number): Date {
+  const wall = Date.UTC(y, m0, d);
+  let t = wall - (wallAsUtc(wall) - wall);
+  t = wall - (wallAsUtc(t) - t); // re-read the offset at the candidate instant
+  return new Date(t);
+}
+
+// Chisinau calendar day of `now`, as a UTC-midnight Date (calendar maths only).
+function chisinauDay(now: Date): Date {
+  const w = new Date(wallAsUtc(now.getTime()));
+  return new Date(Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate()));
+}
+
+/** Chisinau calendar date of `now`, "YYYY-MM-DD". */
+export function chisinauDate(now: Date): string {
+  return chisinauDay(now).toISOString().slice(0, 10);
+}
+
+/** 00:00 Chisinau of `now`'s day, as an instant (never the device's midnight). */
+export function todayStart(now: Date): Date {
+  const d = chisinauDay(now);
+  return chisinauMidnight(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+// Monday 00:00 .. next Monday 00:00 in Europe/Chisinau, whatever zone the
+// device or server runs in. `startDate` is that Monday as "YYYY-MM-DD" — equal
+// to date_trunc('week', now() at time zone 'Europe/Chisinau')::date, the key the
+// server stores the weekly survey under. A DST week lasts 167h/169h, so `end`
+// is the next Chisinau midnight, never start + 7×24h.
+export function currentWeekRange(now: Date): { start: Date; end: Date; startDate: string } {
+  const day = chisinauDay(now);
+  const monday = new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * 86_400_000);
+  const [y, m, d] = [monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate()];
+  return {
+    start: chisinauMidnight(y, m, d),
+    end: chisinauMidnight(y, m, d + 7),
+    startDate: monday.toISOString().slice(0, 10),
+  };
 }
 
 export type EarningsOrder = {
@@ -42,6 +133,8 @@ export type EarningsOrder = {
   courier_fee_mdl?: number | null;
   tip_mdl: number | null;
   payment_status: string;
+  // Read only when a pricing history is passed (per-order commission).
+  delivered_at?: string | null;
 };
 
 // Order 2 — the courier's actual fee: the final tariff stamp if it exists,
@@ -53,11 +146,10 @@ function courierFee(o: EarningsOrder): number {
 // Per-order net — what a single delivery is actually worth to the courier.
 // Returns null for anything not settleable yet (see module doc); callers use
 // that to render a "neîncasat / pending" state instead of a number.
-export function netForOrder(o: EarningsOrder, commissionPct: number = COMMISSION_PCT): number | null {
+export function netForOrder(o: EarningsOrder, commission: CommissionSource = COMMISSION_PCT): number | null {
   if (o.payment_status !== "paid") return null;
-  const fee = courierFee(o);
-  const commission = round2(fee * (commissionPct / 100));
-  return round2(fee + Number(o.tip_mdl ?? 0) - commission);
+  const fee = toBani(courierFee(o));
+  return (fee + toBani(o.tip_mdl) - commissionBani(fee, pctFor(o, commission))) / 100;
 }
 
 // R8 — ce i se promite curierului ÎNAINTE de cursă, în aceeași monedă în care
@@ -75,8 +167,8 @@ export function quotedNetMdl(
   o: { courier_fee_quoted_mdl?: number | null; courier_fee_mdl?: number | null; delivery_fee_mdl: number },
   commissionPct: number = COMMISSION_PCT,
 ): number {
-  const fee = Number(o.courier_fee_mdl ?? o.courier_fee_quoted_mdl ?? o.delivery_fee_mdl);
-  return round2(fee - round2(fee * (commissionPct / 100)));
+  const fee = toBani(o.courier_fee_mdl ?? o.courier_fee_quoted_mdl ?? o.delivery_fee_mdl);
+  return (fee - commissionBani(fee, commissionPct)) / 100;
 }
 
 // Faza 5 #5 — gross earnings PER SHIFT ("tura"), the audit's go/no-go instrument
@@ -150,27 +242,20 @@ export type EarningsSummary = {
 // Aggregate over a set of delivered orders — same shape the payout cards use
 // (brut/comision/net), so the in-progress week reads like a preview of the
 // payout it will become, not a different metric.
-export function summarizeEarnings(orders: EarningsOrder[], commissionPct: number = COMMISSION_PCT): EarningsSummary {
-  let grossMdl = 0;
-  let feesMdl = 0;
+export function summarizeEarnings(orders: EarningsOrder[], commission: CommissionSource = COMMISSION_PCT): EarningsSummary {
+  let gross = 0;
+  let comm = 0;
   let ordersCount = 0;
   let pendingCount = 0;
   for (const o of orders) {
     if (o.payment_status === "paid") {
-      const fee = courierFee(o);
-      grossMdl += fee + Number(o.tip_mdl ?? 0);
-      feesMdl += fee;
+      const fee = toBani(courierFee(o));
+      gross += fee + toBani(o.tip_mdl);
+      comm += commissionBani(fee, pctFor(o, commission));
       ordersCount += 1;
     } else {
       pendingCount += 1;
     }
   }
-  const commissionMdl = round2(feesMdl * (commissionPct / 100));
-  return {
-    ordersCount,
-    grossMdl: round2(grossMdl),
-    commissionMdl,
-    netMdl: round2(grossMdl - commissionMdl),
-    pendingCount,
-  };
+  return { ordersCount, grossMdl: gross / 100, commissionMdl: comm / 100, netMdl: (gross - comm) / 100, pendingCount };
 }

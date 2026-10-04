@@ -481,8 +481,8 @@ export interface CourierShift {
 }
 
 // Faza 5 #5 — weekly 1-5 courier satisfaction pulse. RPC-only writes
-// (submit_courier_satisfaction); one row per courier per ISO week (Mon-Sun,
-// same boundary as payout periods / currentWeekRange()), immutable once set.
+// (submit_courier_satisfaction); one row per courier per ISO week (Mon-Sun in
+// Europe/Chisinau, = currentWeekRange(now).startDate), immutable once set.
 export interface CourierSatisfactionSurvey {
   id: string;
   courier_id: string;

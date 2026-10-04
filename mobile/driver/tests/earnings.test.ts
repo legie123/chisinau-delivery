@@ -6,8 +6,9 @@ import { fetchEarningsSince, offerNetLabel, historyNet } from "../src/lib/earnin
 // 5 with a stamped courier tariff, 3 tipped). Commission 15% (current_pricing_config).
 // Independent SQL on the same rows (admin_generate_payouts' formula):
 //   gross 399.79, Σ per-order commission 44.51 → payout net 355.28.
-// Web model (summarizeEarnings, commission rounded once on the fee total):
-//   commission 44.52 → net 355.27. The phone must show the WEB's number.
+// shared-domain summarizeEarnings now rounds per order exactly like that, so
+// web == phone == payout, to the ban (it used to round once on the fee total
+// and show 44.52 / 355.27).
 const ROWS = [
   { delivery_fee_mdl: 45.0, courier_fee_mdl: null, courier_fee_quoted_mdl: null, tip_mdl: 0.0, payment_status: "paid" },
   { delivery_fee_mdl: 40.0, courier_fee_mdl: null, courier_fee_quoted_mdl: null, tip_mdl: 20.0, payment_status: "paid" },
@@ -43,14 +44,12 @@ describe("courier money on the phone = web model (BLOCKER: was gross)", () => {
     const end = new Date("2026-10-01T00:00:00Z");
     const s = await fetchEarningsSince(db, "courier-1", start, end, PCT);
 
-    expect(s).toEqual({ ordersCount: 8, grossMdl: 399.79, commissionMdl: 44.52, netMdl: 355.27, pendingCount: 1 });
-    // within one ban of what the payout will actually pay (rounding note above)
-    expect(Math.abs(s.netMdl - 355.28)).toBeLessThanOrEqual(0.01);
+    expect(s).toEqual({ ordersCount: 8, grossMdl: 399.79, commissionMdl: 44.51, netMdl: 355.28, pendingCount: 1 });
 
     // the web's predicates: own orders, delivered, delivered_at window
     expect(filters).toEqual([
       "from(orders)",
-      "select(delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status)",
+      "select(delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, delivered_at)",
       "eq(courier_id,courier-1)",
       "eq(status,delivered)",
       `gte(delivered_at,${start.toISOString()})`,

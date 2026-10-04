@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getPublicPricingHistory } from "@chisinau/shared-api";
 import {
   currentWeekRange,
   formatShiftDuration,
@@ -49,12 +50,12 @@ export default async function CourierEarningsPage() {
     );
   }
 
-  const { start: weekStart, end: weekEnd } = currentWeekRange();
+  const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
 
-  const [{ data: weekOrders }, { data: payoutRows }, { data: closedShifts }] = await Promise.all([
+  const [{ data: weekOrders }, { data: payoutRows }, { data: closedShifts }, pricingHistory] = await Promise.all([
     supabase
       .from("orders")
-      .select("delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status")
+      .select("delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, delivered_at")
       .eq("courier_id", courier.id)
       .eq("status", "delivered")
       .gte("delivered_at", weekStart.toISOString())
@@ -73,16 +74,18 @@ export default async function CourierEarningsPage() {
       .not("ended_at", "is", null)
       .order("started_at", { ascending: false })
       .limit(10),
+    getPublicPricingHistory(supabase),
   ]);
 
-  // Tariff transparency (audit §2.1): the CURRENT versioned commission — used both
-  // for the banner below AND the Net/Comision math, so the page never shows one
-  // rate in the banner and a different (hardcoded) rate in the numbers.
+  // Tariff transparency (audit §2.1): the CURRENT versioned commission for the
+  // banner below. The Net/Comision math uses each order's own version at
+  // delivered_at (pricing history), exactly like the payout; the live rate is
+  // only the fallback when the history read soft-fails to [].
   const { data: pricing } = await supabase.rpc("current_pricing_config");
   const courierPct = (pricing as { courier_commission_pct: number } | null)?.courier_commission_pct ?? null;
 
   const week = (weekOrders ?? []) as EarningsOrder[];
-  const weekSummary = summarizeEarnings(week, courierPct ?? undefined);
+  const weekSummary = summarizeEarnings(week, pricingHistory.length > 0 ? pricingHistory : (courierPct ?? undefined));
   const payouts = (payoutRows ?? []) as Payout[];
 
   // ended_at is guaranteed non-null by the query filter above; narrow the type

@@ -95,16 +95,33 @@ export function createStatusQueue(storage: KeyValueStorage) {
     return run;
   }
 
-  async function read(): Promise<PendingStatusChange[]> {
+  // For the read-modify-write paths: a storage READ error propagates, so the
+  // caller never writes an "empty" view over taps it simply failed to see.
+  // Unparseable content is unrecoverable anyway and reads as empty.
+  async function readStrict(): Promise<PendingStatusChange[]> {
+    const raw = await storage.getItem(STATUS_QUEUE_KEY);
+    if (!raw) return [];
     try {
-      const raw = await storage.getItem(STATUS_QUEUE_KEY);
-      if (!raw) return [];
       const parsed = JSON.parse(raw);
       return Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
   }
+
+  // Read-only callers (count, hasPending, drain's snapshot): [] on any failure.
+  async function read(): Promise<PendingStatusChange[]> {
+    try {
+      return await readStrict();
+    } catch {
+      return [];
+    }
+  }
+
+  // One drain at a time per queue: the web fires 'online' to both the layout
+  // sync and the order page; overlapping drains sent a tap twice, double-counted
+  // give-ups and resurrected an entry the other drain had already delivered.
+  let draining: Promise<void> | null = null;
 
   async function write(queue: PendingStatusChange[]): Promise<void> {
     try {
@@ -124,14 +141,20 @@ export function createStatusQueue(storage: KeyValueStorage) {
     }
   }
 
-  return {
+  const api = {
     read,
 
     // One pending entry per order — a newer tap supersedes an older, unsent one
     // (and restarts its age/attempts clock — it's a fresh intended transition).
     enqueue(entry: PendingStatusChange): Promise<void> {
       return serial(async () => {
-        const queue = (await read()).filter((e) => e.orderId !== entry.orderId);
+        let current: PendingStatusChange[];
+        try {
+          current = await readStrict();
+        } catch {
+          throw new Error("Nu am putut salva acțiunea offline. Încearcă din nou.");
+        }
+        const queue = current.filter((e) => e.orderId !== entry.orderId);
         queue.push({ ...entry, enqueuedAt: entry.enqueuedAt ?? Date.now(), attempts: entry.attempts ?? 0 });
         await write(queue);
       });
@@ -152,11 +175,15 @@ export function createStatusQueue(storage: KeyValueStorage) {
     // sincroniza" banner, distinct from `count()` (still retrying).
     giveUpCount: readGiveUp,
 
-    // Dismisses the stuck-entry banner (the user acknowledged it).
-    clearGiveUpCount(): Promise<void> {
+    // Dismisses the stuck-entry banner (the user acknowledged it). Pass the
+    // number the banner SHOWED: a give-up recorded after it rendered survives
+    // to the next banner. No argument = clear everything (legacy callers).
+    clearGiveUpCount(seen?: number): Promise<void> {
       return serial(async () => {
         try {
-          await storage.removeItem(STATUS_QUEUE_GIVEUP_KEY);
+          const left = seen === undefined ? 0 : (await readGiveUp()) - seen;
+          if (left > 0) await storage.setItem(STATUS_QUEUE_GIVEUP_KEY, String(left));
+          else await storage.removeItem(STATUS_QUEUE_GIVEUP_KEY);
         } catch {
           // best-effort
         }
@@ -197,7 +224,13 @@ export function createStatusQueue(storage: KeyValueStorage) {
 
       await serial(async () => {
         const seen = new Set(queue.map(entryKey));
-        const added = (await read()).filter((e) => !seen.has(entryKey(e)));
+        let current: PendingStatusChange[];
+        try {
+          current = await readStrict();
+        } catch {
+          return; // can't see what's stored: leave it; sent entries re-send idempotently
+        }
+        const added = current.filter((e) => !seen.has(entryKey(e)));
         const supersededOrders = new Set(added.map((e) => e.orderId));
         await write([...remaining.filter((e) => !supersededOrders.has(e.orderId)), ...added]);
         if (givenUp > 0) {
@@ -210,4 +243,12 @@ export function createStatusQueue(storage: KeyValueStorage) {
       });
     },
   };
+
+  // Single-flight: a drain requested while one runs joins it.
+  const drainOnce = api.drain;
+  api.drain = (advance: AdvanceFn) =>
+    (draining ??= drainOnce(advance).finally(() => {
+      draining = null;
+    }));
+  return api;
 }
