@@ -9,7 +9,7 @@ import { clearCart, getCart, setCart, useCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
 import { createAddress, errorText, fetchLiveMenu, fetchMyAddresses, isSignedIn, type SavedAddress } from '../lib/api';
 import { currentPosition } from '../lib/location';
-import { reconcileLines, type ReconcileResult } from '../lib/cartReconcile';
+import { reconcileLines, type ReconcileResult } from '@chisinau/shared-domain';
 import {
   addressFingerprint,
   buildOrderInput,

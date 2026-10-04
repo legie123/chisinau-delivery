@@ -11,6 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useCartStore } from "@/lib/orders/cart";
+import { reconcileLines } from "@chisinau/shared-domain";
 
 export interface CartReconcileResult {
   /** Lines whose unit price moved; label = "Nume fel" for the notice. */
@@ -47,29 +48,12 @@ export function useCartReconcile(): CartReconcileResult {
       ]);
       if (stale || !items) return;
 
-      const itemById = new Map(items.map((i) => [i.id, i]));
-      const optionById = new Map((options ?? []).map((o) => [o.id, o]));
-      const repriced: CartReconcileResult["repriced"] = [];
-      const dead: CartReconcileResult["dead"] = [];
-
+      const { repriced, dead } = reconcileLines(lines, items, options ?? []);
+      const deadIds = new Set(dead.map((d) => d.lineId));
       for (const line of lines) {
-        const item = itemById.get(line.menuItemId);
-        const lineOptions = line.optionIds.map((id) => optionById.get(id));
-        const isDead = !item || !item.is_available || lineOptions.some((o) => !o || !o.is_available);
-        if (isDead) {
-          dead.push({ lineId: line.lineId, name: line.name });
-          if (!line.unavailable) updateLine(line.lineId, { unavailable: true });
-          continue;
-        }
-        if (line.unavailable) updateLine(line.lineId, { unavailable: false });
-        const liveUnit =
-          Number(item.price_mdl) +
-          lineOptions.reduce((sum, o) => sum + Number(o!.price_delta_mdl), 0);
-        if (liveUnit !== line.priceMdl) {
-          repriced.push({ lineId: line.lineId, name: line.name, from: line.priceMdl, to: liveUnit });
-          updateLine(line.lineId, { priceMdl: liveUnit });
-        }
+        if (deadIds.has(line.lineId) !== Boolean(line.unavailable)) updateLine(line.lineId, { unavailable: deadIds.has(line.lineId) });
       }
+      for (const r of repriced) updateLine(r.lineId, { priceMdl: r.to });
       setResult({ repriced, dead, done: true });
     })();
 

@@ -234,7 +234,7 @@ describe("cart reconciliation against the live menu (web useCartReconcile parity
   });
 
   it("reprices moved lines, flags dead ones (item or option gone/unavailable)", async () => {
-    const { reconcileLines } = await import("../src/lib/cartReconcile");
+    const { reconcileLines } = await import("@chisinau/shared-domain");
     const lines = [
       line({}),
       line({ lineId: "m2::o1", menuItemId: "m2", name: "Dragon", priceMdl: 200, optionIds: ["o1"] }),

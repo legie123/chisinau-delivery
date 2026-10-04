@@ -62,10 +62,17 @@ async function deviceToken(): Promise<string | null> {
   if (registeredToken) return registeredToken;
   const stored = await SecureStore.getItemAsync(TOKEN_KEY).catch(() => null);
   if (stored) return stored;
-  const { status } = await Notifications.getPermissionsAsync();
-  const id = projectId();
-  if (status !== "granted" || !id) return null; // never had a token to bind
-  return (await Notifications.getExpoPushTokenAsync({ projectId: id })).data;
+  // That last read is best-effort: it fails for good on a build without FCM, in Expo Go on
+  // Android and on phones without Google services, and a token the phone can't produce was
+  // never bound — throwing there would make sign-out impossible.
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    const id = projectId();
+    if (status !== "granted" || !id) return null; // never had a token to bind
+    return (await Notifications.getExpoPushTokenAsync({ projectId: id })).data;
+  } catch {
+    return null;
+  }
 }
 
 /** Call BEFORE signOut: the token row is deleted while we still own it (RLS).
@@ -80,6 +87,7 @@ export async function unregisterPush(): Promise<void> {
 }
 
 export const UNBIND_FAILED = "Nu am putut opri notificările pe acest telefon — verifică conexiunea și încearcă din nou.";
+export const SIGN_OUT_FAILED = "Nu am putut încheia sesiunea — verifică conexiunea și încearcă din nou.";
 
 /** The only sign-out path: a signed-out phone must never stay bound to the user
  *  (the drain would keep sending their order notifications to it). On failure the
@@ -90,7 +98,9 @@ export async function signOutAndUnbindPush(): Promise<void> {
   } catch {
     throw new Error(UNBIND_FAILED);
   }
-  await supabase.auth.signOut();
+  // A logout request that can't reach the server resolves { error } and KEEPS the session.
+  const { error } = await supabase.auth.signOut();
+  if (error) throw new Error(SIGN_OUT_FAILED);
 }
 
 // ---- notification taps ----

@@ -131,3 +131,17 @@ describe("catering request form — required option groups", () => {
     }
   });
 });
+
+// Web and app share reconcileLines (packages/shared-domain). The web twin compared floats:
+// a reorder puts the stored unit price (20.6) in the cart and the live sum 19.9 + 0.7 is
+// 20.599999999999998, so every reorder with decimal option prices showed "price changed".
+describe("cart reconciliation — reorder with decimal option prices", () => {
+  it("a stored 20.60 unit is not 'repriced' against live 19.90 + 0.70", async () => {
+    const { reconcileLines } = await import("@chisinau/shared-domain");
+    const line = { lineId: "m1::o1", menuItemId: "m1", name: "Philadelphia", priceMdl: 20.6, quantity: 1, optionIds: ["o1"], optionsLabel: "Spicy", unavailable: false };
+    const r = reconcileLines([line], [{ id: "m1", price_mdl: 19.9, is_available: true }], [{ id: "o1", price_delta_mdl: 0.7, is_available: true }]);
+    expect(r.repriced).toEqual([]);
+    expect(r.dead).toEqual([]);
+    expect(r.lines[0]).toBe(line);
+  });
+});

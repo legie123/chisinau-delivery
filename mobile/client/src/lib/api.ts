@@ -8,7 +8,7 @@ import {
 import { chisinauNow, formatPrepRange, isOpenNow, nextOpeningLabel, type HoursRow } from "@chisinau/shared-domain";
 import { supabase } from "./supabase";
 import type { MenuItem, OptionGroup, Restaurant } from "../types";
-import type { LiveItem, LiveOption } from "./cartReconcile";
+import type { LiveItem, LiveOption } from "@chisinau/shared-domain";
 
 // Reads for the customer app. Every RPC goes through @chisinau/shared-api (the same
 // typed call-site the web uses); plain table reads are RLS-scoped selects.
