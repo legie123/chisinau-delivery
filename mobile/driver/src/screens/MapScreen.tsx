@@ -29,7 +29,6 @@ import {
   DriverOrder,
 } from '../lib/api';
 import { resumeDeliveryTracking, startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
-import { BROADCAST_STATUSES } from '../lib/gpsGate';
 import { useDevicePosition } from '../hooks/useDevicePosition';
 import { useLiveOffer } from '../hooks/useLiveOffer';
 import OfferCard from '../components/OfferCard';
@@ -120,23 +119,22 @@ export default function MapScreen({ navigation, route }: Props) {
     if (offerTapAt) void refreshOffer();
   }, [offerTapAt, refreshOffer]);
 
-  // Background GPS follows the delivery LEG, like the web: on only while the
-  // order is picked_up / en_route, off on accept-but-not-picked-up and once it
-  // is delivered / cancelled / reassigned (the next refresh sees no such order).
-  // The task re-checks the order itself on every fix (lib/gpsGate).
-  const broadcastOrderId =
-    activeDelivery && BROADCAST_STATUSES.includes(activeDelivery.status) ? activeDelivery.order.id : null;
+  // Background GPS follows the active delivery, off once it is delivered /
+  // cancelled / reassigned (the next refresh sees no such order). Every fix
+  // re-checks the order (lib/gpsGate): until pickup it only feeds the
+  // restaurant's pickup map; the customer sees the courier from picked_up on.
+  const activeOrderId = activeDelivery?.order.id ?? null;
   useEffect(() => {
     if (!activeLoaded) return;
-    if (broadcastOrderId && courierId) {
-      startDeliveryTracking(broadcastOrderId, courierId)
+    if (activeOrderId && courierId) {
+      startDeliveryTracking(activeOrderId, courierId)
         .then(setTrackingWarning)
         .catch((err: unknown) => setTrackingWarning(userMessage(err, 'GPS-ul în fundal nu a putut porni.')));
     } else {
       setTrackingWarning(null);
       stopDeliveryTracking().catch((err: unknown) => console.warn('[gps] stop', err));
     }
-  }, [activeLoaded, broadcastOrderId, courierId]);
+  }, [activeLoaded, activeOrderId, courierId]);
 
   // Explicit, server-confirmed toggle. On error the server state is re-read and
   // the reason is shown (e.g. "ai o livrare activă", cash cap reached).
@@ -167,7 +165,7 @@ export default function MapScreen({ navigation, route }: Props) {
     }
     const { order } = liveOffer;
     setLiveOffer(null);
-    // No GPS yet: the customer sees the courier only from pickup (ActiveDelivery starts it).
+    // GPS starts from the refresh (effect above); the customer sees the courier only from pickup.
     navigation.navigate('ActiveDelivery', { order: { ...order, status: 'courier_assigned' } });
     void refreshAll();
   };

@@ -4,7 +4,8 @@
 // order ends — and not while "am livrat" sits in the offline queue.
 export const BROADCAST_STATUSES: readonly string[] = ["picked_up", "en_route"];
 
-export type GpsDecision = "send" | "hold" | "stop";
+// "upsert": courier_locations only, no broadcast — the restaurant's pickup map.
+export type GpsDecision = "send" | "upsert" | "hold" | "stop";
 
 /**
  * serverStatus: the order's status as last read from the server — `null` when
@@ -18,5 +19,8 @@ export function gpsDecision(serverStatus: string | null | undefined, queuedTarge
   if (serverStatus !== null && BROADCAST_STATUSES.includes(serverStatus)) return "send";
   // Pickup swiped offline: the server catches up when the queue drains.
   if (serverStatus === "courier_assigned" && queuedTarget === "en_route") return "hold";
+  // Accepted, not picked up: courier_locations RLS shows the row to the
+  // restaurant only (partner read = courier_assigned, customer = picked_up/en_route).
+  if (serverStatus === "courier_assigned") return "upsert";
   return "stop";
 }

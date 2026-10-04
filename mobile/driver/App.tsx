@@ -131,6 +131,9 @@ export default function App() {
   const flushOfferTap = useCallback(() => {
     if (!pendingOfferTap.current || !navRef.isReady()) return;
     pendingOfferTap.current = false;
+    // On a delivery the courier is on_delivery, so the push is a stale offer
+    // (dispatch offers only to online couriers): going to Map would pop the delivery screen.
+    if (navRef.getCurrentRoute()?.name === 'ActiveDelivery') return;
     navRef.navigate('Main', { screen: 'Map', params: { offerTapAt: Date.now() } });
   }, []);
   useEffect(

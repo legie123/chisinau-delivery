@@ -11,17 +11,20 @@ const h = vi.hoisted(() => ({
   signOutCalls: 0,
   stopFails: false,
   unregisterFails: false,
+  calls: [] as string[], // the steps sign-out cannot undo
   history: [] as unknown[],
   delivered: [] as unknown[],
 }));
 
 vi.mock("../src/lib/backgroundLocation", () => ({
   stopDeliveryTracking: async () => {
+    h.calls.push("stopGPS");
     if (h.stopFails) throw new Error("stop failed");
   },
 }));
 vi.mock("../src/lib/push", () => ({
   unregisterPush: async () => {
+    h.calls.push("deletePushToken");
     if (h.unregisterFails) throw new TypeError("Network request failed");
   },
 }));
@@ -66,6 +69,7 @@ beforeEach(() => {
     signOutCalls: 0,
     stopFails: false,
     unregisterFails: false,
+    calls: [],
   });
 });
 
@@ -99,19 +103,35 @@ describe("only couriers get into the courier app (LOW e)", () => {
 });
 
 describe("sign-out failures are surfaced, not console.warn'ed (LOW a)", () => {
-  it("offline: set-offline fails → Romanian message, session KEPT (the phone would keep getting offers)", async () => {
+  it("offline: set-offline fails → Romanian message, session KEPT, GPS and push token left running", async () => {
     h.session = { user: { id: "courier-4" } };
     h.onlineError = { code: "", message: "TypeError: Network request failed" };
-    h.unregisterFails = true;
     const msg = await api.signOut();
     expect(msg).toMatch(/Deconectarea nu e completă/);
+    expect(h.calls).toEqual([]);
+    expect(h.signOutCalls).toBe(0);
+  });
+
+  it("offline after going offline: the push token cannot be deleted → said, session KEPT", async () => {
+    h.unregisterFails = true;
+    const msg = await api.signOut();
     expect(msg).toMatch(/notificările/);
+    expect(h.signOutCalls).toBe(0);
+  });
+
+  it("during a delivery (MED): the server refuses offline → GPS and push token untouched, session kept, the real reason", async () => {
+    h.onlineError = { code: "P0001", message: "ai o livrare activă — finalizeaz-o înainte să schimbi statusul" };
+    const msg = await api.signOut();
+    expect(msg).toMatch(/ai o livrare activă/);
+    expect(msg).not.toMatch(/semnal/); // not blamed on the network
+    expect(h.calls).toEqual([]); // the customer's live map and the offer pushes keep working
     expect(h.signOutCalls).toBe(0);
   });
 
   it("„Deconectează oricum” (force) signs out despite the failures", async () => {
     h.onlineError = { code: "", message: "TypeError: Network request failed" };
     expect(await api.signOut(true)).toBeNull();
+    expect(h.calls).toEqual(["stopGPS", "deletePushToken"]);
     expect(h.signOutCalls).toBe(1);
   });
 

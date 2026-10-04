@@ -15,14 +15,22 @@ describe("tab screens refresh on focus (MED: bottom tabs stay mounted)", () => {
       expect(s).toMatch(/useFocusEffect\(\s*useCallback\(/);
       expect(s).not.toMatch(/useEffect\(\(\) => \{[\s\S]*?\}, \[\]\);/);
     });
+
+    it(`${f} pulls to refresh by re-running that focus load (LOW: claimed, missing)`, () => {
+      const s = src(f);
+      expect(s).toMatch(/refreshControl=\{\s*<RefreshControl\s+refreshing=\{refreshing\}/);
+      expect(s).toMatch(/onRefresh=\{\(\) => \{\s*setRefreshing\(true\);\s*setReloads\(\(n\) => n \+ 1\);/);
+      expect(s).toMatch(/\}, \[reloads\]\),\s*\);/); // the focus load's deps
+    });
   }
 });
 
 describe("GPS privacy wiring (MED)", () => {
-  it("MapScreen never starts tracking on accept/claim; only for a picked_up/en_route order", () => {
+  it("MapScreen tracks the active delivery from accept (restaurant's pickup map); who sees what is the task's gate", () => {
     const s = src("src/screens/MapScreen.tsx");
     expect(s).not.toMatch(/beginTracking/);
-    expect(s).toMatch(/BROADCAST_STATUSES\.includes\(activeDelivery\.status\)/);
+    expect(s).toMatch(/const activeOrderId = activeDelivery\?\.order\.id \?\? null;/);
+    expect(s).toMatch(/startDeliveryTracking\(activeOrderId, courierId\)/);
     expect(s).toMatch(/resumeDeliveryTracking\(\)/); // LOW: Android background start retried on foreground
   });
 

@@ -45,7 +45,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   const swipeX = useRef(new Animated.Value(0)).current;
 
   // Broadcasting to the customer runs in the BACKGROUND task
-  // (src/lib/backgroundLocation.ts, started at pickup — the web's window), so it
+  // (src/lib/backgroundLocation.ts, from pickup — the web's window), so it
   // survives a locked screen. This hook only draws the courier's own marker.
   const broadcasting = status === 'delivering';
   const [gpsWarning, setGpsWarning] = useState<string | null>(null);

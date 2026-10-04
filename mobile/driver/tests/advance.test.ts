@@ -7,13 +7,18 @@ import { advanceThrough, makeQueueAdvance } from "../src/lib/advance";
 // against the real transition map, raises "invalid transition" otherwise, and
 // can drop off the network.
 function fakeDb(initial: string) {
-  const state = { status: initial, offline: false, hops: [] as { to: string; paid: unknown }[] };
+  // visible=false: RLS hides the row (reassigned to another courier).
+  const state = { status: initial, offline: false, visible: true, hops: [] as { to: string; paid: unknown }[] };
   const networkError = { message: "TypeError: Network request failed", code: "", details: "", hint: "" };
+  const zeroRows = { message: "Cannot coerce the result to a single JSON object", code: "PGRST116", details: "The result contains 0 rows", hint: "" };
+  const row = () => (state.visible ? { status: state.status } : null);
   const db = {
     from: () => ({
       select: () => ({
         eq: () => ({
-          single: async () => (state.offline ? { data: null, error: networkError } : { data: { status: state.status }, error: null }),
+          single: async () =>
+            state.offline ? { data: null, error: networkError } : row() ? { data: row(), error: null } : { data: null, error: zeroRows },
+          maybeSingle: async () => (state.offline ? { data: null, error: networkError } : { data: row(), error: null }),
         }),
       }),
     }),
@@ -96,5 +101,15 @@ describe("offline queue replay (BLOCKER: 'pickup + deliver in a dead zone' must 
     await queue.enqueue({ orderId: "o1", newStatus: "en_route", ts: 1 });
     await queue.drain(makeQueueAdvance(db));
     expect(await queue.count()).toBe(0);
+  });
+
+  it("an entry for an order reassigned to another courier is dropped at once, not retried 8 times", async () => {
+    const { db, state } = fakeDb("en_route");
+    state.visible = false;
+    const queue = createStatusQueue(memoryStorage());
+    await queue.enqueue({ orderId: "o1", newStatus: "delivered", paymentConfirmed: true, ts: 1 });
+    await queue.drain(makeQueueAdvance(db));
+    expect(await queue.count()).toBe(0);
+    expect(state.hops).toEqual([]);
   });
 });

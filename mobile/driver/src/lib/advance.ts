@@ -13,16 +13,18 @@ type Db = SupabaseClient<Database>;
 // and the whole delivery is silently dropped.
 //
 // Each hop is advance_delivery_status (idempotent, RPC-validated). A target the
-// order can no longer reach (cancelled, already past it) comes back as an
-// "invalid transition" error, which the queue treats as resolved.
+// order can no longer reach (cancelled, already past it, reassigned) comes back
+// as an "invalid transition" error, which the queue treats as resolved.
 export async function advanceThrough(
   db: Db,
   orderId: string,
   target: OrderStatus,
   paymentConfirmed?: boolean,
 ): Promise<void> {
-  const { data, error } = await db.from("orders").select("status").eq("id", orderId).single();
+  const { data, error } = await db.from("orders").select("status").eq("id", orderId).maybeSingle();
   if (error) throw new Error(error.message);
+  // RLS hides the row once it is another courier's (admin_reassign_courier).
+  if (!data) throw new Error(`invalid transition reassigned -> ${target}`);
   let current = data.status as OrderStatus;
   if (current === target) return;
 

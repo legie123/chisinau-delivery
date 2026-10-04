@@ -12,10 +12,11 @@ import { gpsDecision } from "./gpsGate";
 // web's contract (CLAUDE.md "Realtime"):
 //   - PRIVATE broadcast channel order:{id}:location, event "location", ~10s;
 //   - low-frequency (45s) upsert into courier_locations for late joiners.
-// Privacy: positions go out ONLY while the order is picked_up / en_route (the
-// web's window, see ./gpsGate). Every tick re-reads the order, so the task
-// stops by itself on delivered / cancelled / reassigned — even when the UI is
-// dead (Android keeps the service alive after the app is killed).
+// Privacy: the customer's broadcast goes out ONLY while the order is picked_up /
+// en_route (the web's window, see ./gpsGate); before pickup only the 45s upsert
+// runs, which RLS shows to the restaurant alone. Every tick re-reads the order,
+// so the task stops by itself on delivered / cancelled / reassigned — even when
+// the UI is dead (Android keeps the service alive after the app is killed).
 // The task must be defined at module top level, before the app registers — see
 // index.ts, which imports this module first.
 
@@ -30,6 +31,8 @@ let lastUpsertAt = 0;
 // Last status the server confirmed for the tracked order (kept across a tick
 // that cannot reach the server, so a dead zone neither leaks nor kills tracking).
 let lastKnown: { orderId: string; status: string | null } | null = null;
+// Bumped by every stop: a tick that was awaiting across one must not send.
+let stops = 0;
 
 // A send before the channel has joined makes realtime-js fall back to a REST
 // broadcast that does not wait for setAuth(); the private channel rejects it and
@@ -88,11 +91,13 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, 
   }
   const loc = data?.locations?.[data.locations.length - 1];
   if (!loc) return;
+  const run = stops;
   const tracking = await readTracking();
   if (!tracking) return;
 
   const queuedTarget = (await statusQueue.read()).find((e) => e.orderId === tracking.orderId)?.newStatus ?? null;
   const fresh = await serverStatus(tracking);
+  if (run !== stops) return; // delivered / cancelled while this fix was in flight
   if (fresh !== undefined) lastKnown = { orderId: tracking.orderId, status: fresh };
   const known = lastKnown?.orderId === tracking.orderId ? lastKnown.status : undefined;
 
@@ -104,7 +109,7 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, 
   if (decision === "hold") return;
 
   const point = { lat: loc.coords.latitude, lng: loc.coords.longitude };
-  broadcast(tracking.orderId, point);
+  if (decision === "send") broadcast(tracking.orderId, point);
 
   const now = Date.now();
   if (now - lastUpsertAt > UPSERT_INTERVAL_MS) {
@@ -120,8 +125,9 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, 
 });
 
 /**
- * Starts (or retargets) background tracking once the order is picked up. Returns a
- * Romanian warning when tracking is degraded (no "Always" permission) or null.
+ * Starts (or retargets) background tracking for the active delivery, from accept
+ * (./gpsGate decides what each fix feeds). Returns a Romanian warning when
+ * tracking is degraded (no "Always" permission) or null.
  */
 export async function startDeliveryTracking(orderId: string, courierId: string): Promise<string | null> {
   await AsyncStorage.setItem(TRACKING_KEY, JSON.stringify({ orderId, courierId } satisfies Tracking));
@@ -142,7 +148,7 @@ export async function startDeliveryTracking(orderId: string, courierId: string):
       showsBackgroundLocationIndicator: true,
       foregroundService: {
         notificationTitle: "Livrare în curs",
-        notificationBody: "Locația ta se transmite clientului cât timp livrezi.",
+        notificationBody: "Locația ta se transmite restaurantului până la ridicare, apoi clientului.",
         notificationColor: "#E94560",
         killServiceOnDestroy: false,
       },
@@ -168,12 +174,14 @@ export async function resumeDeliveryTracking(): Promise<string | null> {
 
 /** Stops tracking — on delivered, cancelled, going offline, or sign-out. Safe to call repeatedly. Throws if the OS refused to stop. */
 export async function stopDeliveryTracking(): Promise<void> {
+  stops++;
   await AsyncStorage.removeItem(TRACKING_KEY);
   if (live) {
     void supabase.removeChannel(live.channel);
     live = null;
   }
   lastKnown = null;
+  lastUpsertAt = 0; // the next delivery's first fix replaces this one's last row at once
   let started = true; // unknown → try to stop anyway instead of silently leaving GPS on
   try {
     started = await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK);

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // advanceOrEnqueue (the swipe) against a fake advance_delivery_status.
 const h = vi.hoisted(() => ({
   status: "cancelled",
+  visible: true, // false = RLS hides the order (reassigned to another courier)
   connected: true,
   failGet: false,
   store: new Map<string, string>(),
@@ -21,9 +22,18 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
+// PostgREST on 0 rows: .single() errors (PGRST116), .maybeSingle() returns null.
+const zeroRows = { code: "PGRST116", message: "Cannot coerce the result to a single JSON object", details: "The result contains 0 rows", hint: null };
 vi.mock("../src/lib/supabase", () => ({
   supabase: {
-    from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: { status: h.status }, error: null }) }) }) }),
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          single: async () => (h.visible ? { data: { status: h.status }, error: null } : { data: null, error: zeroRows }),
+          maybeSingle: async () => ({ data: h.visible ? { status: h.status } : null, error: null }),
+        }),
+      }),
+    }),
     rpc: async () => ({ error: null }),
   },
 }));
@@ -31,8 +41,17 @@ vi.mock("../src/lib/supabase", () => ({
 const { advanceOrEnqueue } = await import("../src/lib/offlineQueue");
 
 beforeEach(() => {
-  Object.assign(h, { status: "cancelled", connected: true, failGet: false });
+  Object.assign(h, { status: "cancelled", visible: true, connected: true, failGet: false });
   h.store.clear();
+});
+
+describe("an order reassigned to another courier (MED)", () => {
+  it("the swipe closes the screen with its own Romanian message, not the generic retry forever", async () => {
+    h.status = "en_route";
+    h.visible = false; // admin_reassign_courier: the old courier no longer sees the row
+    const r = await advanceOrEnqueue("o1", "delivered", true);
+    expect(r).toEqual({ error: "Comanda nu-ți mai este alocată — a fost reatribuită altui curier.", queued: false, closed: true });
+  });
 });
 
 describe("a cancelled order on ActiveDelivery (LOW b)", () => {

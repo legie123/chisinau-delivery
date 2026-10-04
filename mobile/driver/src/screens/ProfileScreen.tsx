@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
@@ -52,6 +52,8 @@ export default function ProfileScreen() {
   const [acceptRate, setAcceptRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [reloads, setReloads] = useState(0); // pull-to-refresh re-runs the focus load
 
   // Every focus (bottom tabs stay mounted): status and counts follow the shift.
   useFocusEffect(
@@ -68,12 +70,14 @@ export default function ProfileScreen() {
           if (mounted) Alert.alert('Profilul nu s-a încărcat', userMessage(err));
         })
         .finally(() => {
-          if (mounted) setLoading(false);
+          if (!mounted) return;
+          setLoading(false);
+          setRefreshing(false);
         });
       return () => {
         mounted = false;
       };
-    }, []),
+    }, [reloads]),
   );
 
   // A failed step keeps the session and says what failed; „Deconectează oricum” forces it.
@@ -110,7 +114,19 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              setReloads((n) => n + 1);
+            }}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
         {/* Avatar */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>

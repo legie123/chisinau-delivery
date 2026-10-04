@@ -11,6 +11,7 @@ const h = vi.hoisted(() => {
     hasStartedThrows: false,
     order: { status: "en_route", courier_id: "c1" } as { status: string; courier_id: string } | null,
     orderReadFails: false,
+    orderGate: null as Promise<void> | null, // holds the orders read in flight
     queue: [] as { orderId: string; newStatus: string }[],
     channels: [] as { name: string; sends: unknown[]; onStatus: ((s: string) => void) | null; removed: boolean }[],
     upserts: [] as unknown[],
@@ -55,10 +56,12 @@ vi.mock("../src/lib/supabase", () => {
   const ordersQuery = {
     select: () => ordersQuery,
     eq: () => ordersQuery,
-    maybeSingle: async () =>
-      h.state.orderReadFails
+    maybeSingle: async () => {
+      await h.state.orderGate;
+      return h.state.orderReadFails
         ? { data: null, error: { message: "TypeError: Network request failed" } }
-        : { data: h.state.order, error: null },
+        : { data: h.state.order, error: null };
+    },
   };
   return {
     supabase: {
@@ -107,6 +110,7 @@ beforeEach(async () => {
     hasStartedThrows: false,
     order: { status: "en_route", courier_id: "c1" },
     orderReadFails: false,
+    orderGate: null,
     queue: [],
     channels: [],
     upserts: [],
@@ -128,15 +132,16 @@ describe("first fix is not lost (LOW: send before the private channel joined)", 
 });
 
 describe("GPS privacy: positions only during picked_up / en_route (MED)", () => {
-  it("accepted but not picked up (courier_assigned): nothing sent, tracking stops itself", async () => {
+  it("accepted but not picked up (courier_assigned): no customer channel, only the courier_locations row the restaurant's pickup map reads (MED regression)", async () => {
     h.state.order = { status: "courier_assigned", courier_id: "c1" };
     await gps.startDeliveryTracking("o1", "c1");
     await h.state.task!(fix(47.01));
-    h.state.channels[0]?.onStatus?.("SUBSCRIBED");
-    expect(sentPoints()).toEqual([]);
-    expect(h.state.upserts).toEqual([]);
-    expect(Location.stopLocationUpdatesAsync).toHaveBeenCalled();
-    expect(await gps.trackedOrderId()).toBeNull();
+    expect(h.state.channels).toEqual([]); // order:o1:location never even joined
+    // RLS: courier_locations is the restaurant's in courier_assigned, the customer's only from picked_up.
+    // At once, not 45s after the previous delivery's last row (the stale marker the kitchen saw).
+    expect(h.state.upserts).toEqual([{ courier_id: "c1", lat: 47.01, lng: 28.86, accuracy_m: 5 }]);
+    expect(h.state.started).toBe(true);
+    expect(await gps.trackedOrderId()).toBe("o1");
   });
 
   it("order delivered/cancelled elsewhere (UI dead, service alive): stops on the next fix", async () => {
@@ -186,6 +191,21 @@ describe("GPS privacy: positions only during picked_up / en_route (MED)", () => 
     await h.state.task!(fix(47.01));
     expect(h.state.started).toBe(true);
     expect(sentPoints()).toEqual([]);
+  });
+});
+
+describe("a fix in flight while tracking stops is not sent after the stop (LOW)", () => {
+  it("the tick resumes after stopDeliveryTracking: no point to the customer, no channel left open", async () => {
+    await gps.startDeliveryTracking("o1", "c1");
+    let release!: () => void;
+    h.state.orderGate = new Promise<void>((r) => (release = r));
+    const tick = h.state.task!(fix(47.01)); // has read the tracked order, waits on the orders read
+    await gps.stopDeliveryTracking(); // "am livrat" / closeWith
+    release();
+    await tick;
+    for (const c of h.state.channels) c.onStatus?.("SUBSCRIBED");
+    expect(sentPoints()).toEqual([]);
+    expect(h.state.channels.filter((c) => !c.removed)).toEqual([]);
   });
 });
 

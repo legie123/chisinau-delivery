@@ -16,8 +16,8 @@ export function drainStatusQueue(): Promise<void> {
   return statusQueue.drain(queueAdvance);
 }
 
-// `closed`: the order can no longer be moved from this screen (cancelled, or
-// already advanced elsewhere) — the screen should stop GPS and close.
+// `closed`: the order can no longer be moved from this screen (cancelled,
+// reassigned, or already advanced elsewhere) — the screen should stop GPS and close.
 export type AdvanceResult = { error: string | null; queued: boolean; closed?: boolean };
 
 // The queue refuses (Romanian error) when it cannot read what it already holds,
@@ -50,7 +50,11 @@ export async function advanceOrEnqueue(
     if (moved) {
       const cancelled = moved[1] === "cancelled" || moved[1] === "rejected";
       return {
-        error: cancelled ? "Comanda a fost anulată." : "Comanda a fost deja actualizată din alt loc — nu mai e nimic de făcut aici.",
+        error: cancelled
+          ? "Comanda a fost anulată."
+          : moved[1] === "reassigned"
+            ? "Comanda nu-ți mai este alocată — a fost reatribuită altui curier."
+            : "Comanda a fost deja actualizată din alt loc — nu mai e nimic de făcut aici.",
         queued: false,
         closed: true,
       };

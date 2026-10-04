@@ -67,4 +67,11 @@ describe("offer push tap → Map tab + immediate refetch", () => {
     const map = readFileSync(path.join(root, "src/screens/MapScreen.tsx"), "utf8");
     expect(map).toMatch(/if \(offerTapAt\) void refreshOffer\(\);/);
   });
+
+  it("a stale offer tapped during a delivery does not pop ActiveDelivery (LOW)", () => {
+    const app = readFileSync(path.join(path.resolve(__dirname, ".."), "App.tsx"), "utf8");
+    expect(app).toMatch(
+      /pendingOfferTap\.current = false;[\s\S]{0,300}if \(navRef\.getCurrentRoute\(\)\?\.name === 'ActiveDelivery'\) return;\s*navRef\.navigate\('Main'/,
+    );
+  });
 });

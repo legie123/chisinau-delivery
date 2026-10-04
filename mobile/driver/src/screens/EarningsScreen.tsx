@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
@@ -32,6 +32,8 @@ export default function EarningsScreen() {
   const [cash, setCash] = useState<CourierCashStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [reloads, setReloads] = useState(0); // pull-to-refresh re-runs the focus load
 
   // Every focus, not once: bottom tabs stay mounted, so a load-once screen kept
   // the first visit's week total for the whole session.
@@ -49,18 +51,32 @@ export default function EarningsScreen() {
           if (mounted) setError(userMessage(err, 'Câștigurile nu s-au putut încărca.'));
         })
         .finally(() => {
-          if (mounted) setLoading(false);
+          if (!mounted) return;
+          setLoading(false);
+          setRefreshing(false);
         });
       return () => {
         mounted = false;
       };
-    }, []),
+    }, [reloads]),
   );
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              setReloads((n) => n + 1);
+            }}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.title}>Câștiguri</Text>
         </View>

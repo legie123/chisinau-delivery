@@ -102,9 +102,13 @@ export async function restoreCourierSession(): Promise<boolean> {
 // (Romanian) and the session is kept, so the courier can retry with signal —
 // unless `force`, the explicit „Deconectează oricum”.
 export async function signOut(force = false): Promise<string | null> {
-  const failed: string[] = [];
+  // Offline first: the server refuses it during a delivery (or there is no
+  // signal). A courier who stays signed in must keep GPS and the push token.
   const offlineError = await setOnline(false);
-  if (offlineError) failed.push(`statusul nu a trecut pe offline (${offlineError})`);
+  if (offlineError && !force) {
+    return `Deconectarea nu e completă: statusul nu a trecut pe offline (${offlineError}). Nu te-am deconectat.`;
+  }
+  const failed: string[] = [];
   await stopDeliveryTracking().catch((err: unknown) => {
     console.warn("[signOut] stop tracking", err);
     failed.push("GPS-ul nu s-a oprit");
