@@ -78,6 +78,11 @@ async function serverStatus(t: Tracking): Promise<string | null | undefined> {
   try {
     const { data, error } = await supabase.from("orders").select("status, courier_id").eq("id", t.orderId).maybeSingle();
     if (error) return undefined;
+    if (!data) {
+      // A lapsed session reads as anon and sees no row: that is "cannot tell", not "not mine".
+      const { data: s } = await supabase.auth.getSession();
+      if (!s.session) return undefined;
+    }
     return data && data.courier_id === t.courierId ? data.status : null;
   } catch {
     return undefined;

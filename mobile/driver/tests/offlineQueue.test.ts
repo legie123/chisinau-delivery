@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   status: "cancelled",
   visible: true, // false = RLS hides the order (reassigned to another courier)
+  session: true, // false = the session lapsed: the read went out as anon (also no row)
   connected: true,
   failGet: false,
   store: new Map<string, string>(),
@@ -26,6 +27,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 const zeroRows = { code: "PGRST116", message: "Cannot coerce the result to a single JSON object", details: "The result contains 0 rows", hint: null };
 vi.mock("../src/lib/supabase", () => ({
   supabase: {
+    auth: { getSession: async () => ({ data: { session: h.session ? { user: { id: "k" } } : null } }) },
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -41,7 +43,7 @@ vi.mock("../src/lib/supabase", () => ({
 const { advanceOrEnqueue } = await import("../src/lib/offlineQueue");
 
 beforeEach(() => {
-  Object.assign(h, { status: "cancelled", visible: true, connected: true, failGet: false });
+  Object.assign(h, { status: "cancelled", visible: true, session: true, connected: true, failGet: false });
   h.store.clear();
 });
 
@@ -51,6 +53,15 @@ describe("an order reassigned to another courier (MED)", () => {
     h.visible = false; // admin_reassign_courier: the old courier no longer sees the row
     const r = await advanceOrEnqueue("o1", "delivered", true);
     expect(r).toEqual({ error: "Comanda nu-ți mai este alocată — a fost reatribuită altui curier.", queued: false, closed: true });
+  });
+
+  it("a lapsed session (row hidden, no session) is NOT a reassignment: the swipe is queued, the screen stays", async () => {
+    h.status = "en_route";
+    h.visible = false;
+    h.session = false;
+    const r = await advanceOrEnqueue("o1", "delivered", true);
+    expect(r.closed).toBeFalsy();
+    expect(r.queued).toBe(true);
   });
 });
 

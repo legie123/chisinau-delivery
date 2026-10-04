@@ -7,12 +7,14 @@ import { advanceThrough, makeQueueAdvance } from "../src/lib/advance";
 // against the real transition map, raises "invalid transition" otherwise, and
 // can drop off the network.
 function fakeDb(initial: string) {
-  // visible=false: RLS hides the row (reassigned to another courier).
-  const state = { status: initial, offline: false, visible: true, hops: [] as { to: string; paid: unknown }[] };
+  // visible=false: RLS hides the row (reassigned to another courier — or, with session=false, a
+  // lapsed session whose request went out with the anon key).
+  const state = { status: initial, offline: false, visible: true, session: true, hops: [] as { to: string; paid: unknown }[] };
   const networkError = { message: "TypeError: Network request failed", code: "", details: "", hint: "" };
   const zeroRows = { message: "Cannot coerce the result to a single JSON object", code: "PGRST116", details: "The result contains 0 rows", hint: "" };
   const row = () => (state.visible ? { status: state.status } : null);
   const db = {
+    auth: { getSession: async () => ({ data: { session: state.session ? { user: { id: "k" } } : null } }) },
     from: () => ({
       select: () => ({
         eq: () => ({
@@ -111,5 +113,24 @@ describe("offline queue replay (BLOCKER: 'pickup + deliver in a dead zone' must 
     await queue.drain(makeQueueAdvance(db));
     expect(await queue.count()).toBe(0);
     expect(state.hops).toEqual([]);
+  });
+
+  it("a LAPSED session (anon key, row hidden) keeps 'am livrat' queued — it is not a reassignment", async () => {
+    // Token expired while offline and the refresh failed: supabase-js sends the anon key, RLS
+    // returns no row. e35e10d read that as "reassigned" and dropped the tap with no banner.
+    const { db, state } = fakeDb("en_route");
+    state.visible = false;
+    state.session = false;
+    const queue = createStatusQueue(memoryStorage());
+    await queue.enqueue({ orderId: "o1", newStatus: "delivered", paymentConfirmed: true, ts: 1 });
+    await queue.drain(makeQueueAdvance(db));
+    expect(await queue.count()).toBe(1);
+    expect(await queue.giveUpCount()).toBe(0);
+
+    state.visible = true;
+    state.session = true; // refresh succeeded
+    await queue.drain(makeQueueAdvance(db));
+    expect(state.status).toBe("delivered");
+    expect(await queue.count()).toBe(0);
   });
 });

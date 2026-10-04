@@ -26,7 +26,7 @@ import {
   offerNetLabel,
 } from "./earnings";
 import { stopDeliveryTracking } from "./backgroundLocation";
-import { unregisterPush } from "./push";
+import { registerForPush, unregisterPush } from "./push";
 
 // Every status change goes through @chisinau/shared-api (the same typed RPC
 // wrappers the web uses); reads stay plain RLS-scoped selects. Money goes
@@ -102,7 +102,16 @@ export async function restoreCourierSession(): Promise<boolean> {
 // (Romanian) and the session is kept, so the courier can retry with signal —
 // unless `force`, the explicit „Deconectează oricum”.
 export async function signOut(force = false): Promise<string | null> {
-  // Offline first: the server refuses it during a delivery (or there is no
+  if (!force) {
+    // couriers.status alone is not proof of "no delivery": a cash-cap auto-offline turns an
+    // en_route courier offline, and going offline then succeeds mid-delivery (verifier, 2026-10-04).
+    const active = await hasActiveDelivery().catch(() => undefined);
+    if (active === undefined) {
+      return "Deconectarea nu e completă: nu am putut verifica livrarea activă. Nu te-am deconectat — încearcă din nou când ai semnal.";
+    }
+    if (active) return "Ai o livrare în curs — încheie-o înainte să te deconectezi. Nu te-am deconectat.";
+  }
+  // Offline next: the server refuses it during a delivery (or there is no
   // signal). A courier who stays signed in must keep GPS and the push token.
   const offlineError = await setOnline(false);
   if (offlineError && !force) {
@@ -111,18 +120,44 @@ export async function signOut(force = false): Promise<string | null> {
   const failed: string[] = [];
   await stopDeliveryTracking().catch((err: unknown) => {
     console.warn("[signOut] stop tracking", err);
-    failed.push("GPS-ul nu s-a oprit");
+    failed.push("GPS-ul nu s-a oprit (închide aplicația ca să-l oprești)");
   });
+  let pushDeleted = true;
   await unregisterPush().catch((err: unknown) => {
     console.warn("[signOut] unregister push", err);
-    failed.push("notificările nu au fost oprite pe acest telefon");
+    pushDeleted = false;
+    failed.push("notificările nu au fost oprite — poți primi în continuare oferte pe acest telefon");
   });
   if (failed.length > 0 && !force) {
-    return `Deconectarea nu e completă: ${failed.join("; ")}. Altfel poți primi în continuare oferte pe acest telefon. Încearcă din nou când ai semnal.`;
+    // Still signed in: a token already deleted is bound again, or offers stop until a restart.
+    if (pushDeleted) await registerForPush().catch(() => undefined);
+    return `Deconectarea nu e completă: ${failed.join("; ")}. Nu te-am deconectat — încearcă din nou.`;
   }
   courierIdCache = null;
-  await supabase.auth.signOut({ scope: "local" });
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // Clearing the local session threw (e.g. an Android keystore error): still signed in.
+    await registerForPush().catch(() => undefined);
+    return "Deconectarea nu e completă: sesiunea nu a putut fi închisă pe acest telefon. Încearcă din nou.";
+  }
   return null;
+}
+
+const ACTIVE_DELIVERY_STATUSES = ["courier_assigned", "picked_up", "en_route"];
+
+/** Whether the server holds an order on this courier's hands (throws when it cannot tell). */
+export async function hasActiveDelivery(): Promise<boolean> {
+  const courierId = await getMyCourierId();
+  if (!courierId) return false;
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id")
+    .in("status", ACTIVE_DELIVERY_STATUSES)
+    .eq("courier_id", courierId)
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return (data ?? []).length > 0;
 }
 
 // couriers RLS (couriers_self_read) only returns the caller's own row.

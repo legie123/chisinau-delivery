@@ -11,6 +11,9 @@ const h = vi.hoisted(() => ({
   signOutCalls: 0,
   stopFails: false,
   unregisterFails: false,
+  active: false, // the server holds an order on the courier's hands
+  activeError: null as { message: string } | null,
+  signOutThrows: false,
   calls: [] as string[], // the steps sign-out cannot undo
   history: [] as unknown[],
   delivered: [] as unknown[],
@@ -27,6 +30,10 @@ vi.mock("../src/lib/push", () => ({
     h.calls.push("deletePushToken");
     if (h.unregisterFails) throw new TypeError("Network request failed");
   },
+  registerForPush: async () => {
+    h.calls.push("bindPushToken");
+    return null;
+  },
 }));
 vi.mock("../src/lib/supabase", () => ({
   supabase: {
@@ -35,6 +42,7 @@ vi.mock("../src/lib/supabase", () => ({
       getSession: async () => ({ data: { session: h.session } }),
       signOut: async () => {
         h.signOutCalls++;
+        if (h.signOutThrows) throw new Error("Could not delete item from keystore");
         h.session = null;
         return { error: null };
       },
@@ -43,8 +51,11 @@ vi.mock("../src/lib/supabase", () => ({
       if (table === "couriers") return { select: () => ({ maybeSingle: async () => ({ data: h.courierRow, error: null }) }) };
       // orders: any chain of filters, resolves to the delivered rows
       const b: Record<string, unknown> = {};
+      let activeQuery = false; // .in("status", [...active]) = the sign-out's active-delivery check
       for (const op of ["select", "eq", "gte", "lt", "order", "limit"]) b[op] = () => b;
-      b.then = (resolve: (v: unknown) => void) => resolve({ data: h.delivered, error: null });
+      b.in = () => ((activeQuery = true), b);
+      b.then = (resolve: (v: unknown) => void) =>
+        resolve(activeQuery ? { data: h.active ? [{ id: "o1" }] : [], error: h.activeError } : { data: h.delivered, error: null });
       return b;
     },
     rpc: async (fn: string) => {
@@ -69,6 +80,9 @@ beforeEach(() => {
     signOutCalls: 0,
     stopFails: false,
     unregisterFails: false,
+    active: false,
+    activeError: null,
+    signOutThrows: false,
     calls: [],
   });
 });
@@ -138,6 +152,37 @@ describe("sign-out failures are surfaced, not console.warn'ed (LOW a)", () => {
   it("all steps OK → signed out, no message", async () => {
     expect(await api.signOut()).toBeNull();
     expect(h.signOutCalls).toBe(1);
+  });
+
+  it("cash-cap auto-offline mid-delivery: the server says offline, but an order is on his hands → nothing torn down", async () => {
+    h.active = true; // couriers.status = offline (cap), the order is still en_route
+    const msg = await api.signOut();
+    expect(msg).toMatch(/livrare în curs/);
+    expect(h.calls).toEqual([]);
+    expect(h.signOutCalls).toBe(0);
+  });
+
+  it("the active-delivery check cannot reach the server → not signed out, nothing torn down", async () => {
+    h.activeError = { message: "TypeError: Network request failed" };
+    const msg = await api.signOut();
+    expect(msg).toMatch(/Deconectarea nu e completă/);
+    expect(h.calls).toEqual([]);
+  });
+
+  it("GPS refuses to stop after the token was deleted → the token is bound again, the message names GPS only", async () => {
+    h.stopFails = true;
+    const msg = await api.signOut();
+    expect(msg).toMatch(/GPS-ul nu s-a oprit/);
+    expect(msg).not.toMatch(/oferte/); // push was not the problem
+    expect(h.calls).toEqual(["stopGPS", "deletePushToken", "bindPushToken"]);
+    expect(h.signOutCalls).toBe(0);
+  });
+
+  it("the local sign-out throws (keystore) → Romanian message, token bound again, never the raw error", async () => {
+    h.signOutThrows = true;
+    const msg = await api.signOut();
+    expect(msg).toMatch(/sesiunea nu a putut fi închisă/);
+    expect(h.calls).toContain("bindPushToken");
   });
 });
 

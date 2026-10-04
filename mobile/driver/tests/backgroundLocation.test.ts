@@ -11,6 +11,7 @@ const h = vi.hoisted(() => {
     hasStartedThrows: false,
     order: { status: "en_route", courier_id: "c1" } as { status: string; courier_id: string } | null,
     orderReadFails: false,
+    session: true, // false = the session lapsed (reads go out as anon)
     orderGate: null as Promise<void> | null, // holds the orders read in flight
     queue: [] as { orderId: string; newStatus: string }[],
     channels: [] as { name: string; sends: unknown[]; onStatus: ((s: string) => void) | null; removed: boolean }[],
@@ -65,6 +66,7 @@ vi.mock("../src/lib/supabase", () => {
   };
   return {
     supabase: {
+      auth: { getSession: async () => ({ data: { session: h.state.session ? { user: { id: "u1" } } : null } }) },
       realtime: { setAuth: async () => undefined },
       channel: (name: string) => {
         const c = { name, sends: [] as unknown[], onStatus: null as ((s: string) => void) | null, removed: false };
@@ -110,6 +112,7 @@ beforeEach(async () => {
     hasStartedThrows: false,
     order: { status: "en_route", courier_id: "c1" },
     orderReadFails: false,
+    session: true,
     orderGate: null,
     queue: [],
     channels: [],
@@ -159,6 +162,22 @@ describe("GPS privacy: positions only during picked_up / en_route (MED)", () => 
     await gps.startDeliveryTracking("o1", "c1");
     await h.state.task!(fix(47.01));
     expect(h.state.started).toBe(false);
+    expect(sentPoints()).toEqual([]);
+  });
+
+  it("row hidden with a live session (reassigned, RLS): stops", async () => {
+    h.state.order = null;
+    await gps.startDeliveryTracking("o1", "c1");
+    await h.state.task!(fix(47.01));
+    expect(h.state.started).toBe(false);
+  });
+
+  it("row hidden because the session LAPSED (anon read): keeps tracking, sends nothing, does not stop", async () => {
+    h.state.order = null;
+    h.state.session = false;
+    await gps.startDeliveryTracking("o1", "c1");
+    await h.state.task!(fix(47.01));
+    expect(h.state.started).toBe(true);
     expect(sentPoints()).toEqual([]);
   });
 

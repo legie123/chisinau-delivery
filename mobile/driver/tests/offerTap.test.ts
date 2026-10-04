@@ -68,10 +68,11 @@ describe("offer push tap → Map tab + immediate refetch", () => {
     expect(map).toMatch(/if \(offerTapAt\) void refreshOffer\(\);/);
   });
 
-  it("a stale offer tapped during a delivery does not pop ActiveDelivery (LOW)", () => {
+  it("an offer tapped on ActiveDelivery opens the offer unless the server still has a delivery on his hands (LOW)", () => {
     const app = readFileSync(path.join(path.resolve(__dirname, ".."), "App.tsx"), "utf8");
-    expect(app).toMatch(
-      /pendingOfferTap\.current = false;[\s\S]{0,300}if \(navRef\.getCurrentRoute\(\)\?\.name === 'ActiveDelivery'\) return;\s*navRef\.navigate\('Main'/,
-    );
+    // not on ActiveDelivery → straight to the offer
+    expect(app).toMatch(/if \(navRef\.getCurrentRoute\(\)\?\.name !== 'ActiveDelivery'\) return toOffer\(\);/);
+    // on it → only when the server has no active order (a screen left open after a cancel/reassign)
+    expect(app).toMatch(/hasActiveDelivery\(\)\.then\(\(active\) => \{\s*if \(!active\) toOffer\(\);/);
   });
 });

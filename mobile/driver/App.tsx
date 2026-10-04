@@ -13,7 +13,7 @@ import ActiveDeliveryScreen from './src/screens/ActiveDeliveryScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import { supabase } from './src/lib/supabase';
 import { onOfferTapped, registerForPush } from './src/lib/push';
-import { restoreCourierSession } from './src/lib/api';
+import { hasActiveDelivery, restoreCourierSession } from './src/lib/api';
 import { stopDeliveryTracking } from './src/lib/backgroundLocation';
 import { useOfflineSync } from './src/hooks/useOfflineSync';
 
@@ -131,10 +131,14 @@ export default function App() {
   const flushOfferTap = useCallback(() => {
     if (!pendingOfferTap.current || !navRef.isReady()) return;
     pendingOfferTap.current = false;
-    // On a delivery the courier is on_delivery, so the push is a stale offer
-    // (dispatch offers only to online couriers): going to Map would pop the delivery screen.
-    if (navRef.getCurrentRoute()?.name === 'ActiveDelivery') return;
-    navRef.navigate('Main', { screen: 'Map', params: { offerTapAt: Date.now() } });
+    const toOffer = () => navRef.navigate('Main', { screen: 'Map', params: { offerTapAt: Date.now() } });
+    if (navRef.getCurrentRoute()?.name !== 'ActiveDelivery') return toOffer();
+    // On ActiveDelivery the push is stale only while the server still has an order on his hands
+    // (offers go to online couriers): going to Map would pop a live delivery. A screen left open
+    // after a cancel/reassign must not swallow a live 30 s offer (verifier, 2026-10-04).
+    void hasActiveDelivery().then((active) => {
+      if (!active) toOffer();
+    }, () => undefined);
   }, []);
   useEffect(
     () =>
