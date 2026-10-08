@@ -1,13 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { addToCart, cartCount, cartSubtotal, EMPTY_CART, needsRestaurantSwitch, type ChosenOptions } from '@chisinau/shared-domain';
 import { COLORS } from '../theme';
 import { MenuItem, OptionGroup, Restaurant } from '../types';
-import { fetchInsights, fetchMenu } from '../lib/api';
+import { fetchInsights, fetchMenu, fetchRestaurants } from '../lib/api';
+import { isOpenForOrders } from '../lib/browse';
+import { useFavorites } from '../lib/favorites';
 import { getCart, setCart, useCart } from '../lib/cart';
 import ModifierSheet from '../components/ModifierSheet';
+import FavoriteHeart from '../components/FavoriteHeart';
 
+// Params: `restaurantId` (required by new callers), `restaurant` (optional preview for the
+// first paint — older callers pass only this), `itemId` (dish search: scroll to + highlight).
+type Params = { restaurantId?: string; restaurant?: Restaurant; itemId?: string };
 interface Props {
   route: any;
   navigation: any;
@@ -16,7 +23,12 @@ interface Props {
 type Insights = Awaited<ReturnType<typeof fetchInsights>>;
 
 export default function RestaurantScreen({ route, navigation }: Props) {
-  const restaurant: Restaurant = route.params.restaurant;
+  const params: Params = route.params ?? {};
+  const preview = params.restaurant ?? null;
+  const restaurantId = params.restaurantId ?? preview?.id ?? '';
+  const targetItemId = params.itemId ?? null;
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(preview);
+  const [missing, setMissing] = useState(false);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [groups, setGroups] = useState<Record<string, OptionGroup[]>>({});
@@ -26,27 +38,90 @@ export default function RestaurantScreen({ route, navigation }: Props) {
   const [reload, setReload] = useState(0);
   const [customizing, setCustomizing] = useState<MenuItem | null>(null);
   const [insights, setInsights] = useState<Insights | null>(null);
+  const [menuY, setMenuY] = useState<number | null>(null);
+  const [targetY, setTargetY] = useState<number | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrolledToTarget = useRef(false);
   const cart = useCart();
-  const ordering = restaurant.openNow && restaurant.acceptingOrders;
+  const favorites = useFavorites(navigation);
+
+  // Open/closed is re-read on every focus, never trusted from the params: a screen left
+  // open across closing time (or reached from a stale list) must stop offering "Adaugă".
+  // ponytail: re-reads the whole (small, ~dozen rows) list to reuse fetchRestaurants'
+  // hours/estimate mapping; add a by-id read to api.ts if the list grows large.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      fetchRestaurants()
+        .then(list => {
+          if (cancelled) return;
+          const fresh = list.find(r => r.id === restaurantId);
+          if (!fresh) return setMissing(true);
+          setMissing(false);
+          setRestaurant(prev => ({ ...fresh, distanceM: fresh.distanceM ?? prev?.distanceM ?? null }));
+        })
+        .catch(() => { /* offline: keep the preview; place_order still re-checks the hours */ });
+      return () => { cancelled = true; };
+    }, [restaurantId]),
+  );
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetchMenu(restaurant.id)
+    fetchMenu(restaurantId)
       .then(({ items, categories: cats, groups: g }) => {
         if (cancelled) return;
         setMenuItems(items);
         setCategories(cats);
         setGroups(g);
-        setSelectedCategory(cats[0] ?? null);
+        const target = targetItemId ? items.find(i => i.id === targetItemId) : undefined;
+        setSelectedCategory(target?.category ?? cats[0] ?? null);
         setLoadError(null);
       })
       .catch(() => { if (!cancelled) setLoadError('Nu am putut încărca meniul.'); })
       .finally(() => { if (!cancelled) setLoading(false); });
-    fetchInsights(restaurant.id).then(i => { if (!cancelled) setInsights(i); });
+    fetchInsights(restaurantId).then(i => { if (!cancelled) setInsights(i); }).catch(() => {});
     return () => { cancelled = true; };
-  }, [restaurant.id, reload]);
+  }, [restaurantId, targetItemId, reload]);
 
+  // Dish-search deep link (web: ?item=): once the menu has settled, scroll the dish into
+  // view and outline it briefly. Debounced: layout shifts while the spinner goes away.
+  useEffect(() => {
+    if (!targetItemId || scrolledToTarget.current || loading || menuY == null || targetY == null) return;
+    const t = setTimeout(() => {
+      scrolledToTarget.current = true;
+      scrollRef.current?.scrollTo({ y: Math.max(0, menuY + targetY - 140), animated: true });
+      setHighlightId(targetItemId);
+    }, 250);
+    return () => clearTimeout(t);
+  }, [targetItemId, loading, menuY, targetY]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const t = setTimeout(() => setHighlightId(null), 2400);
+    return () => clearTimeout(t);
+  }, [highlightId]);
+
+  if (!restaurant) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+        {missing ? (
+          <>
+            <Text style={styles.closedNote}>Restaurantul nu mai este disponibil.</Text>
+            <TouchableOpacity style={styles.backPlain} onPress={() => navigation.goBack()}>
+              <Text style={styles.backPlainText}>Înapoi</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <ActivityIndicator color={COLORS.primary} />
+        )}
+      </View>
+    );
+  }
+
+  const ordering = isOpenForOrders(restaurant) && !missing;
   const filteredItems = selectedCategory ? menuItems.filter(i => i.category === selectedCategory) : menuItems;
 
   const commitAdd = (item: MenuItem, options?: ChosenOptions, quantity = 1) => {
@@ -83,7 +158,7 @@ export default function RestaurantScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         <View style={styles.bannerContainer}>
           {restaurant.coverUrl ? (
             <Image source={{ uri: restaurant.coverUrl }} style={styles.banner} />
@@ -96,15 +171,18 @@ export default function RestaurantScreen({ route, navigation }: Props) {
             <TouchableOpacity style={styles.headerBtn} onPress={() => navigation.goBack()} accessibilityLabel="Înapoi">
               <Ionicons name="chevron-back" size={24} color={COLORS.white} />
             </TouchableOpacity>
-            {restaurant.acceptsCatering && (
-              <TouchableOpacity
-                style={styles.headerBtn}
-                accessibilityLabel="Catering"
-                onPress={() => navigation.navigate('Catering', { restaurantId: restaurant.id })}
-              >
-                <Ionicons name="people" size={20} color={COLORS.white} />
-              </TouchableOpacity>
-            )}
+            <View style={styles.headerRight}>
+              {restaurant.acceptsCatering && (
+                <TouchableOpacity
+                  style={styles.headerBtn}
+                  accessibilityLabel="Catering"
+                  onPress={() => navigation.navigate('Catering', { restaurantId: restaurant.id })}
+                >
+                  <Ionicons name="people" size={20} color={COLORS.white} />
+                </TouchableOpacity>
+              )}
+              <FavoriteHeart active={favorites.ids.has(restaurant.id)} onPress={() => favorites.toggle(restaurant.id)} />
+            </View>
           </View>
 
           <View style={styles.bannerInfo}>
@@ -139,7 +217,11 @@ export default function RestaurantScreen({ route, navigation }: Props) {
 
         {!ordering && (
           <Text style={styles.closedNote}>
-            {restaurant.nextOpening ? `Închis acum · se deschide ${restaurant.nextOpening}.` : 'Restaurantul nu primește comenzi acum.'}
+            {missing
+              ? 'Restaurantul nu mai este disponibil.'
+              : !restaurant.acceptingOrders
+                ? 'Restaurantul nu primește comenzi momentan.'
+                : restaurant.nextOpening ? `Închis acum · se deschide ${restaurant.nextOpening}.` : 'Restaurantul nu primește comenzi acum.'}
           </Text>
         )}
         {restaurant.minOrder > 0 && <Text style={styles.minNote}>Comandă minimă {restaurant.minOrder} MDL</Text>}
@@ -171,7 +253,7 @@ export default function RestaurantScreen({ route, navigation }: Props) {
           ))}
         </ScrollView>
 
-        <View style={styles.menuList}>
+        <View style={styles.menuList} onLayout={e => setMenuY(e.nativeEvent.layout.y)}>
           {loading && <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 24 }} />}
           {loadError && (
             <TouchableOpacity onPress={() => setReload(r => r + 1)}>
@@ -179,7 +261,11 @@ export default function RestaurantScreen({ route, navigation }: Props) {
             </TouchableOpacity>
           )}
           {filteredItems.map(item => (
-            <View key={item.id} style={styles.menuItem}>
+            <View
+              key={item.id}
+              style={[styles.menuItem, highlightId === item.id && styles.menuItemHighlight]}
+              onLayout={item.id === targetItemId ? e => setTargetY(e.nativeEvent.layout.y) : undefined}
+            >
               <View style={styles.menuItemText}>
                 <Text style={styles.menuItemName}>{item.name}</Text>
                 <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>
@@ -237,6 +323,11 @@ export default function RestaurantScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  center: { justifyContent: 'center', alignItems: 'center' },
+  backPlain: { marginTop: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10 },
+  backPlainText: { color: COLORS.white, fontWeight: '700' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  menuItemHighlight: { borderColor: COLORS.gold, borderWidth: 2 },
   container: { flex: 1, backgroundColor: COLORS.background },
   bannerContainer: { height: 250, position: 'relative' },
   banner: { width: '100%', height: '100%' },

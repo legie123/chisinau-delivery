@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TextInput, StatusBar, ScrollView, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, StatusBar, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { CUISINE_LABEL, fetchRestaurants, searchDishes } from '../lib/api';
+import { fetchRestaurants, searchDishes } from '../lib/api';
+import { DEFAULT_FILTER, filterRestaurants, isStale, type BrowseFilter } from '../lib/browse';
+import BrowseFilters from '../components/BrowseFilters';
 import { Restaurant } from '../types';
 
 type DishSearchResult = Awaited<ReturnType<typeof searchDishes>>[number];
-const CATEGORIES = Object.entries(CUISINE_LABEL).map(([cuisine, label]) => ({ cuisine, label }));
 
 interface Props {
   navigation: any;
@@ -19,19 +21,29 @@ function Thumb({ uri }: { uri: string | null }) {
 export default function SearchScreen({ navigation }: Props) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
+  const [filter, setFilter] = useState<BrowseFilter>(DEFAULT_FILTER);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [dishResults, setDishResults] = useState<DishSearchResult[]>([]);
   const [searchingDishes, setSearchingDishes] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const loadedAt = useRef<number | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchRestaurants()
-      .then(data => { if (!cancelled) setRestaurants(data); })
-      .catch(() => { if (!cancelled) setLoadError('Nu am putut încărca restaurantele. Verifică conexiunea.'); });
-    return () => { cancelled = true; };
+  const load = useCallback(async () => {
+    try {
+      setRestaurants(await fetchRestaurants());
+      loadedAt.current = Date.now();
+      setLoadError(null);
+    } catch {
+      setLoadError('Nu am putut încărca restaurantele. Verifică conexiunea.');
+    }
   }, []);
+
+  // Re-read on focus once the list is a minute old: "Deschis acum" must not go stale.
+  useFocusEffect(
+    useCallback(() => {
+      if (isStale(loadedAt.current, Date.now())) load();
+    }, [load]),
+  );
 
   // Debounce the free-text query before hitting the dish-search RPC.
   useEffect(() => {
@@ -53,32 +65,21 @@ export default function SearchScreen({ navigation }: Props) {
     return () => { cancelled = true; };
   }, [debouncedQuery]);
 
-  const restaurantResults = useMemo(() => {
-    return restaurants.filter(r => {
-      const matchesQuery = debouncedQuery.length < 2 || r.name.toLowerCase().includes(debouncedQuery.toLowerCase());
-      const matchesCuisine = !selectedCuisine || r.cuisine === selectedCuisine;
-      return matchesQuery && matchesCuisine;
-    });
-  }, [restaurants, debouncedQuery, selectedCuisine]);
+  const restaurantResults = useMemo(
+    () => filterRestaurants(restaurants, { ...filter, query: debouncedQuery.length >= 2 ? debouncedQuery : '' }),
+    [restaurants, debouncedQuery, filter],
+  );
 
-  const isSearching = debouncedQuery.length >= 2 || !!selectedCuisine;
+  const isSearching = debouncedQuery.length >= 2 || filter.category !== 'all' || filter.openNowOnly;
 
   function openRestaurant(restaurant: Restaurant) {
-    navigation.navigate('Restaurant', { restaurant });
+    navigation.navigate('Restaurant', { restaurantId: restaurant.id, restaurant });
   }
 
+  // Web parity (/restaurants/<slug>?item=<id>): open the restaurant AND scroll to the dish.
+  // Only ids travel; RestaurantScreen loads the restaurant itself, so no waiting on this list.
   function openDish(dish: DishSearchResult) {
-    const restaurant = restaurants.find(r => r.id === dish.restaurant_id);
-    // audit #17: don't silently no-op if the restaurant list hasn't loaded yet.
-    if (!restaurant) {
-      Alert.alert('Se încarcă', 'Restaurantele încă se încarcă. Încearcă din nou într-o clipă.');
-      return;
-    }
-    openRestaurant(restaurant);
-  }
-
-  function toggleCuisine(cuisine: string) {
-    setSelectedCuisine(prev => (prev === cuisine ? null : cuisine));
+    navigation.navigate('Restaurant', { restaurantId: dish.restaurant_id, itemId: dish.item_id });
   }
 
   return (
@@ -103,21 +104,16 @@ export default function SearchScreen({ navigation }: Props) {
           {searchingDishes && <ActivityIndicator size="small" color={COLORS.primary} />}
         </View>
 
-        <Text style={styles.sectionTitle}>Categorii</Text>
-        <View style={styles.grid}>
-          {CATEGORIES.map(cat => (
-            <TouchableOpacity
-              key={cat.cuisine}
-              style={[styles.categoryCard, selectedCuisine === cat.cuisine && styles.categoryCardActive]}
-              activeOpacity={0.8}
-              onPress={() => toggleCuisine(cat.cuisine)}
-            >
-              <Text style={styles.categoryName}>{cat.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <BrowseFilters value={filter} onChange={setFilter} />
 
-        {loadError && <Text style={styles.emptyText}>{loadError}</Text>}
+        {loadError && (
+          <View style={styles.errorBox}>
+            <Text style={styles.emptyText}>{loadError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={load}>
+              <Text style={styles.retryText}>Reîncearcă</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {isSearching && (
           <>
@@ -128,7 +124,7 @@ export default function SearchScreen({ navigation }: Props) {
                 <Thumb uri={r.logoUrl ?? r.coverUrl} />
                 <View style={styles.resultText}>
                   <Text style={styles.resultName}>{r.name}</Text>
-                  <Text style={styles.resultMeta}>{r.category}</Text>
+                  <Text style={styles.resultMeta}>{r.category}{r.openNow && r.acceptingOrders ? '' : ' · Închis acum'}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
               </TouchableOpacity>
@@ -160,6 +156,9 @@ export default function SearchScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  errorBox: { alignItems: 'center', gap: 12, marginBottom: 16 },
+  retryBtn: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10 },
+  retryText: { color: COLORS.white, fontWeight: '700' },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -203,30 +202,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     marginBottom: 16,
     marginTop: 8,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 8,
-  },
-  categoryCard: {
-    width: '47%',
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-  },
-  categoryCardActive: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary + '15',
-  },
-  categoryName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
   },
   emptyText: {
     color: COLORS.textSecondary,
