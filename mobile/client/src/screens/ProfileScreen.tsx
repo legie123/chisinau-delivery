@@ -1,20 +1,53 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { CustomerProfile, fetchMyProfile } from '../lib/api';
 import { signOutAndUnbindPush, UNBIND_FAILED } from '../lib/push';
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from './LegalScreen';
 
 // Entries with no screen/backend behind them yet stay visible (so the menu
 // doesn't look empty) but are disabled instead of firing dead onPress handlers.
 const COMING_SOON_ITEMS: { icon: string; label: string; color: string }[] = [
   { icon: 'person-outline', label: 'Editează profilul', color: COLORS.primary },
-  { icon: 'location-outline', label: 'Adrese salvate', color: COLORS.gold },
   { icon: 'star-outline', label: 'Restaurante favorite', color: COLORS.gold },
-  { icon: 'help-circle-outline', label: 'Ajutor & Suport', color: '#60a5fa' },
   { icon: 'settings-outline', label: 'Setări', color: COLORS.textSecondary },
 ];
+
+function open(url: string, fallback: string) {
+  Linking.openURL(url).catch(() => Alert.alert('Ajutor & Suport', fallback));
+}
+
+function showSupport() {
+  Alert.alert('Ajutor & Suport', `Scrie-ne la ${SUPPORT_EMAIL} sau sună la ${SUPPORT_PHONE}.`, [
+    { text: 'Scrie-ne', onPress: () => open(`mailto:${SUPPORT_EMAIL}`, `Scrie-ne la ${SUPPORT_EMAIL}.`) },
+    { text: 'Sună', onPress: () => open(`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`, `Sună la ${SUPPORT_PHONE}.`) },
+    { text: 'Închide', style: 'cancel' },
+  ]);
+}
+
+/** Help + legal: reachable signed in or not (an app store requires the policy be one tap away). */
+function InfoLinks({ navigation }: { navigation: any }) {
+  const items: { icon: string; label: string; color: string; onPress: () => void }[] = [
+    { icon: 'help-circle-outline', label: 'Ajutor & Suport', color: '#60a5fa', onPress: showSupport },
+    { icon: 'document-text-outline', label: 'Termeni și condiții', color: COLORS.gold, onPress: () => navigation.navigate('Legal', { doc: 'terms' }) },
+    { icon: 'shield-checkmark-outline', label: 'Politica de confidențialitate', color: COLORS.gold, onPress: () => navigation.navigate('Legal', { doc: 'privacy' }) },
+  ];
+  return (
+    <>
+      {items.map(item => (
+        <TouchableOpacity key={item.label} style={styles.menuItem} activeOpacity={0.7} onPress={item.onPress}>
+          <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
+            <Ionicons name={item.icon as any} size={20} color={item.color} />
+          </View>
+          <Text style={styles.menuLabel}>{item.label}</Text>
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+        </TouchableOpacity>
+      ))}
+    </>
+  );
+}
 
 function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -85,9 +118,12 @@ export default function ProfileScreen({ navigation }: { navigation: any }) {
         <View style={styles.centerFill}>
           <Ionicons name="person-circle-outline" size={64} color={COLORS.textMuted} />
           <Text style={styles.signInPrompt}>Autentifică-te ca să-ți vezi profilul.</Text>
-          <TouchableOpacity style={styles.signInBtn} onPress={() => navigation.navigate('Login', { onSignedIn: load })}>
+          <TouchableOpacity style={styles.signInBtn} onPress={() => navigation.navigate('Login')}>
             <Text style={styles.signInBtnText}>Autentificare</Text>
           </TouchableOpacity>
+          <View style={[styles.menuSection, { alignSelf: 'stretch', marginTop: 24 }]}>
+            <InfoLinks navigation={navigation} />
+          </View>
         </View>
       )}
 
@@ -114,6 +150,14 @@ export default function ProfileScreen({ navigation }: { navigation: any }) {
           </View>
 
           <View style={styles.menuSection}>
+            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={() => navigation.navigate('Addresses')}>
+              <View style={[styles.menuIcon, { backgroundColor: COLORS.gold + '15' }]}>
+                <Ionicons name="location-outline" size={20} color={COLORS.gold} />
+              </View>
+              <Text style={styles.menuLabel}>Adrese salvate</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
+            </TouchableOpacity>
+            <InfoLinks navigation={navigation} />
             {COMING_SOON_ITEMS.map((item, i) => (
               <View key={i} style={[styles.menuItem, styles.menuItemDisabled]}>
                 <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
