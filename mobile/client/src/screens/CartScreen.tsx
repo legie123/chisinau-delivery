@@ -3,25 +3,35 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Status
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { placeOrder, setOrderTip } from '@chisinau/shared-api';
-import { cartSubtotal, setLineQuantity } from '@chisinau/shared-domain';
+import { cartSubtotal, setLineQuantity, type HoursRow } from '@chisinau/shared-domain';
 import { COLORS } from '../theme';
 import { clearCart, getCart, setCart, useCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
-import { createAddress, errorText, fetchLiveMenu, fetchMyAddresses, isSignedIn, type SavedAddress } from '../lib/api';
+import { createAddress, errorText, fetchAddressBook, fetchLiveMenu, isSignedIn, type AddressBookEntry } from '../lib/api';
 import { currentPosition } from '../lib/location';
 import { reconcileLines, type ReconcileResult } from '@chisinau/shared-domain';
 import {
+  addressDraftProblem,
   addressFingerprint,
+  addressRow,
   buildOrderInput,
+  CASH_CAP_HINT,
+  cashCapExceeded,
+  chisinauWallTime,
   defaultAddressChoice,
   newIdempotencyKey,
   reusableAddressId,
   runExclusive,
-  tipAmount,
+  scheduleProblem,
+  tipFor,
+  type AddressFields,
   type CreatedAddress,
   type PaymentChoice,
   type TipChoice,
 } from '../lib/checkout';
+import { loadCheckoutPrefs, saveCheckoutPrefs } from '../lib/checkoutPrefs';
+import WhenPicker from '../components/WhenPicker';
+import { AddressFieldsForm, addressLine } from './AddressesScreen';
 
 const PHONE_REQUIRED = 'Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.';
 
@@ -42,16 +52,24 @@ const PAYMENTS: { key: PaymentChoice; label: string }[] = [
 
 export default function CartScreen({ navigation }: Props) {
   const cart = useCart();
-  const [summary, setSummary] = useState<{ deliveryFee: number; minOrder: number } | null>(null);
-  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [summary, setSummary] = useState<{ deliveryFee: number; minOrder: number; hours: HoursRow[] } | null>(null);
+  const [addresses, setAddresses] = useState<AddressBookEntry[]>([]);
+  // 'error' blocks a NEW address: with the saved list unknown, the user would retype
+  // one they already have and get a duplicate row.
+  const [addressState, setAddressState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [addressId, setAddressId] = useState<string>('new');
-  const [street, setStreet] = useState('');
+  const [fields, setFields] = useState<AddressFields & { street: string }>({ street: '' });
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [payment, setPayment] = useState<PaymentChoice>('cash');
   const [tip, setTip] = useState<TipChoice>('none');
+  const [customTip, setCustomTip] = useState('');
+  // "Acum" vs "Programează" → place_order p_requested_for (Chișinău wall time).
+  const [scheduled, setScheduled] = useState(false);
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   // One key per checkout attempt + the address created by a failed attempt: a retry
@@ -77,27 +95,40 @@ export default function CartScreen({ navigation }: Props) {
     let stale = false;
     supabase
       .from('restaurants')
-      .select('delivery_fee_mdl, min_order_amount_mdl')
+      .select('delivery_fee_mdl, min_order_amount_mdl, restaurant_hours(restaurant_id, day_of_week, opens_at, closes_at, is_closed)')
       .eq('id', cart.restaurantId)
       .single()
       .then(({ data }) => {
-        if (!stale && data) setSummary({ deliveryFee: Number(data.delivery_fee_mdl), minOrder: Number(data.min_order_amount_mdl) });
+        if (!stale && data) {
+          setSummary({ deliveryFee: Number(data.delivery_fee_mdl), minOrder: Number(data.min_order_amount_mdl), hours: (data.restaurant_hours ?? []) as HoursRow[] });
+        }
       });
     return () => { stale = true; };
   }, [cart.restaurantId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchMyAddresses()
-        .then(list => {
-          setAddresses(list);
-          const wasTouched = addressTouched.current;
-          setAddressId(prev => defaultAddressChoice(prev, list, wasTouched));
-          if (list.length > 0) addressTouched.current = true; // default applied once
-        })
-        .catch(() => {});
-    }, []),
-  );
+  // Last payment method + tip (web: localStorage), restored once.
+  useEffect(() => {
+    loadCheckoutPrefs().then(p => {
+      if (p.payment) setPayment(p.payment);
+      if (p.tip) setTip(p.tip);
+      if (p.customTip) setCustomTip(p.customTip);
+    });
+  }, []);
+
+  const loadAddresses = useCallback(() => {
+    setAddressState(s => (s === 'ready' ? s : 'loading'));
+    fetchAddressBook()
+      .then(list => {
+        setAddresses(list);
+        setAddressState('ready');
+        const wasTouched = addressTouched.current;
+        setAddressId(prev => defaultAddressChoice(prev, list, wasTouched));
+        if (list.length > 0) addressTouched.current = true; // default applied once
+      })
+      .catch(() => setAddressState('error'));
+  }, []);
+
+  useFocusEffect(loadAddresses);
 
   // The persisted cart vs the live menu: place_order charges live prices, so the
   // total shown must be the live one, and a dead line must be named, not fail blind.
@@ -123,9 +154,11 @@ export default function CartScreen({ navigation }: Props) {
 
   const subtotal = cartSubtotal(cart.lines);
   const deliveryFee = summary?.deliveryFee ?? 0;
-  const tipMdl = tipAmount(subtotal, tip);
+  const tipMdl = tipFor(subtotal, tip, customTip);
   const total = subtotal + deliveryFee + tipMdl;
   const belowMinimum = summary ? subtotal < summary.minOrder : false;
+  // Said before place_order would refuse it (same sum the server checks: no tip).
+  const overCashCap = summary != null && cashCapExceeded(payment, subtotal, deliveryFee);
   const selected = addresses.find(a => a.id === addressId);
   const deadLines = cart.lines.filter(l => dead.has(l.lineId));
 
@@ -149,13 +182,21 @@ export default function CartScreen({ navigation }: Props) {
           navigation.navigate('Login');
           return;
         }
-        const draft = { street, phone, notes, pin };
+        let requestedFor: string | undefined;
+        if (scheduled) {
+          const when = chisinauWallTime(date, time);
+          const problem = scheduleProblem(when, summary?.hours ?? null);
+          if (problem) return setError(problem);
+          requestedFor = when!.toISOString();
+        }
+        const draft = { ...fields, phone, notes, pin };
         const hasPhone = phone.replace(/\D/g, '').length >= 6;
         let deliveryAddressId = addressId === 'new' ? reusableAddressId(createdAddress.current, draft) : addressId;
         if (addressId === 'new' && !deliveryAddressId) {
-          if (!street.trim()) return setError('Adresa este obligatorie.');
-          if (!hasPhone) return setError(PHONE_REQUIRED);
-          deliveryAddressId = await createAddress({ street_address: street.trim(), contact_phone: phone.trim(), notes: notes.trim(), ...(pin ?? {}) });
+          if (addressState !== 'ready') return setError('Adresele salvate nu s-au încărcat — reîncearcă mai sus înainte să adaugi una nouă.');
+          const problem = addressDraftProblem(draft);
+          if (problem) return setError(problem);
+          deliveryAddressId = await createAddress(addressRow(draft));
           createdAddress.current = { id: deliveryAddressId, fingerprint: addressFingerprint(draft) };
         } else if (selected && !selected.contact_phone) {
           if (!hasPhone) return setError(PHONE_REQUIRED);
@@ -168,6 +209,7 @@ export default function CartScreen({ navigation }: Props) {
           paymentMethod: payment,
           idempotencyKey: idempotencyKey.current,
           notes: addressId === 'new' ? undefined : notes,
+          requestedFor,
         });
         const orderId = await placeOrder(supabase, input);
         placedId = orderId;
@@ -178,12 +220,14 @@ export default function CartScreen({ navigation }: Props) {
             /* order placed; the tip can be added from the tracking screen */
           }
         }
+        saveCheckoutPrefs({ payment, tip, customTip });
         clearCart();
         idempotencyKey.current = newIdempotencyKey();
         createdAddress.current = null;
         navigation.replace('OrderTracking', { orderId });
       } catch (err) {
-        setError(placedId ? 'Comanda a fost plasată.' : errorText(err, 'Nu am putut trimite comanda. Încearcă din nou.'));
+        const closed: [string, string][] = scheduled ? [['închis la ora', 'Restaurantul este închis la ora aleasă — alege altă oră.']] : [];
+        setError(placedId ? 'Comanda a fost plasată.' : errorText(err, 'Nu am putut trimite comanda. Încearcă din nou.', closed));
       } finally {
         setPlacing(false);
       }
@@ -260,10 +304,16 @@ export default function CartScreen({ navigation }: Props) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Adresă livrare</Text>
+          {addressState === 'error' && (
+            <TouchableOpacity onPress={loadAddresses} style={styles.retryRow}>
+              <Ionicons name="refresh" size={16} color={COLORS.gold} />
+              <Text style={styles.notice}>Nu am putut încărca adresele salvate. Atinge pentru a reîncerca.</Text>
+            </TouchableOpacity>
+          )}
           <View style={styles.chips}>
             {addresses.map(a => (
               <TouchableOpacity key={a.id} style={[styles.chip, addressId === a.id && styles.chipOn]} onPress={() => touched(setAddressId)(a.id)}>
-                <Text style={styles.chipText} numberOfLines={1}>{a.street_address}</Text>
+                <Text style={styles.chipText} numberOfLines={1}>{a.label ? `${a.label} · ` : ''}{addressLine(a)}</Text>
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={[styles.chip, addressId === 'new' && styles.chipOn]} onPress={() => touched(setAddressId)('new')}>
@@ -272,7 +322,7 @@ export default function CartScreen({ navigation }: Props) {
           </View>
           {addressId === 'new' && (
             <>
-              <TextInput style={styles.input} placeholder="Str. Ștefan cel Mare 1, ap. 5" placeholderTextColor={COLORS.textMuted} value={street} onChangeText={touched(setStreet)} />
+              <AddressFieldsForm value={fields} onChange={(k, t) => { addressTouched.current = true; setFields(f => ({ ...f, [k]: t })); }} />
               <TouchableOpacity style={styles.pinBtn} onPress={pinLocation} disabled={locating}>
                 <Ionicons name="location" size={16} color={COLORS.gold} />
                 <Text style={styles.pinText}>{locating ? 'Se caută locația...' : pin ? 'Locație fixată ✓' : 'Fixează locația exactă (opțional)'}</Text>
@@ -293,6 +343,26 @@ export default function CartScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Când livrăm</Text>
+          <View style={styles.chips}>
+            <TouchableOpacity style={[styles.chip, !scheduled && styles.chipOn]} onPress={() => setScheduled(false)}>
+              <Text style={styles.chipText}>⚡ Acum</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.chip, scheduled && styles.chipOn]} onPress={() => setScheduled(true)}>
+              <Text style={styles.chipText}>🕒 Programează</Text>
+            </TouchableOpacity>
+          </View>
+          {scheduled && (
+            <>
+              <WhenPicker date={date} time={time} onDate={setDate} onTime={setTime} days={7} />
+              <Text style={styles.hint}>
+                {date && time ? `Livrare programată: ${date.split('-').reverse().join('.')} la ${time} (ora Chișinăului)` : 'Alege ziua și ora livrării.'}
+              </Text>
+            </>
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Plata la livrare</Text>
           <View style={styles.chips}>
             {PAYMENTS.map(p => (
@@ -301,14 +371,30 @@ export default function CartScreen({ navigation }: Props) {
               </TouchableOpacity>
             ))}
           </View>
+          {overCashCap && <Text style={styles.notice}>{CASH_CAP_HINT}</Text>}
           <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Bacșiș pentru curier</Text>
           <View style={styles.chips}>
             {TIPS.map(t => (
-              <TouchableOpacity key={t.key} style={[styles.chip, tip === t.key && styles.chipOn]} onPress={() => setTip(t.key)}>
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.chip, !customTip && tip === t.key && styles.chipOn]}
+                onPress={() => { setTip(t.key); setCustomTip(''); }}
+              >
                 <Text style={styles.chipText}>{t.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Alt bacșiș (MDL)"
+            placeholderTextColor={COLORS.textMuted}
+            keyboardType="number-pad"
+            maxLength={5}
+            value={customTip}
+            onChangeText={t => setCustomTip(t.replace(/\D/g, ''))}
+            accessibilityLabel="Bacșiș personalizat în MDL"
+          />
+          {tipMdl > 0 && <Text style={styles.hint}>Bacșiș {tipMdl} MDL — mulțumim! 🐉</Text>}
         </View>
 
         <View style={styles.section}>
@@ -329,10 +415,10 @@ export default function CartScreen({ navigation }: Props) {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.orderBtn, (placing || belowMinimum || !summary || deadLines.length > 0) && { opacity: 0.5 }]}
+        style={[styles.orderBtn, (placing || belowMinimum || !summary || deadLines.length > 0 || overCashCap) && { opacity: 0.5 }]}
         activeOpacity={0.9}
         onPress={submit}
-        disabled={placing || belowMinimum || !summary || deadLines.length > 0}
+        disabled={placing || belowMinimum || !summary || deadLines.length > 0 || overCashCap}
       >
         {placing ? <ActivityIndicator color={COLORS.white} /> : <Ionicons name="bag-check" size={20} color={COLORS.white} />}
         <Text style={styles.orderBtnText}>Plasează comanda · {total.toFixed(2)} MDL</Text>
@@ -357,7 +443,9 @@ const styles = StyleSheet.create({
   cardDead: { borderColor: COLORS.primary + '60' },
   itemDead: { textDecorationLine: 'line-through', color: COLORS.textMuted },
   deadLabel: { fontSize: 12, color: COLORS.primary, fontWeight: '700', marginTop: 2 },
-  notice: { color: COLORS.gold, fontWeight: '600', marginBottom: 12 },
+  notice: { color: COLORS.gold, fontWeight: '600', marginBottom: 12, flexShrink: 1 },
+  hint: { color: COLORS.textSecondary, fontSize: 13, marginTop: 8 },
+  retryRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, gap: 8 },
   itemName: { fontSize: 15, fontWeight: '600', color: COLORS.white },
   itemOptions: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },

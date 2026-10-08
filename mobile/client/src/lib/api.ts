@@ -9,6 +9,7 @@ import { chisinauNow, formatPrepRange, isOpenNow, nextOpeningLabel, type HoursRo
 import { supabase } from "./supabase";
 import type { MenuItem, OptionGroup, Restaurant } from "../types";
 import type { LiveItem, LiveOption } from "@chisinau/shared-domain";
+import type { ReorderGroup, ReorderLiveItem, ReorderSourceItem } from "./reorder";
 
 // Reads for the customer app. Every RPC goes through @chisinau/shared-api (the same
 // typed call-site the web uses); plain table reads are RLS-scoped selects.
@@ -252,7 +253,11 @@ export async function fetchMyAddresses(): Promise<SavedAddress[]> {
 export async function createAddress(input: {
   street_address: string;
   contact_phone: string;
-  notes?: string;
+  notes?: string | null;
+  label?: string | null;
+  sector?: string | null;
+  building?: string | null;
+  apartment?: string | null;
   lat?: number;
   lng?: number;
 }): Promise<string> {
@@ -267,6 +272,72 @@ export async function createAddress(input: {
   return data.id;
 }
 
+// Address book (Profile → Adrese salvate, and the checkout chips). All writes are plain
+// RLS-scoped table writes: addresses_owner_write/update/delete all require
+// customer_id = auth.uid(), so a phone can only ever touch its own rows.
+
+export type AddressBookEntry = SavedAddress & {
+  label: string | null;
+  sector: string | null;
+  building: string | null;
+  apartment: string | null;
+  is_default: boolean;
+};
+
+/** Default first, then newest — the web checkout's order. */
+export async function fetchAddressBook(): Promise<AddressBookEntry[]> {
+  const userId = await currentUserId();
+  if (!userId) return [];
+  const { data, error } = await supabase
+    .from("addresses")
+    .select("id, street_address, contact_phone, notes, label, sector, building, apartment, is_default")
+    .eq("customer_id", userId)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export async function updateAddress(
+  id: string,
+  patch: { street_address: string; contact_phone: string; notes: string | null; label: string | null; sector: string | null; building: string | null; apartment: string | null; lat?: number | null; lng?: number | null },
+): Promise<void> {
+  const { error } = await supabase.from("addresses").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** orders.delivery_address_id has no ON DELETE: an address any order used can't be
+ *  deleted (23503) — said in Romanian instead of the raw FK text. */
+export async function deleteAddress(id: string): Promise<void> {
+  const { error } = await supabase.from("addresses").delete().eq("id", id);
+  if (error?.code === "23503") throw new Error("Adresa apare într-o comandă și nu poate fi ștearsă — o poți edita.");
+  if (error) throw new Error(error.message);
+}
+
+/** Exactly one default: set this one first, then clear the rest (a failure in between
+ *  leaves two defaults, which the default-first ordering tolerates — never zero). */
+export async function setDefaultAddress(id: string): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("Trebuie să fii autentificat.");
+  const { error } = await supabase.from("addresses").update({ is_default: true }).eq("id", id);
+  if (error) throw new Error(error.message);
+  const { error: clearError } = await supabase.from("addresses").update({ is_default: false }).eq("customer_id", userId).neq("id", id);
+  if (clearError) throw new Error(clearError.message);
+}
+
+/** An in-flight order reads its address live (courier, tracking): editing it would move
+ *  the drop-off under the courier's feet, so the address book refuses while one exists. */
+export async function addressHasActiveOrder(id: string): Promise<boolean> {
+  const { count, error } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("delivery_address_id", id)
+    .not("status", "in", "(delivered,cancelled,rejected)");
+  if (error) throw new Error(error.message);
+  return (count ?? 0) > 0;
+}
+
 // ---------- Orders ----------
 
 export interface CustomerOrder {
@@ -277,6 +348,8 @@ export interface CustomerOrder {
   restaurantName: string;
   totalMdl: number;
   createdAt: string;
+  restaurantId: string | null;
+  requestedFor: string | null;
 }
 
 export async function fetchMyOrders(): Promise<CustomerOrder[]> {
@@ -284,7 +357,7 @@ export async function fetchMyOrders(): Promise<CustomerOrder[]> {
   if (!userId) return [];
   const { data, error } = await supabase
     .from("orders")
-    .select("id, order_number, status, order_type, total_mdl, created_at, restaurants(name)")
+    .select("id, order_number, status, order_type, total_mdl, created_at, restaurant_id, requested_for, restaurants(name)")
     .eq("customer_id", userId)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -297,7 +370,48 @@ export async function fetchMyOrders(): Promise<CustomerOrder[]> {
     restaurantName: (o.restaurants as { name: string } | null)?.name ?? "",
     totalMdl: Number(o.total_mdl),
     createdAt: o.created_at,
+    restaurantId: o.restaurant_id,
+    requestedFor: o.requested_for,
   }));
+}
+
+/** Everything "Comandă din nou" needs (src/lib/reorder.ts planReorder): the order's
+ *  items with their option snapshots, the CURRENT option groups of those items, and
+ *  their live availability. Reads only — RLS scopes order_items to the caller's orders. */
+export async function fetchReorderSource(orderId: string): Promise<{
+  items: ReorderSourceItem[];
+  groups: ReorderGroup[];
+  live: ReorderLiveItem[];
+}> {
+  const { data: rows, error } = await supabase
+    .from("order_items")
+    .select("menu_item_id, item_name_snapshot, unit_price_mdl, quantity, selected_options")
+    .eq("order_id", orderId);
+  if (error) throw new Error(error.message);
+  const items = (rows ?? []) as unknown as ReorderSourceItem[];
+  const ids = [...new Set(items.map((i) => i.menu_item_id).filter((id): id is string => !!id))];
+  if (ids.length === 0) return { items, groups: [], live: [] };
+  const [{ data: groups, error: gError }, { data: live, error: lError }] = await Promise.all([
+    supabase.from("menu_option_groups").select("menu_item_id, name, is_required, min_select, menu_options(id, name)").in("menu_item_id", ids),
+    supabase.from("menu_items").select("id, is_available").in("id", ids),
+  ]);
+  if (gError || lError) throw new Error((gError ?? lError)!.message);
+  return { items, groups: (groups ?? []) as ReorderGroup[], live: live ?? [] };
+}
+
+/** One restaurant as the Restaurant screen expects it (reorder → "adaugă din meniu"). */
+export async function fetchRestaurantById(id: string): Promise<Restaurant | null> {
+  const { data, error } = await supabase
+    .from("restaurants")
+    .select(`${RESTAURANT_COLS}, restaurant_hours(restaurant_id, day_of_week, opens_at, closes_at, is_closed)`)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const row = data as unknown as RestaurantRow & { restaurant_hours: HoursRow[] };
+  const [estimate] = await getPrepEstimates(supabase, [row.id]);
+  const { dow, time } = chisinauNow();
+  return toRestaurant(row, estimate, row.restaurant_hours, null, dow, time);
 }
 
 // ---------- Catering + concierge ----------

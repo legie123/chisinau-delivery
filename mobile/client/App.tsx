@@ -17,6 +17,8 @@ import LoginScreen from './src/screens/LoginScreen';
 import OrderTrackingScreen from './src/screens/OrderTrackingScreen';
 import CateringScreen from './src/screens/CateringScreen';
 import ConciergeScreen from './src/screens/ConciergeScreen';
+import AddressesScreen from './src/screens/AddressesScreen';
+import LegalScreen from './src/screens/LegalScreen';
 import { COLORS } from './src/theme';
 import { supabase } from './src/lib/supabase';
 import { hydrateCart } from './src/lib/cart';
@@ -100,6 +102,8 @@ export default function App() {
           <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
           <Stack.Screen name="Catering" component={CateringScreen} />
           <Stack.Screen name="Concierge" component={ConciergeScreen} />
+          <Stack.Screen name="Addresses" component={AddressesScreen} />
+          <Stack.Screen name="Legal" component={LegalScreen} />
           <Stack.Screen name="Login" component={LoginScreen} options={{ presentation: 'modal' }} />
         </Stack.Navigator>
       </NavigationContainer>
