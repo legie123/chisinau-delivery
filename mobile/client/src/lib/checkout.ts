@@ -20,8 +20,8 @@ export function tipFor(subtotal: number, choice: TipChoice, customRaw: string): 
   return custom > 0 ? custom : tipAmount(subtotal, choice);
 }
 
-/** App-side ceiling on the courier tip: never more than the food itself, never more
- *  than 500 MDL. set_order_tip has no cap of its own yet (owner decision). */
+/** App-side mirror of set_order_tip's cap (20261008000100): min(subtotal,
+ *  pricing_config.tip_max_mdl). 500 is the PROVISIONAL config value; the server decides. */
 export const TIP_MAX_MDL = 500;
 export function tipLimit(subtotal: number): number {
   return Math.max(0, Math.min(TIP_MAX_MDL, Math.floor(subtotal)));

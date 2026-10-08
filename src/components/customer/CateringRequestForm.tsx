@@ -10,6 +10,10 @@ export type CateringRestaurant = Pick<Restaurant, "id" | "name" | "catering_min_
 
 type Quantities = Record<string, number>;
 
+// place_order refuses a catering requested_for beyond now + 60 days (20261008000200;
+// mobile CateringScreen WhenPicker days=60).
+const CATERING_DAYS = 60;
+
 /** Reluarea unei comenzi de catering livrate — tot ce se repetă, mai puțin data. */
 export type CateringPrefill = {
   restaurantId: string;
@@ -58,6 +62,7 @@ export function CateringRequestForm({
   const [quantities, setQuantities] = useState<Quantities>(prefill?.quantities ?? {});
   // Data rămâne goală intenționat: e singurul lucru care TREBUIE reales.
   const [eventDate, setEventDate] = useState(eventPrefill?.date ?? "");
+  const [maxEventDate] = useState(() => new Date(Date.now() + (CATERING_DAYS - 1) * 86_400_000).toISOString().slice(0, 10));
   const [eventTime, setEventTime] = useState(eventPrefill?.time ?? "");
   const [guestCount, setGuestCount] = useState(eventPrefill?.guests ?? prefill?.guestCount ?? 20);
   const [eventAddress, setEventAddress] = useState(prefill?.eventAddress ?? "");
@@ -144,6 +149,9 @@ export function CateringRequestForm({
     ["opțiune invalidă", "Un articol din selecție s-a schimbat — reîncarcă pagina."],
     ["prea multe opțiuni", "Un articol din selecție s-a schimbat — reîncarcă pagina."],
     ["prea puține opțiuni", "Un articol din selecție s-a schimbat — reîncarcă pagina."],
+    // place_order window (20261008000200)
+    ["în trecut", "Data și ora evenimentului nu pot fi în trecut."],
+    ["60 de zile", `Evenimentul se poate programa cu cel mult ${CATERING_DAYS} de zile înainte.`],
   ];
 
   function friendlyError(message: string): string {
@@ -178,6 +186,15 @@ export function CateringRequestForm({
     }
     if (eventDate < new Date().toISOString().slice(0, 10)) {
       setError("Data evenimentului nu poate fi în trecut.");
+      return;
+    }
+    const eventAt = new Date(eventTime ? `${eventDate}T${eventTime}:00` : `${eventDate}T12:00:00`).getTime();
+    if (eventAt < Date.now()) {
+      setError("Ora evenimentului a trecut — alege o oră mai târzie sau altă zi.");
+      return;
+    }
+    if (eventAt > Date.now() + CATERING_DAYS * 86_400_000) {
+      setError(`Evenimentul se poate programa cu cel mult ${CATERING_DAYS} de zile înainte.`);
       return;
     }
 
@@ -251,6 +268,7 @@ export function CateringRequestForm({
               type="date"
               required
               min={new Date().toISOString().slice(0, 10)}
+              max={maxEventDate}
               value={eventDate}
               onChange={(e) => setEventDate(e.target.value)}
               className="rounded-xl bg-white/5 px-4 py-2.5 text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
