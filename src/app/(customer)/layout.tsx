@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { FloatingBasket } from "@/components/customer/FloatingBasket";
+import { AppTabBar } from "@/components/customer/AppTabBar";
+import { InstallAppPrompt } from "@/components/customer/InstallAppPrompt";
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -10,7 +12,7 @@ export default async function CustomerLayout({ children }: { children: React.Rea
   } = await supabase.auth.getUser();
 
   return (
-    <div className="flex flex-1 flex-col bg-[#0a0a14] text-white">
+    <div className="flex flex-1 flex-col bg-[#0a0a14] pb-[var(--tabbar-h)] text-white [--tabbar-h:calc(4rem_+_env(safe-area-inset-bottom))] sm:[--tabbar-h:0px]">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a14]/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-5">
           <div className="flex items-center gap-5">
@@ -24,38 +26,35 @@ export default async function CustomerLayout({ children }: { children: React.Rea
               Chișinău
             </span>
           </div>
-          {/* `py-1` pe fiecare link: măsurate 20px înălțime, adică sub minimul
-              AA de 24×24 (WCAG 2.5.8) pe suprafața cea mai vizitată. NU merg la
-              44px, și motivul e geometric, nu de lene: rândurile navigării stau
-              la 28px unul de altul, deci două zone de 44px s-ar suprapune pe
-              16px și degetul ar deschide „Comenzile mele" când voia „Catering".
-              44 aici cere antet mai înalt sau bară de jos — decizie de layout,
-              scrisă în issues.md, nu ascunsă într-un pass de accesibilitate. */}
-          <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-white/70 sm:gap-4">
-            <Link href="/concierge" className="py-1 transition hover:text-gold">
+          {/* Pe telefon navigarea stă în bara de jos (`AppTabBar`, ținte de 64px);
+              aici rămâne doar contul. Pe ecran mare linkurile au `py-1`: 20px
+              înălțime măsurată, sub minimul AA de 24×24 (WCAG 2.5.8), dar acolo
+              ținta e cursorul, nu degetul. */}
+          <nav className="flex items-center gap-x-3 text-sm text-white/70 sm:gap-4">
+            <Link href="/concierge" className="hidden py-1 transition hover:text-gold sm:inline">
               Concierge
             </Link>
-            <Link href="/restaurants" className="py-1 transition hover:text-white">
+            <Link href="/restaurants" className="hidden py-1 transition hover:text-white sm:inline">
               Restaurante
             </Link>
-            <Link href="/catering" className="py-1 transition hover:text-white">
+            <Link href="/catering" className="hidden py-1 transition hover:text-white sm:inline">
               Catering
             </Link>
-            <Link href="/cart" className="py-1 transition hover:text-white">
+            <Link href="/cart" className="hidden py-1 transition hover:text-white sm:inline">
               Coș
             </Link>
             {user ? (
               <>
-                <Link href="/orders" className="py-1 transition hover:text-white">
+                <Link href="/orders" className="hidden py-1 transition hover:text-white sm:inline">
                   Comenzile mele
                 </Link>
-                <Link href="/devino-partener" className="py-1 transition hover:text-gold">
+                <Link href="/devino-partener" className="hidden py-1 transition hover:text-gold sm:inline">
                   Devino partener
                 </Link>
                 <SignOutButton />
               </>
             ) : (
-              <Link href="/" className="py-1 transition hover:text-white">
+              <Link href="/" className="py-3 transition hover:text-white sm:py-1">
                 Intră în cont
               </Link>
             )}
@@ -134,6 +133,8 @@ export default async function CustomerLayout({ children }: { children: React.Rea
       </footer>
 
       <FloatingBasket />
+      <InstallAppPrompt />
+      <AppTabBar signedIn={!!user} />
     </div>
   );
 }

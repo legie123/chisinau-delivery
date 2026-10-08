@@ -315,7 +315,7 @@ export function MenuBrowser({
       {/* Bottom-center non-modal toast — static under reduced motion. */}
       <div
         aria-live="polite"
-        className={`pointer-events-none fixed inset-x-0 bottom-28 z-50 flex justify-center px-6 transition-all duration-300 motion-reduce:transition-none ${
+        className={`pointer-events-none fixed inset-x-0 bottom-[calc(var(--tabbar-h,0px)_+_7rem)] z-50 flex justify-center px-6 transition-all duration-300 motion-reduce:transition-none ${
           toastOpen ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
       >

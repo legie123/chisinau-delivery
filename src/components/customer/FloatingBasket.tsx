@@ -31,7 +31,7 @@ export function FloatingBasket() {
   const subtotal = cartSubtotal(lines);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-6">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tabbar-h,0px)_+_1.5rem)] z-50 flex justify-center px-6">
       <Link
         href="/cart"
         className="pointer-events-auto flex w-full max-w-md items-center justify-between rounded-full bg-primary-dark px-6 py-4 text-white shadow-2xl shadow-primary/30 transition hover:bg-primary-darker"

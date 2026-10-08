@@ -159,7 +159,7 @@ export function ItemModifierModal({
         </div>
 
         {/* Sticky footer — qty stepper doubles as the live price preview. */}
-        <div className="sticky bottom-0 flex items-center gap-4 border-t border-white/10 bg-[#14141f]/95 p-4 backdrop-blur sm:rounded-b-3xl">
+        <div className="sticky bottom-0 flex items-center gap-4 border-t border-white/10 bg-[#14141f]/95 p-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] backdrop-blur sm:rounded-b-3xl">
           <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
             <button
               type="button"

@@ -35,6 +35,8 @@ export const metadata: Metadata = {
   description:
     "Concierge premium în Chișinău: comandă de la restaurante și sushi bar-uri, rezervă spa, lounge wellness sau sală de business — dintr-un singur loc, cu urmărire live.",
   applicationName: SITE_NAME,
+  // iPhone: „Adaugă pe ecranul principal" deschide site-ul ca aplicație (fără bara Safari).
+  appleWebApp: { capable: true, title: "Dragons", statusBarStyle: "black" },
   manifest: "/manifest.webmanifest",
   openGraph: {
     type: "website",
@@ -49,6 +51,9 @@ export const metadata: Metadata = {
 
 export const viewport = {
   themeColor: "#0d0d1f",
+  // Conținutul ajunge până la marginea ecranului; elementele fixe de jos își
+  // adaugă singure `env(safe-area-inset-bottom)` (bara de navigare a clientului).
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
