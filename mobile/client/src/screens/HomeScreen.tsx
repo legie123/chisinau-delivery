@@ -77,9 +77,14 @@ export default function HomeScreen({ navigation }: Props) {
       (async () => {
         if (loadedAt.current != null) return reload();
         // First load: alphabetical list first (fast), then by distance once a position exists.
-        await load('none');
+        // The spinner settles even if the user left meanwhile (blur ≠ unmount: on return
+        // the list is fresh, so no reload would ever clear it); only the follow-ups stop.
+        try {
+          await load('none');
+        } finally {
+          setLoading(false);
+        }
         if (cancelled) return;
-        setLoading(false);
         const permission = await locationPermission();
         if (permission === 'granted') await load('silent');
         // Explain why before the OS prompt — the OS shows its prompt only once.

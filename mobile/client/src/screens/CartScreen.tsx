@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { placeOrder, setOrderTip } from '@chisinau/shared-api';
@@ -24,6 +24,7 @@ import {
   runExclusive,
   scheduleProblem,
   tipFor,
+  tipProblem,
   type AddressFields,
   type CreatedAddress,
   type PaymentChoice,
@@ -83,6 +84,9 @@ export default function CartScreen({ navigation }: Props) {
   // Live-menu reconciliation (web useCartReconcile parity).
   const [dead, setDead] = useState<Set<string>>(new Set());
   const [repriced, setRepriced] = useState<ReconcileResult['repriced']>([]);
+  // Until the live menu answers, the shown prices are the cart's snapshot: no order.
+  const [prices, setPrices] = useState<'checking' | 'ok' | 'failed'>('checking');
+  const [priceRetry, setPriceRetry] = useState(0);
   const signature = cart.lines.map(l => l.lineId).sort().join('|');
 
   const touched = <T,>(set: (v: T) => void) => (v: T) => {
@@ -137,30 +141,36 @@ export default function CartScreen({ navigation }: Props) {
       const lines = getCart().lines;
       if (lines.length === 0) return;
       let stale = false;
+      setPrices('checking');
       fetchLiveMenu([...new Set(lines.map(l => l.menuItemId))], [...new Set(lines.flatMap(l => l.optionIds))])
         .then(live => {
-          if (stale || !live) return;
+          if (stale) return;
+          if (!live) return setPrices('failed');
           const r = reconcileLines(getCart().lines, live.items, live.options);
           if (r.repriced.length > 0) {
             setCart(prev => ({ ...prev, lines: reconcileLines(prev.lines, live.items, live.options).lines }));
             setRepriced(r.repriced);
           }
           setDead(new Set(r.dead.map(d => d.lineId)));
+          setPrices('ok');
         })
-        .catch(() => {});
+        .catch(() => { if (!stale) setPrices('failed'); });
       return () => { stale = true; };
-    }, [signature]),
+    }, [signature, priceRetry]),
   );
 
   const subtotal = cartSubtotal(cart.lines);
   const deliveryFee = summary?.deliveryFee ?? 0;
   const tipMdl = tipFor(subtotal, tip, customTip);
   const total = subtotal + deliveryFee + tipMdl;
+  const tipError = tipProblem(subtotal, tipMdl);
   const belowMinimum = summary ? subtotal < summary.minOrder : false;
-  // Said before place_order would refuse it (same sum the server checks: no tip).
+  // Said before place_order would refuse it (same sum the server checks: no tip) — a
+  // hint only: the server decides, its refusal comes back as the same Romanian line.
   const overCashCap = summary != null && cashCapExceeded(payment, subtotal, deliveryFee);
   const selected = addresses.find(a => a.id === addressId);
   const deadLines = cart.lines.filter(l => dead.has(l.lineId));
+  const blocked = placing || belowMinimum || !summary || deadLines.length > 0 || prices !== 'ok' || tipError != null;
 
   async function pinLocation() {
     setLocating(true);
@@ -217,7 +227,8 @@ export default function CartScreen({ navigation }: Props) {
           try {
             await setOrderTip(supabase, orderId, tipMdl);
           } catch {
-            /* order placed; the tip can be added from the tracking screen */
+            // The order stands; the tracking screen can still add the tip.
+            Alert.alert('Bacșișul nu a fost salvat', 'Comanda a fost plasată, dar bacșișul nu s-a salvat. Îl poți adăuga din ecranul comenzii.');
           }
         }
         saveCheckoutPrefs({ payment, tip, customTip });
@@ -267,6 +278,12 @@ export default function CartScreen({ navigation }: Props) {
           <Text style={styles.notice}>
             Restaurantul a actualizat prețurile: {repriced.map(r => `${r.name} (${r.from}→${r.to} MDL)`).join(', ')}. Totalul de mai jos e cel real.
           </Text>
+        )}
+        {prices === 'failed' && (
+          <TouchableOpacity onPress={() => setPriceRetry(n => n + 1)} style={styles.retryRow} accessibilityRole="button">
+            <Ionicons name="refresh" size={16} color={COLORS.gold} />
+            <Text style={styles.notice}>Prețurile nu au putut fi actualizate — verifică conexiunea. Atinge pentru a reîncerca.</Text>
+          </TouchableOpacity>
         )}
         {deadLines.length > 0 && (
           <Text style={styles.error}>
@@ -394,7 +411,7 @@ export default function CartScreen({ navigation }: Props) {
             onChangeText={t => setCustomTip(t.replace(/\D/g, ''))}
             accessibilityLabel="Bacșiș personalizat în MDL"
           />
-          {tipMdl > 0 && <Text style={styles.hint}>Bacșiș {tipMdl} MDL — mulțumim! 🐉</Text>}
+          {tipError ? <Text style={styles.error}>{tipError}</Text> : tipMdl > 0 && <Text style={styles.hint}>Bacșiș {tipMdl} MDL — mulțumim! 🐉</Text>}
         </View>
 
         <View style={styles.section}>
@@ -415,10 +432,10 @@ export default function CartScreen({ navigation }: Props) {
       </ScrollView>
 
       <TouchableOpacity
-        style={[styles.orderBtn, (placing || belowMinimum || !summary || deadLines.length > 0 || overCashCap) && { opacity: 0.5 }]}
+        style={[styles.orderBtn, blocked && { opacity: 0.5 }]}
         activeOpacity={0.9}
         onPress={submit}
-        disabled={placing || belowMinimum || !summary || deadLines.length > 0 || overCashCap}
+        disabled={blocked}
       >
         {placing ? <ActivityIndicator color={COLORS.white} /> : <Ionicons name="bag-check" size={20} color={COLORS.white} />}
         <Text style={styles.orderBtnText}>Plasează comanda · {total.toFixed(2)} MDL</Text>

@@ -1,4 +1,5 @@
 import { RpcError, romanianRaiseText } from "@chisinau/shared-api";
+import { CASH_CAP_HINT, CASH_CAP_MDL } from "./checkout";
 
 // Romanian text for anything thrown at the customer. shared-api mapPgError gives a
 // fixed Romanian line for every code except P0001, where it passes the RPC's own
@@ -12,7 +13,7 @@ const STALE_LINE = "Un produs din coș s-a schimbat — scoate-l și adaugă-l d
 // The shared table (packages/shared-api KNOWN_ERRORS) covers every RPC text for every surface;
 // these are the client-screen wordings that differ from it.
 export const KNOWN_ERRORS: [string, string][] = [
-  ["1400 MDL", "Comenzile peste 1400 MDL se achită cu cardul la livrare — alege «Card (POS)»."],
+  [`${CASH_CAP_MDL} MDL`, CASH_CAP_HINT],
   ["închis la ora", "Restaurantul este închis acum. Alege alt restaurant sau revino mai târziu."],
   ["alege o opțiune", "Un produs are opțiuni obligatorii neconfigurate — scoate-l și adaugă-l din nou."],
   ["opțiune invalidă", STALE_LINE],

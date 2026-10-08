@@ -20,12 +20,24 @@ export function tipFor(subtotal: number, choice: TipChoice, customRaw: string): 
   return custom > 0 ? custom : tipAmount(subtotal, choice);
 }
 
+/** App-side ceiling on the courier tip: never more than the food itself, never more
+ *  than 500 MDL. set_order_tip has no cap of its own yet (owner decision). */
+export const TIP_MAX_MDL = 500;
+export function tipLimit(subtotal: number): number {
+  return Math.max(0, Math.min(TIP_MAX_MDL, Math.floor(subtotal)));
+}
+export function tipProblem(subtotal: number, tip: number): string | null {
+  return tip > tipLimit(subtotal) ? `Bacșișul poate fi cel mult ${tipLimit(subtotal)} MDL (maxim subtotalul comenzii, cel mult ${TIP_MAX_MDL} MDL).` : null;
+}
+
 // ---- cash cap (place_order, 20260813000400_cash_gate_fixes.sql) ----
-// place_order rejects standard + cash when subtotal + delivery fee (tip NOT counted)
-// exceeds 1400 MDL. The server stays the authority; this only says it first.
+// Mirrors place_order: it rejects standard + cash when subtotal + delivery fee (tip NOT
+// counted) exceeds this. PROVISIONAL business number (awaiting founder ratification) and
+// the ONLY copy in the app — the hint never blocks the button: the server decides, and
+// its rejection maps to CASH_CAP_HINT via errors.ts KNOWN_ERRORS.
 // ponytail: mirrors the SQL literal; read it from config once the cap is versioned.
 export const CASH_CAP_MDL = 1400;
-export const CASH_CAP_HINT = "Comenzile peste 1400 MDL se achită cu cardul la livrare — alege «Card (POS)».";
+export const CASH_CAP_HINT = `Comenzile peste ${CASH_CAP_MDL} MDL se achită cu cardul la livrare — alege «Card (POS)».`;
 
 export function cashCapExceeded(payment: PaymentChoice, subtotal: number, deliveryFee: number): boolean {
   return payment === "cash" && subtotal + deliveryFee > CASH_CAP_MDL;
@@ -73,6 +85,19 @@ function zoned(d: Date) {
   const parts = zoneFmt.formatToParts(d);
   const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
   return { y: +get("year"), mo: +get("month"), d: +get("day"), h: +get("hour") % 24, mi: +get("minute"), s: +get("second"), dow: DOW[get("weekday")] ?? 0 };
+}
+
+const dayFmt = new Intl.DateTimeFormat("ro-RO", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+
+/** The picker's next `days` days as Chișinău dates — "Azi" is today in Chișinău, not on
+ *  the phone (a phone on another zone near midnight would offer yesterday / skip a day). */
+export function chisinauDays(days: number, now = Date.now()): { value: string; label: string }[] {
+  const z = zoned(new Date(now));
+  return Array.from({ length: days }, (_, i) => {
+    const d = new Date(Date.UTC(z.y, z.mo - 1, z.d + i, 12));
+    const value = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+    return { value, label: i === 0 ? "Azi" : i === 1 ? "Mâine" : dayFmt.format(d) };
+  });
 }
 
 /** day_of_week + "HH:MM:SS" in Chișinău at instant `d` (the restaurant_hours frame). */
@@ -170,6 +195,25 @@ export function addressRow(d: AddressDraft) {
     ...(d.pin ?? {}),
   };
 }
+
+/** How an address-book edit is saved. orders.delivery_address_id points at the live row
+ *  (no snapshot): the courier fee at delivery and the order history read it. So an address
+ *  ANY order used is never mutated — the edit becomes a new row (same pin while the street
+ *  is unchanged, no pin once it moved; default carried over), the old row stays as history.
+ *  Only a never-used address is updated in place. `usedByOrder` is read at save time. */
+export function addressEditPlan(
+  before: { street_address: string; lat: number | null; lng: number | null; is_default: boolean },
+  d: AddressDraft,
+  usedByOrder: boolean,
+) {
+  const moved = before.street_address.trim() !== d.street.trim();
+  const oldPin = before.lat != null && before.lng != null ? { lat: Number(before.lat), lng: Number(before.lng) } : null;
+  if (usedByOrder) return { kind: "insert" as const, row: addressRow({ ...d, pin: moved ? null : oldPin }), makeDefault: before.is_default };
+  // A new street makes the old GPS pin a lie the courier would navigate to: drop it.
+  return { kind: "update" as const, patch: { ...addressRow({ ...d, pin: null }), ...(moved ? { lat: null, lng: null } : {}) } };
+}
+export const ADDRESS_SAVED_AS_NEW =
+  "Adresa apare în comenzi anterioare, așa că am salvat modificarea ca adresă nouă. Cea veche rămâne neschimbată în istoricul comenzilor.";
 
 /** The first saved address is a default, never an override: once the user picked a
  *  chip or typed a new address (e.g. before the Login detour), their choice stands. */

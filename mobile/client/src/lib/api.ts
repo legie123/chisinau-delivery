@@ -282,6 +282,8 @@ export type AddressBookEntry = SavedAddress & {
   building: string | null;
   apartment: string | null;
   is_default: boolean;
+  lat: number | null;
+  lng: number | null;
 };
 
 /** Default first, then newest — the web checkout's order. */
@@ -290,7 +292,7 @@ export async function fetchAddressBook(): Promise<AddressBookEntry[]> {
   if (!userId) return [];
   const { data, error } = await supabase
     .from("addresses")
-    .select("id, street_address, contact_phone, notes, label, sector, building, apartment, is_default")
+    .select("id, street_address, contact_phone, notes, label, sector, building, apartment, is_default, lat, lng")
     .eq("customer_id", userId)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: false })
@@ -326,14 +328,13 @@ export async function setDefaultAddress(id: string): Promise<void> {
   if (clearError) throw new Error(clearError.message);
 }
 
-/** An in-flight order reads its address live (courier, tracking): editing it would move
- *  the drop-off under the courier's feet, so the address book refuses while one exists. */
-export async function addressHasActiveOrder(id: string): Promise<boolean> {
+/** Any order (in flight or past) reads its address live — courier, tracking, delivery
+ *  fee, history: such a row is never edited in place (checkout addressEditPlan). */
+export async function addressUsedByOrder(id: string): Promise<boolean> {
   const { count, error } = await supabase
     .from("orders")
     .select("id", { count: "exact", head: true })
-    .eq("delivery_address_id", id)
-    .not("status", "in", "(delivered,cancelled,rejected)");
+    .eq("delivery_address_id", id);
   if (error) throw new Error(error.message);
   return (count ?? 0) > 0;
 }

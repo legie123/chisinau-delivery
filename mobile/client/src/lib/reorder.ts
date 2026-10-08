@@ -54,11 +54,13 @@ export function planReorder(
     const menuItemId = it.menu_item_id;
     const chosen = it.selected_options ?? [];
     const ids: string[] = [];
+    const names: string[] = []; // only the options actually kept: the label must match the ids
     const covered = new Set<string>();
     for (const sel of chosen) {
       const id = optionId.get(`${menuItemId}|${sel.group}|${sel.name}`);
       if (id) {
         ids.push(id);
+        names.push(sel.name);
         covered.add(sel.group);
       }
     }
@@ -68,7 +70,7 @@ export function planReorder(
     }
     const unit = Number(it.unit_price_mdl);
     const ref = { id: menuItemId, name: it.item_name_snapshot, price_mdl: unit };
-    const options = ids.length ? { optionIds: ids, optionsLabel: chosen.map((s) => s.name).join(", "), unitPriceMdl: unit } : undefined;
+    const options = ids.length ? { optionIds: ids, optionsLabel: names.join(", "), unitPriceMdl: unit } : undefined;
     cart = addToCart(cart, restaurant, ref, options, it.quantity);
   }
   return { cart, skipped };

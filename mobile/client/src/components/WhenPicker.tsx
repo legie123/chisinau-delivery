@@ -1,20 +1,13 @@
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../theme';
+import { chisinauDays } from '../lib/checkout';
 
 // Date + time as tap-able chips (no native date-picker dependency): the next
-// `days` days and half-hour slots in a service window. Values are local
-// "YYYY-MM-DD" / "HH:MM", the same strings the web <input type=date|time> yields.
+// `days` days and half-hour slots in a service window. Values are Chișinău
+// "YYYY-MM-DD" / "HH:MM" (chisinauDays), the same strings the web <input type=date|time> yields.
 
 const pad = (n: number) => String(n).padStart(2, '0');
-const dayFmt = new Intl.DateTimeFormat('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' });
-
-export function nextDays(days: number, from = new Date()): { value: string; label: string }[] {
-  return Array.from({ length: days }, (_, i) => {
-    const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + i);
-    return { value: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, label: i === 0 ? 'Azi' : i === 1 ? 'Mâine' : dayFmt.format(d) };
-  });
-}
 
 export function timeSlots(fromHour = 8, toHour = 22): string[] {
   const out: string[] = [];
@@ -38,7 +31,7 @@ export default function WhenPicker({
   return (
     <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
-        {nextDays(days).map(d => (
+        {chisinauDays(days).map(d => (
           <TouchableOpacity key={d.value} style={[styles.chip, date === d.value && styles.on]} onPress={() => onDate(d.value)}>
             <Text style={styles.text}>{d.label}</Text>
           </TouchableOpacity>

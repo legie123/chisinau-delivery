@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import {
-  addressHasActiveOrder,
+  addressUsedByOrder,
   createAddress,
   deleteAddress,
   errorText,
@@ -13,7 +13,7 @@ import {
   updateAddress,
   type AddressBookEntry,
 } from '../lib/api';
-import { addressDraftProblem, addressRow, runExclusive, type AddressFields } from '../lib/checkout';
+import { ADDRESS_SAVED_AS_NEW, addressDraftProblem, addressEditPlan, addressRow, runExclusive, type AddressFields } from '../lib/checkout';
 
 // Profile → Adrese salvate: list, add, edit, delete, choose the default the checkout
 // preselects. Same fields the web checkout saves (sector / bloc / apartament) + label.
@@ -103,17 +103,8 @@ export default function AddressesScreen({ navigation }: { navigation: any }) {
       }
     });
 
-  async function startEdit(a: AddressBookEntry) {
+  function startEdit(a: AddressBookEntry) {
     setError(null);
-    try {
-      if (await addressHasActiveOrder(a.id)) {
-        Alert.alert('Comandă în curs', 'Adresa e folosită de o comandă în curs — o poți modifica după livrare.');
-        return;
-      }
-    } catch {
-      setError('Nu am putut verifica adresa. Încearcă din nou.');
-      return;
-    }
     setDraft(toDraft(a));
     setEditing(a.id);
   }
@@ -123,12 +114,26 @@ export default function AddressesScreen({ navigation }: { navigation: any }) {
     const problem = addressDraftProblem(d);
     if (problem) return setError(problem);
     const target = editing;
-    // A new street makes the old GPS pin a lie the courier would navigate to: drop it.
     const before = list.find(a => a.id === target);
-    const moved = before != null && before.street_address.trim() !== d.street.trim();
     return run(async () => {
       if (target === 'new') await createAddress(addressRow(d));
-      else if (target) await updateAddress(target, { ...addressRow(d), ...(moved ? { lat: null, lng: null } : {}) });
+      else if (target && before) {
+        // Read at save time, not when the form opened: an order placed meanwhile counts.
+        const plan = addressEditPlan(before, d, await addressUsedByOrder(target));
+        if (plan.kind === 'update') await updateAddress(target, plan.patch);
+        else {
+          const id = await createAddress(plan.row);
+          setEditing(null); // saved: a retry from here would insert a second copy
+          Alert.alert('Adresă salvată ca nouă', ADDRESS_SAVED_AS_NEW);
+          if (plan.makeDefault) {
+            try {
+              await setDefaultAddress(id);
+            } catch {
+              setError('Adresa nouă a fost salvată, dar nu am putut-o face implicită — atinge «Implicită».');
+            }
+          }
+        }
+      }
       setEditing(null);
     }, 'Nu am putut salva adresa.');
   }
