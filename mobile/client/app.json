@@ -37,6 +37,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-font",
+      "expo-status-bar",
       "expo-secure-store",
       [
         "expo-notifications",
