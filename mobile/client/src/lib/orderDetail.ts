@@ -10,6 +10,8 @@ export interface OrderDetail {
   status: string;
   orderType: string;
   paymentMethod: string;
+  paymentStatus: string;
+  cancellationReason: string | null;
   subtotalMdl: number;
   deliveryFeeMdl: number;
   tipMdl: number;
@@ -22,15 +24,27 @@ export interface OrderDetail {
   dropoff: LatLng | null;
   dropoffText: string | null;
   items: { name: string; quantity: number; unitPriceMdl: number }[];
-  catering: { quoteStatus: string; quotedTotalMdl: number | null; eventDate: string; guestCount: number } | null;
+  catering: {
+    quoteStatus: string;
+    quotedTotalMdl: number | null;
+    eventDate: string;
+    eventTime: string | null;
+    guestCount: number;
+    restaurantNotes: string | null;
+  } | null;
   ratedTargets: string[];
+  /** delivery_status_events, oldest first — RPC-written, customer-readable (own order). */
+  events: { id: string; status: string; createdAt: string }[];
+  /** Assigned courier's name + phone (couriers_customer_scoped_read); null until assigned. */
+  courier: { fullName: string | null; phone: string | null } | null;
 }
 
 const ORDER_COLS =
-  "id, order_number, status, order_type, payment_method, subtotal_mdl, delivery_fee_mdl, tip_mdl, total_mdl, courier_id, estimated_ready_at, requested_for, created_at, delivery_address_id, restaurant_id";
+  "id, order_number, status, order_type, payment_method, payment_status, cancellation_reason, subtotal_mdl, delivery_fee_mdl, tip_mdl, total_mdl, courier_id, estimated_ready_at, requested_for, created_at, delivery_address_id, restaurant_id";
 
 type OrderRow = {
-  id: string; order_number: string; status: string; order_type: string; payment_method: string; subtotal_mdl: number;
+  id: string; order_number: string; status: string; order_type: string; payment_method: string; payment_status: string;
+  cancellation_reason: string | null; subtotal_mdl: number;
   delivery_fee_mdl: number; tip_mdl: number; total_mdl: number; courier_id: string | null; estimated_ready_at: string | null;
   requested_for: string | null; created_at: string; delivery_address_id: string | null; restaurant_id: string;
 };
@@ -40,6 +54,8 @@ export function mergeOrderRow(detail: OrderDetail, row: Partial<OrderRow>): Orde
   return {
     ...detail,
     status: row.status ?? detail.status,
+    paymentStatus: row.payment_status ?? detail.paymentStatus,
+    cancellationReason: row.cancellation_reason !== undefined ? row.cancellation_reason : detail.cancellationReason,
     courierId: row.courier_id !== undefined ? row.courier_id : detail.courierId,
     tipMdl: row.tip_mdl != null ? Number(row.tip_mdl) : detail.tipMdl,
     totalMdl: row.total_mdl != null ? Number(row.total_mdl) : detail.totalMdl,
@@ -56,25 +72,37 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
   const { data: o, error } = await supabase.from("orders").select(ORDER_COLS).eq("id", orderId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!o) return null;
-  const [restaurant, address, items, catering, ratings] = await Promise.all([
+  const [restaurant, address, items, catering, ratings, events, courier] = await Promise.all([
     supabase.from("restaurants").select("name, lat, lng").eq("id", o.restaurant_id).maybeSingle(),
     o.delivery_address_id
       ? supabase.from("addresses").select("street_address, lat, lng").eq("id", o.delivery_address_id).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("order_items").select("item_name_snapshot, quantity, unit_price_mdl").eq("order_id", orderId),
     o.order_type === "catering"
-      ? supabase.from("catering_details").select("quote_status, quoted_total_mdl, event_date, guest_count").eq("order_id", orderId).maybeSingle()
+      ? supabase.from("catering_details").select("quote_status, quoted_total_mdl, event_date, event_time, guest_count, restaurant_notes").eq("order_id", orderId).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("ratings").select("target_type").eq("order_id", orderId),
+    // Same reads as the web order page, same RLS: delivery_status_events_scoped_read
+    // (own order) and couriers_customer_scoped_read (customer_has_order_with_courier).
+    supabase.from("delivery_status_events").select("id, status, created_at").eq("order_id", orderId).order("created_at"),
+    o.courier_id
+      ? supabase.from("couriers").select("full_name, phone").eq("id", o.courier_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const a = address.data as { street_address: string; lat: number | null; lng: number | null } | null;
-  const c = catering.data as { quote_status: string; quoted_total_mdl: number | null; event_date: string; guest_count: number } | null;
+  const c = catering.data as {
+    quote_status: string; quoted_total_mdl: number | null; event_date: string; event_time: string | null; guest_count: number;
+    restaurant_notes: string | null;
+  } | null;
+  const k = courier.data as { full_name: string | null; phone: string | null } | null;
   return {
     id: o.id,
     orderNumber: o.order_number,
     status: o.status,
     orderType: o.order_type,
     paymentMethod: o.payment_method,
+    paymentStatus: o.payment_status,
+    cancellationReason: o.cancellation_reason,
     subtotalMdl: Number(o.subtotal_mdl),
     deliveryFeeMdl: Number(o.delivery_fee_mdl),
     tipMdl: Number(o.tip_mdl),
@@ -92,9 +120,18 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
       unitPriceMdl: Number(i.unit_price_mdl),
     })),
     catering: c
-      ? { quoteStatus: c.quote_status, quotedTotalMdl: c.quoted_total_mdl, eventDate: c.event_date, guestCount: c.guest_count }
+      ? {
+          quoteStatus: c.quote_status,
+          quotedTotalMdl: c.quoted_total_mdl == null ? null : Number(c.quoted_total_mdl),
+          eventDate: c.event_date,
+          eventTime: c.event_time,
+          guestCount: c.guest_count,
+          restaurantNotes: c.restaurant_notes,
+        }
       : null,
     ratedTargets: (ratings.data ?? []).map((r) => r.target_type),
+    events: (events.data ?? []).map((e) => ({ id: e.id, status: e.status, createdAt: e.created_at })),
+    courier: k ? { fullName: k.full_name, phone: k.phone } : null,
   };
 }
 

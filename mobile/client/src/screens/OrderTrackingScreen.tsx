@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator, Alert, AppState, TextInput } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { cancelOrder, confirmCateringQuote, setOrderTip, submitRating } from '@chisinau/shared-api';
 import { asOrderId } from '@chisinau/shared-types';
@@ -8,7 +7,7 @@ import { COLORS } from '../theme';
 import { supabase } from '../lib/supabase';
 import { errorText } from '../lib/api';
 import { fetchCourierSeed, fetchOrderDetail, mergeOrderRow, type OrderDetail } from '../lib/orderDetail';
-import { subscribeCourierLocation, subscribeOrderRow, type LatLng } from '../lib/realtime';
+import { subscribeCourierLocation, subscribeOrderChildren, subscribeOrderRow, type LatLng } from '../lib/realtime';
 import {
   PROGRESS_STEPS,
   customerCanCancel,
@@ -20,6 +19,16 @@ import {
   statusTone,
 } from '../lib/orderStatus';
 import { tipAmount, type TipChoice } from '../lib/checkout';
+import { courierActive, firstName, paymentPresence, showsPrepCountdown, telUrl, trackingRoute } from '../lib/tracking';
+import { TrackingMap } from '../components/tracking/TrackingMap';
+import {
+  CateringStatus,
+  CourierCard,
+  PaymentNoticeBox,
+  PrepCountdown,
+  StatusTimeline,
+  SupportLinks,
+} from '../components/tracking/TrackingParts';
 
 const POLL_MS = 20_000; // web useOrderRealtime parity: realtime is the fast path, the poll the guarantee
 
@@ -56,6 +65,8 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
       setOrder(prev => (prev ? mergeOrderRow(prev, row) : prev));
       if (statusChanged) refetch();
     }, () => { if (alive) refetch(); });
+    // Timeline rows + catering quote changes (web: order-events + catering-details channels).
+    const unsubChildren = subscribeOrderChildren(supabase, orderId, () => { if (alive) refetch(); }, () => { if (alive) refetch(); });
     const poll = setInterval(() => {
       if (AppState.currentState !== 'active') return;
       if (statusRef.current && isTerminal(statusRef.current)) return;
@@ -65,6 +76,7 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
     return () => {
       alive = false;
       unsub();
+      unsubChildren();
       clearInterval(poll);
       appSub.remove();
     };
@@ -113,12 +125,14 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
   const tone = statusTone(order.status);
   const toneColor = tone === 'done' ? COLORS.success : tone === 'failed' ? COLORS.error : COLORS.warning;
   const step = progressIndex(order.status);
-  const points = [order.restaurant?.lat != null && order.restaurant?.lng != null ? { lat: order.restaurant.lat, lng: order.restaurant.lng } : null, order.dropoff, courier].filter(
-    (p): p is LatLng => p != null,
-  );
-  const center = courier ?? order.dropoff ?? points[0] ?? null;
+  const pickup: LatLng | null =
+    order.restaurant?.lat != null && order.restaurant?.lng != null ? { lat: order.restaurant.lat, lng: order.restaurant.lng } : null;
+  const routePlan = trackingRoute({ status: order.status, pickup, dropoff: order.dropoff, courier });
   const canRate = order.status === 'delivered';
   const quoted = order.catering?.quoteStatus === 'quoted';
+  const failed = order.status === 'cancelled' || order.status === 'rejected';
+  const carrying = order.status === 'picked_up' || order.status === 'en_route';
+  const pay = paymentPresence({ method: order.paymentMethod, status: order.paymentStatus, orderStatus: order.status, amountMdl: order.totalMdl });
 
   return (
     <View style={styles.container}>
@@ -133,8 +147,14 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={[styles.statusBox, { borderColor: toneColor + '60' }]}>
-          <Text style={[styles.statusText, { color: toneColor }]}>{statusLabel(order.status)}</Text>
+          <Text style={[styles.statusText, { color: toneColor }]} accessibilityLiveRegion="polite">
+            {order.status === 'pending_restaurant' && order.orderType === 'standard' ? 'Așteptăm confirmarea restaurantului...' : statusLabel(order.status)}
+          </Text>
           <Text style={styles.muted}>{order.restaurant?.name}</Text>
+          {failed && order.cancellationReason && <Text style={styles.mutedSmall}>{order.cancellationReason}</Text>}
+          {showsPrepCountdown(order.status, order.estimatedReadyAt) && (
+            <PrepCountdown estimatedReadyAt={order.estimatedReadyAt} status={order.status} />
+          )}
         </View>
 
         {step >= 0 && (
@@ -145,19 +165,19 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
           </View>
         )}
 
-        {center && (
-          <MapView
-            style={styles.map}
-            initialRegion={{ latitude: center.lat, longitude: center.lng, latitudeDelta: 0.04, longitudeDelta: 0.04 }}
-          >
-            {order.restaurant?.lat != null && order.restaurant?.lng != null && (
-              <Marker coordinate={{ latitude: order.restaurant.lat, longitude: order.restaurant.lng }} title={order.restaurant.name} pinColor="#F5A623" />
-            )}
-            {order.dropoff && <Marker coordinate={{ latitude: order.dropoff.lat, longitude: order.dropoff.lng }} title="Adresa ta" pinColor="#4ade80" />}
-            {courier && <Marker coordinate={{ latitude: courier.lat, longitude: courier.lng }} title="Curierul" pinColor="#E94560" />}
-          </MapView>
+        <TrackingMap pickup={pickup} dropoff={order.dropoff} courier={courier} route={routePlan} restaurantName={order.restaurant?.name} />
+
+        {courierActive(order.status, order.courierId) && (
+          <CourierCard
+            name={firstName(order.courier?.fullName)}
+            tel={telUrl(order.courier?.phone)}
+            subtitle={carrying ? (courier ? 'Poziție live disponibilă' : 'Așteptăm semnalul GPS...') : 'Curier alocat comenzii tale'}
+          />
         )}
-        {liveCourier && !courier && <Text style={styles.mutedSmall}>Așteptăm poziția curierului...</Text>}
+
+        {order.catering && (
+          <CateringStatus catering={order.catering} status={order.status} cancellationReason={order.cancellationReason} />
+        )}
 
         {quoted && (
           <View style={styles.card}>
@@ -182,9 +202,15 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
           ))}
           <View style={styles.rowBetween}><Text style={styles.muted}>Livrare</Text><Text style={styles.muted}>{order.deliveryFeeMdl.toFixed(2)}</Text></View>
           {order.tipMdl > 0 && <View style={styles.rowBetween}><Text style={styles.muted}>Bacșiș</Text><Text style={styles.muted}>{order.tipMdl.toFixed(2)}</Text></View>}
-          <View style={styles.rowBetween}><Text style={styles.total}>Total</Text><Text style={styles.total}>{order.totalMdl.toFixed(2)} MDL</Text></View>
+          <View style={styles.rowBetween}>
+            <Text style={[styles.total, { flex: 1 }]}>Total <Text style={styles.payLabel}>({pay.totalLabel})</Text></Text>
+            <Text style={styles.total}>{order.totalMdl.toFixed(2)} MDL</Text>
+          </View>
+          {pay.notice && <PaymentNoticeBox notice={pay.notice} />}
           {order.dropoffText && <Text style={styles.mutedSmall}>📍 {order.dropoffText}</Text>}
         </View>
+
+        <StatusTimeline events={order.events} />
 
         {customerCanTip(order.status) && order.orderType === 'standard' && (
           <View style={styles.card}>
@@ -235,6 +261,7 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
             <Text style={styles.cancelText}>Anulează comanda</Text>
           </TouchableOpacity>
         )}
+        <SupportLinks orderNumber={order.orderNumber} />
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -251,7 +278,7 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 22, fontWeight: '900' },
   rail: { flexDirection: 'row', gap: 6, marginBottom: 14 },
   railDot: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.1)' },
-  map: { height: 240, borderRadius: 16, marginBottom: 8 },
+  payLabel: { color: COLORS.textSecondary, fontWeight: '500', fontSize: 13 },
   card: { backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginTop: 12, borderWidth: 1, borderColor: COLORS.cardBorder },
   cardTitle: { color: COLORS.white, fontWeight: '800', fontSize: 15, marginBottom: 10 },
   big: { color: COLORS.gold, fontSize: 24, fontWeight: '900', marginBottom: 10 },

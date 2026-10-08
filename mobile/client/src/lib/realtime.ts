@@ -32,6 +32,24 @@ export function subscribeOrderRow(
   };
 }
 
+/** Rows hanging off ONE order that the web tracker also follows live: new
+ *  delivery_status_events (timeline) and catering_details (quote arrives/changes).
+ *  Both filtered `order_id=eq.X`; any change → onChange (the screen refetches). */
+export function subscribeOrderChildren(db: Db, orderId: string, onChange: () => void, onDegraded: () => void): () => void {
+  const name = `order-children:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const filter = `order_id=eq.${orderId}`;
+  const channel = db
+    .channel(name)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "delivery_status_events", filter }, () => onChange())
+    .on("postgres_changes", { event: "*", schema: "public", table: "catering_details", filter }, () => onChange())
+    .subscribe((status) => {
+      if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") onDegraded();
+    });
+  return () => {
+    db.removeChannel(channel);
+  };
+}
+
 export function subscribeCourierLocation(db: Db, orderId: string, onUpdate: (p: LatLng) => void): () => void {
   const channel = db
     .channel(`order:${orderId}:location`, { config: { private: true } })
