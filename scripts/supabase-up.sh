@@ -24,5 +24,17 @@ if [ "$opt" != "127.0.0.1" ]; then
   echo "▸ created $NET (host binding 127.0.0.1)"
 fi
 
+# Rotated JWT secret, read by supabase/config.toml [auth] through env(). Kept outside the repo
+# so the mobile tunnel (scripts/mobile/tunnel.sh) never exposes the PUBLIC default secret.
+SECRETS="$HOME/.claude/secrets/chisinau-delivery-supabase-jwt.env"
+if [ ! -f "$SECRETS" ]; then
+  echo "✗ $SECRETS missing. Create it (chmod 600) with one line: the variable named in supabase/config.toml [auth] set to the output of: openssl rand -hex 32" >&2
+  exit 1
+fi
+set -a
+# shellcheck disable=SC1090
+. "$SECRETS"
+set +a
+
 supabase start
 bash scripts/check-local-exposure.sh
