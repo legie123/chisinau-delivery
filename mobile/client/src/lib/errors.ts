@@ -33,15 +33,18 @@ export function errorText(err: unknown, fallback: string, extra: [string, string
   return romanianRaiseText(raw) ?? fallback;
 }
 
-/** GoTrue sign-in / sign-up error text -> the same Romanian line the web LoginForm shows.
- *  `raw` is supabase-js `error.message` (signIn/signUp in api.ts return only that). */
+/** GoTrue sign-in / sign-up / password-reset error text -> the same Romanian line the web
+ *  LoginForm shows. `raw` is supabase-js `error.message` (api.ts and passwordReset.ts pass only that). */
 export function loginErrorText(raw: string): string {
   if (raw.includes("Invalid login credentials")) return "Email sau parolă greșite.";
+  // Password-reset code (verifyOtp type 'recovery'): GoTrue says the same thing for wrong and expired.
+  if (/token has expired or is invalid|otp_expired|otp.*(expired|invalid)/i.test(raw)) return "Codul este greșit sau a expirat. Cere un cod nou.";
+  if (raw.includes("should be different from the old password")) return "Parola nouă trebuie să fie diferită de cea veche.";
   if (/already (been )?registered|already exists/i.test(raw)) return "Există deja un cont cu acest email.";
   if (raw.includes("at least 6 characters") || raw.includes("Password should")) return "Parola trebuie să aibă minim 6 caractere.";
   if (/valid email|invalid format|email address .* is invalid/i.test(raw)) return "Emailul nu pare valid.";
   if (raw.includes("Email not confirmed")) return "Confirmă emailul din mesajul primit, apoi autentifică-te.";
-  if (/rate limit|too many/i.test(raw)) return "Prea multe încercări — încearcă din nou peste câteva minute.";
+  if (/rate limit|too many|for security purposes/i.test(raw)) return "Prea multe încercări — încearcă din nou peste câteva minute.";
   if (/network|fetch/i.test(raw)) return "Nu ne-am putut conecta. Verifică internetul și încearcă din nou.";
   return "A apărut o eroare. Încearcă din nou.";
 }

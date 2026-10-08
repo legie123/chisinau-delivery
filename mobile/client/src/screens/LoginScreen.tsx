@@ -3,6 +3,23 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, Activit
 import { COLORS } from "../theme";
 import { isSignedIn, signIn, signUp } from "../lib/api";
 import { loginErrorText } from "../lib/errors";
+import { supabase } from "../lib/supabase";
+import { confirmReset, requestResetCode } from "../lib/passwordReset";
+
+type Mode = "sign-in" | "sign-up" | "reset-request" | "reset-confirm";
+
+const SUBTITLE: Record<Mode, string> = {
+  "sign-in": "Intră în cont",
+  "sign-up": "Cont nou",
+  "reset-request": "Resetează parola",
+  "reset-confirm": "Parolă nouă",
+};
+const SUBMIT: Record<Mode, string> = {
+  "sign-in": "Autentificare",
+  "sign-up": "Creează cont",
+  "reset-request": "Trimite codul",
+  "reset-confirm": "Schimbă parola",
+};
 
 interface Props {
   route: any;
@@ -10,18 +27,62 @@ interface Props {
 }
 
 export default function LoginScreen({ route, navigation }: Props) {
-  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+  const [mode, setMode] = useState<Mode>("sign-in");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  // True once verifyOtp spent the code (the user is then signed in with a recovery session).
+  const [codeVerified, setCodeVerified] = useState(false);
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setNotice(null);
+    setPassword("");
+  }
+
+  async function sendResetCode() {
+    setError(null);
+    setNotice(null);
+    setPending(true);
+    const message = await requestResetCode(supabase.auth, email);
+    setPending(false);
+    if (message) {
+      setError(message);
+      return;
+    }
+    setMode("reset-confirm");
+    setCode("");
+    setCodeVerified(false);
+    setNotice(`Dacă există un cont pentru ${email.trim()}, ți-am trimis un cod de 6 cifre. Verifică și dosarul Spam.`);
+  }
+
+  async function finishReset() {
+    setError(null);
+    setNotice(null);
+    setPending(true);
+    const result = await confirmReset(supabase.auth, { email, code, password, verified: codeVerified });
+    setPending(false);
+    setCodeVerified(result.verified);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    // verifyOtp signed the user in: same exit as a normal sign-in.
+    route.params?.onSignedIn?.();
+    navigation.goBack();
+  }
 
   // No callback travels through the route params (a function there is non-serializable
   // and is lost on state restore): Login only signs in and goes back; every caller
   // re-reads the session on focus (useFocusEffect) or on its next action.
   async function handleSubmit() {
+    if (mode === "reset-request") return sendResetCode();
+    if (mode === "reset-confirm") return finishReset();
     setError(null);
     setNotice(null);
     if (mode === "sign-up" && !fullName.trim()) {
@@ -56,7 +117,7 @@ export default function LoginScreen({ route, navigation }: Props) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <Text style={styles.logo}>🐉</Text>
       <Text style={styles.title}>DRAGONS DELIVERY</Text>
-      <Text style={styles.subtitle}>{mode === "sign-in" ? "Intră în cont" : "Cont nou"}</Text>
+      <Text style={styles.subtitle}>{SUBTITLE[mode]}</Text>
 
       {mode === "sign-up" && (
         <TextInput
@@ -67,23 +128,42 @@ export default function LoginScreen({ route, navigation }: Props) {
           onChangeText={setFullName}
         />
       )}
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor={COLORS.textMuted}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        value={email}
-        onChangeText={setEmail}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Parolă"
-        placeholderTextColor={COLORS.textMuted}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+      {mode !== "reset-confirm" && (
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor={COLORS.textMuted}
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+        />
+      )}
+      {mode === "reset-confirm" && !codeVerified && (
+        <TextInput
+          style={styles.input}
+          placeholder="Codul din email (6 cifre)"
+          placeholderTextColor={COLORS.textMuted}
+          keyboardType="number-pad"
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
+          maxLength={10}
+          value={code}
+          onChangeText={setCode}
+        />
+      )}
+      {mode !== "reset-request" && (
+        <TextInput
+          style={styles.input}
+          placeholder={mode === "reset-confirm" ? "Parola nouă (minim 6 caractere)" : "Parolă"}
+          placeholderTextColor={COLORS.textMuted}
+          secureTextEntry
+          textContentType={mode === "sign-in" ? "password" : "newPassword"}
+          value={password}
+          onChangeText={setPassword}
+        />
+      )}
 
       {error && <Text style={styles.error}>{error}</Text>}
       {notice && <Text style={styles.notice}>{notice}</Text>}
@@ -92,15 +172,33 @@ export default function LoginScreen({ route, navigation }: Props) {
         {pending ? (
           <ActivityIndicator color={COLORS.white} />
         ) : (
-          <Text style={styles.buttonText}>{mode === "sign-in" ? "Autentificare" : "Creează cont"}</Text>
+          <Text style={styles.buttonText}>{SUBMIT[mode]}</Text>
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}>
-        <Text style={styles.switchText}>
-          {mode === "sign-in" ? "Nu ai cont? Creează unul." : "Ai deja cont? Autentifică-te."}
-        </Text>
-      </TouchableOpacity>
+      {mode === "sign-in" && (
+        <TouchableOpacity onPress={() => switchMode("reset-request")}>
+          <Text style={styles.switchText}>Ai uitat parola?</Text>
+        </TouchableOpacity>
+      )}
+      {mode === "reset-confirm" && !codeVerified && (
+        <TouchableOpacity onPress={sendResetCode} disabled={pending}>
+          <Text style={styles.switchText}>Nu ai primit codul? Retrimite.</Text>
+        </TouchableOpacity>
+      )}
+      {mode === "sign-in" || mode === "sign-up" ? (
+        <TouchableOpacity onPress={() => switchMode(mode === "sign-in" ? "sign-up" : "sign-in")}>
+          <Text style={styles.switchText}>
+            {mode === "sign-in" ? "Nu ai cont? Creează unul." : "Ai deja cont? Autentifică-te."}
+          </Text>
+        </TouchableOpacity>
+      ) : (
+        !codeVerified && (
+          <TouchableOpacity onPress={() => switchMode("sign-in")}>
+            <Text style={styles.switchText}>Înapoi la autentificare</Text>
+          </TouchableOpacity>
+        )
+      )}
     </View>
   );
 }

@@ -39,7 +39,16 @@
     "plugins": [
       "expo-font",
       "expo-status-bar",
-      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0D0D1F",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain"
+        }
+      ],
+      ["expo-secure-store", { "faceIDPermission": false }],
       [
         "expo-notifications",
         {
@@ -53,6 +62,7 @@
           "locationWhenInUsePermission": "Folosim locația ca să-ți arătăm restaurantele din apropiere și să fixăm adresa de livrare.",
           "locationAlwaysAndWhenInUsePermission": false,
           "locationAlwaysPermission": false,
+          "motionUsagePermission": false,
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }

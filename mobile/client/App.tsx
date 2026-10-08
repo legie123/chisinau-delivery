@@ -19,6 +19,7 @@ import CateringScreen from './src/screens/CateringScreen';
 import ConciergeScreen from './src/screens/ConciergeScreen';
 import AddressesScreen from './src/screens/AddressesScreen';
 import LegalScreen from './src/screens/LegalScreen';
+import OfflineBanner from './src/components/OfflineBanner';
 import { COLORS } from './src/theme';
 import { supabase } from './src/lib/supabase';
 import { hydrateCart } from './src/lib/cart';
@@ -107,6 +108,7 @@ export default function App() {
           <Stack.Screen name="Login" component={LoginScreen} options={{ presentation: 'modal' }} />
         </Stack.Navigator>
       </NavigationContainer>
+      <OfflineBanner />
     </GestureHandlerRootView>
   );
 }

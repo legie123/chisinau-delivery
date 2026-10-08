@@ -248,6 +248,12 @@ otp_expiry = 3600
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
 
+# Password reset: carries the 6-digit {{ .Token }} for the mobile app's code flow (Expo Go has
+# no deep links) AND the default {{ .ConfirmationURL }} link. Path is relative to the repo root.
+[auth.email.template.recovery]
+subject = "Codul pentru resetarea parolei — Dragons Delivery"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
 # enabled = true

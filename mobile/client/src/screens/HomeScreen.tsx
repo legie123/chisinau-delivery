@@ -24,6 +24,7 @@ import { useCart } from '../lib/cart';
 import { cartCount } from '@chisinau/shared-domain';
 import BrowseFilters from '../components/BrowseFilters';
 import FavoriteHeart from '../components/FavoriteHeart';
+import { useOffline } from '../components/OfflineBanner';
 
 interface Props {
   navigation: any;
@@ -105,6 +106,9 @@ export default function HomeScreen({ navigation }: Props) {
     await reload();
     setLoading(false);
   };
+
+  // Back online after a failed load: retry on our own instead of waiting for a tap.
+  useOffline(() => { if (loadError) onRetry(); });
 
   const allowLocation = () => {
     setPriming(false);
