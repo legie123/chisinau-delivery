@@ -169,7 +169,7 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
 
         {courierActive(order.status, order.courierId) && (
           <CourierCard
-            name={firstName(order.courier?.fullName)}
+            name={firstName(order.courier?.firstName)}
             tel={telUrl(order.courier?.phone)}
             subtitle={carrying ? (courier ? 'Poziție live disponibilă' : 'Așteptăm semnalul GPS...') : 'Curier alocat comenzii tale'}
           />

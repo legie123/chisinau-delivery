@@ -35,8 +35,9 @@ export interface OrderDetail {
   ratedTargets: string[];
   /** delivery_status_events, oldest first — RPC-written, customer-readable (own order). */
   events: { id: string; status: string; createdAt: string }[];
-  /** Assigned courier's name + phone (couriers_customer_scoped_read); null until assigned. */
-  courier: { fullName: string | null; phone: string | null } | null;
+  /** Assigned courier's first name + phone (order_courier_contact); null unless the order
+   *  is courier_assigned / picked_up / en_route. */
+  courier: { firstName: string | null; phone: string | null } | null;
 }
 
 const ORDER_COLS =
@@ -82,11 +83,12 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
       ? supabase.from("catering_details").select("quote_status, quoted_total_mdl, event_date, event_time, guest_count, restaurant_notes").eq("order_id", orderId).maybeSingle()
       : Promise.resolve({ data: null }),
     supabase.from("ratings").select("target_type").eq("order_id", orderId),
-    // Same reads as the web order page, same RLS: delivery_status_events_scoped_read
-    // (own order) and couriers_customer_scoped_read (customer_has_order_with_courier).
+    // Same reads as the web order page: delivery_status_events_scoped_read (own order);
+    // the courier via order_courier_contact (first name + phone, own order, only while
+    // courier_assigned / picked_up / en_route) — customers have no read on `couriers`.
     supabase.from("delivery_status_events").select("id, status, created_at").eq("order_id", orderId).order("created_at"),
     o.courier_id
-      ? supabase.from("couriers").select("full_name, phone").eq("id", o.courier_id).maybeSingle()
+      ? supabase.rpc("order_courier_contact", { p_order_id: orderId }).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
   const a = address.data as { street_address: string; lat: number | null; lng: number | null } | null;
@@ -94,7 +96,7 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
     quote_status: string; quoted_total_mdl: number | null; event_date: string; event_time: string | null; guest_count: number;
     restaurant_notes: string | null;
   } | null;
-  const k = courier.data as { full_name: string | null; phone: string | null } | null;
+  const k = courier.data as { first_name: string | null; phone: string | null } | null;
   return {
     id: o.id,
     orderNumber: o.order_number,
@@ -131,7 +133,7 @@ export async function fetchOrderDetail(orderId: string): Promise<OrderDetail | n
       : null,
     ratedTargets: (ratings.data ?? []).map((r) => r.target_type),
     events: (events.data ?? []).map((e) => ({ id: e.id, status: e.status, createdAt: e.created_at })),
-    courier: k ? { fullName: k.full_name, phone: k.phone } : null,
+    courier: k ? { firstName: k.first_name, phone: k.phone } : null,
   };
 }
 

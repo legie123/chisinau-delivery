@@ -2034,6 +2034,7 @@ export type Database = {
           id: string
           note: string | null
           restaurant_commission_pct: number
+          tip_max_mdl: number
         }
         Insert: {
           courier_commission_pct: number
@@ -2043,6 +2044,7 @@ export type Database = {
           id?: string
           note?: string | null
           restaurant_commission_pct: number
+          tip_max_mdl?: number
         }
         Update: {
           courier_commission_pct?: number
@@ -2052,6 +2054,7 @@ export type Database = {
           id?: string
           note?: string | null
           restaurant_commission_pct?: number
+          tip_max_mdl?: number
         }
         Relationships: []
       }
@@ -3371,6 +3374,7 @@ export type Database = {
           id: string
           note: string | null
           restaurant_commission_pct: number
+          tip_max_mdl: number
         }
         SetofOptions: {
           from: "*"
@@ -3495,6 +3499,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      order_courier_contact: {
+        Args: { p_order_id: string }
+        Returns: {
+          first_name: string
+          phone: string
+        }[]
+      }
       place_order: {
         Args: {
           p_catering?: Json
@@ -3527,6 +3538,7 @@ export type Database = {
           id: string
           note: string | null
           restaurant_commission_pct: number
+          tip_max_mdl: number
         }
         SetofOptions: {
           from: "*"

@@ -13,6 +13,8 @@ import type { Address, PaymentMethod } from "@/lib/types/domain";
 // re-rendering a blank checkout over a live cart (which re-submitted place_order and
 // created duplicate orders). Keyed per browser tab. (panel BLOCKER #1)
 const PAYSTEP_KEY = "chisinau-checkout-paystep";
+// place_order refuses requested_for beyond now + 7 days (20261008000200).
+const SCHEDULE_DAYS = 7;
 
 type RestaurantSummary = { name: string; delivery_fee_mdl: number; min_order_amount_mdl: number };
 
@@ -97,11 +99,14 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  // datetime-local min = now (local clock) — can't schedule in the past.
-  const minDateTime = useMemo(() => {
-    const d = new Date();
+  // datetime-local min = now (local clock) — can't schedule in the past; max = the
+  // SCHEDULE_DAYS horizon place_order enforces (20261008000200; mobile WhenPicker days=7).
+  const [minDateTime, maxDateTime] = useMemo(() => {
     const pad = (n: number) => String(n).padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const local = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const now = new Date();
+    return [local(now), local(new Date(now.getTime() + SCHEDULE_DAYS * 86_400_000))];
   }, []);
   // Reuse a once-created address on retry so a failed place_order doesn't
   // accumulate duplicate address rows.
@@ -189,6 +194,10 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         ? 0
         : Math.round(subtotal * (tipChoice === "p10" ? 0.1 : tipChoice === "p15" ? 0.15 : 0.2));
   const total = subtotal + deliveryFee + tip;
+  // set_order_tip refuses a tip above min(subtotal, pricing_config.tip_max_mdl) (20261008000100).
+  // ponytail: mirrors the PROVISIONAL 500 of the current config version (mobile TIP_MAX_MDL too);
+  // the server decides — this only stops a COD tip from being dropped silently after placement.
+  const tipMax = Math.max(0, Math.min(500, Math.floor(subtotal)));
   const belowMinimum = restaurant ? subtotal < restaurant.min_order_amount_mdl : false;
 
   function rememberPreferences() {
@@ -203,6 +212,10 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+    if (tip > tipMax) {
+      setError(`Bacșișul poate fi cel mult ${tipMax} MDL (cel mult valoarea comenzii, maxim 500 MDL).`);
+      return;
+    }
     setPending(true);
     const supabase = createClient();
     // Set once place_order succeeds — lets the catch distinguish a post-placement
@@ -257,6 +270,9 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         const when = new Date(scheduledAt);
         if (Number.isNaN(when.getTime())) throw new Error("Ora livrării nu este validă.");
         if (when.getTime() < Date.now()) throw new Error("Ora livrării trebuie să fie în viitor.");
+        if (when.getTime() > Date.now() + SCHEDULE_DAYS * 86_400_000) {
+          throw new Error(`Ora livrării poate fi cel mult peste ${SCHEDULE_DAYS} zile.`);
+        }
         requestedForIso = when.toISOString();
       }
 
@@ -322,7 +338,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               ? "Un articol din coș nu mai este disponibil — reîncarcă meniul."
               : raw.includes("alege o opțiune") // required modifier group not chosen (e.g. stale reorder)
                 ? "Un produs are opțiuni obligatorii neconfigurate — scoate-l și adaugă-l din meniu cu opțiunile alese."
-                : raw.includes("obligatorie") || raw.includes("autentificat") || raw.includes("livrării") || raw.includes("adresa")
+                : raw.includes("obligatorie") || raw.includes("autentificat") || raw.includes("livrării") || raw.includes("adresa") || raw.includes("programa")
                   ? raw
                   : "Nu am putut trimite comanda. Încearcă din nou.";
       setError(friendly);
@@ -539,6 +555,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
             type="datetime-local"
             value={scheduledAt}
             min={minDateTime}
+            max={maxDateTime}
             onChange={(e) => setScheduledAt(e.target.value)}
             aria-label="Data și ora livrării programate"
             className={`mt-3 w-full ${inputClass}`}

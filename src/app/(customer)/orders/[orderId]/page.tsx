@@ -16,20 +16,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ or
   ]);
   if (!order) notFound();
 
-  // Assigned courier's first name + phone for the live tracking card (RLS already
-  // scopes couriers reads to the customer's own in-flight order — see
-  // couriers_customer_scoped_read, migration 20260708000400).
+  // Assigned courier's first name + phone for the live tracking card. Customers have no
+  // read on `couriers`; order_courier_contact returns these two fields only for the
+  // caller's own order while courier_assigned / picked_up / en_route (20261008000300).
   let courierFirstName: string | null = null;
   let courierPhone: string | null = null;
   if ((order as Order).courier_id) {
-    const { data: courier } = await supabase
-      .from("couriers")
-      .select("full_name, phone")
-      .eq("id", (order as Order).courier_id as string)
-      .maybeSingle();
+    const { data: courier } = await supabase.rpc("order_courier_contact", { p_order_id: orderId }).maybeSingle();
     if (courier) {
-      courierFirstName = courier.full_name?.split(" ")[0] ?? null;
-      courierPhone = courier.phone ?? null;
+      courierFirstName = courier.first_name || null;
+      courierPhone = courier.phone || null;
     }
   }
 
