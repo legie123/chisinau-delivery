@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, StatusBar, ActivityIndicator } from "react-native";
 import { COLORS } from "../theme";
-import { signIn, signUp } from "../lib/api";
+import { isSignedIn, signIn, signUp } from "../lib/api";
+import { loginErrorText } from "../lib/errors";
 
 interface Props {
   route: any;
@@ -15,9 +16,14 @@ export default function LoginScreen({ route, navigation }: Props) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
+  // No callback travels through the route params (a function there is non-serializable
+  // and is lost on state restore): Login only signs in and goes back; every caller
+  // re-reads the session on focus (useFocusEffect) or on its next action.
   async function handleSubmit() {
     setError(null);
+    setNotice(null);
     if (mode === "sign-up" && !fullName.trim()) {
       setError("Numele este obligatoriu.");
       return;
@@ -27,13 +33,22 @@ export default function LoginScreen({ route, navigation }: Props) {
       mode === "sign-up"
         ? await signUp(email.trim(), password, fullName.trim())
         : await signIn(email.trim(), password);
+    const signedIn = !message && (await isSignedIn());
     setPending(false);
     if (message) {
-      setError(mode === "sign-up" ? "Crearea contului a eșuat. Încearcă alt email." : "Email sau parolă greșite.");
+      setError(loginErrorText(message));
       return;
     }
-    navigation.goBack();
+    if (!signedIn) {
+      // Sign-up with email confirmation on: the account exists but there is no session yet.
+      setMode("sign-in");
+      setNotice("Cont creat. Confirmă emailul din mesajul primit, apoi autentifică-te.");
+      return;
+    }
+    // Backward compatibility: ProfileScreen still passes `onSignedIn` (it also reloads on
+    // focus, so the callback is redundant there). Nothing new should pass a function here.
     route.params?.onSignedIn?.();
+    navigation.goBack();
   }
 
   return (
@@ -71,6 +86,7 @@ export default function LoginScreen({ route, navigation }: Props) {
       />
 
       {error && <Text style={styles.error}>{error}</Text>}
+      {notice && <Text style={styles.notice}>{notice}</Text>}
 
       <TouchableOpacity style={styles.button} onPress={handleSubmit} disabled={pending}>
         {pending ? (
@@ -121,6 +137,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   error: { color: COLORS.error, textAlign: "center", marginBottom: 8 },
+  notice: { color: COLORS.gold, textAlign: "center", marginBottom: 8 },
   button: {
     backgroundColor: COLORS.primary,
     borderRadius: 999,

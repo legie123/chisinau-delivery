@@ -1,11 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, StatusBar, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { cancelVenueBooking, confirmVenueBooking, requestVenueBooking, type BookingPurpose } from '@chisinau/shared-api';
 import { COLORS } from '../theme';
 import { supabase } from '../lib/supabase';
 import { errorText, fetchMyBookings, fetchVenues, isSignedIn, VENUE_LABEL, type Booking, type Venue } from '../lib/api';
+import { fetchVenueContact, telUrl, type VenueContact } from '../lib/venues';
 import WhenPicker from '../components/WhenPicker';
 
 // Concierge: request a slot (request_venue_booking) -> partner quotes -> customer
@@ -35,6 +36,7 @@ export default function ConciergeScreen({ navigation }: { navigation: any }) {
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [contact, setContact] = useState<Record<string, VenueContact>>({});
 
   const load = useCallback(() => {
     fetchVenues().then(setVenues).catch(() => setError('Nu am putut încărca locațiile.'));
@@ -46,6 +48,21 @@ export default function ConciergeScreen({ navigation }: { navigation: any }) {
     setError(null);
     setOpen(o => (o === v.id ? null : v.id));
     setPurpose(DEFAULT_PURPOSE[v.venueType] ?? 'event');
+    if (!contact[v.id]) {
+      fetchVenueContact(v.id).then(c => setContact(prev => ({ ...prev, [v.id]: c }))).catch(() => {});
+    }
+  }
+
+  // A cancel is final (cancel_venue_booking): ask once before sending it.
+  function confirmCancel(b: Booking) {
+    Alert.alert(
+      'Anulezi rezervarea?',
+      `${b.venueName} · ${when.format(new Date(b.startsAt))}. Anularea nu poate fi refăcută.`,
+      [
+        { text: 'Înapoi', style: 'cancel' },
+        { text: 'Anulează rezervarea', style: 'destructive', onPress: () => act(() => cancelVenueBooking(supabase, b.id)) },
+      ],
+    );
   }
 
   async function request(venueId: string) {
@@ -114,7 +131,7 @@ export default function ConciergeScreen({ navigation }: { navigation: any }) {
                 </TouchableOpacity>
               )}
               {['requested', 'quoted', 'confirmed'].includes(b.status) && (
-                <TouchableOpacity style={styles.btnGhost} disabled={busy} onPress={() => act(() => cancelVenueBooking(supabase, b.id))}>
+                <TouchableOpacity style={styles.btnGhost} disabled={busy} onPress={() => confirmCancel(b)}>
                   <Text style={styles.ghostText}>Anulează</Text>
                 </TouchableOpacity>
               )}
@@ -133,6 +150,7 @@ export default function ConciergeScreen({ navigation }: { navigation: any }) {
             </TouchableOpacity>
             {open === v.id && (
               <View style={{ marginTop: 10 }}>
+                {contact[v.id] && <VenueDetails c={contact[v.id]} onMenu={() => navigation.navigate('Restaurant', { restaurantId: v.id })} />}
                 <WhenPicker date={date} time={time} onDate={setDate} onTime={setTime} />
                 <View style={styles.chips}>
                   {DURATIONS.map(h => (
@@ -167,7 +185,39 @@ export default function ConciergeScreen({ navigation }: { navigation: any }) {
   );
 }
 
+function VenueDetails({ c, onMenu }: { c: VenueContact; onMenu: () => void }) {
+  const tel = telUrl(c.phone);
+  const where = [c.address, c.sector].filter(Boolean).join(' · ');
+  return (
+    <View style={styles.details}>
+      {where ? (
+        <View style={styles.detailRow}>
+          <Ionicons name="location-outline" size={15} color={COLORS.gold} />
+          <Text style={styles.detailText}>{where}</Text>
+        </View>
+      ) : null}
+      {tel && (
+        <TouchableOpacity style={styles.detailRow} onPress={() => Linking.openURL(tel).catch(() => {})} accessibilityLabel={`Sună la ${c.phone}`}>
+          <Ionicons name="call-outline" size={15} color={COLORS.gold} />
+          <Text style={[styles.detailText, styles.link]}>{c.phone}</Text>
+        </TouchableOpacity>
+      )}
+      {c.orderable && (
+        <TouchableOpacity style={styles.menuLink} onPress={onMenu}>
+          <Text style={styles.menuLinkText}>Vezi meniul și comandă livrare →</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  details: { gap: 6, marginBottom: 6 },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 28 },
+  detailText: { color: COLORS.textSecondary, fontSize: 13, flexShrink: 1 },
+  link: { color: COLORS.gold, textDecorationLine: 'underline' },
+  menuLink: { alignSelf: 'flex-start', borderWidth: 1, borderColor: 'rgba(245,166,35,0.4)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, marginTop: 4 },
+  menuLinkText: { color: COLORS.gold, fontWeight: '700', fontSize: 13 },
   container: { flex: 1, backgroundColor: COLORS.background },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 12 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: COLORS.white },
