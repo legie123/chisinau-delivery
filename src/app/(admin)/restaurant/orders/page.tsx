@@ -125,6 +125,9 @@ export default async function RestaurantOrdersPage() {
           <Link href="/restaurant/stoc" className="text-xs text-white/50 transition hover:text-gold hover:underline">
             Stoc epuizat →
           </Link>
+          <Link href="/restaurant/tableta" className="text-xs text-white/50 transition hover:text-gold hover:underline">
+            Verifică tableta →
+          </Link>
           {/* Pastila „Live" era scrisă aici de mână, deci rămânea aprinsă și
               atunci când `OrderQueueLive` afișa în josul ACELEIAȘI pagini banda
               „Reconectare la actualizări live…". Acum o desenează componenta
