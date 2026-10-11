@@ -3,8 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import type { DriverOrder } from '../lib/api';
+import { useOfferPreview } from '../hooks/useOfferPreview';
+import { offerPreviewLines } from '../lib/offerPreview';
 
 interface Props {
+  offerId: string;
   order: DriverOrder;
   expiresAt: string;
   distanceKm: number | null;
@@ -18,8 +21,9 @@ interface Props {
 // src/components/courier/OfferCard.tsx on the web app. Accept/decline always
 // go through the accept_dispatch_offer / decline_dispatch_offer RPCs (never a
 // raw orders update), so the scored dispatch engine stays authoritative.
-export default function OfferCard({ order, expiresAt, distanceKm, pending, onAccept, onDecline, onExpire }: Props) {
+export default function OfferCard({ offerId, order, expiresAt, distanceKm, pending, onAccept, onDecline, onExpire }: Props) {
   const [now, setNow] = useState(Date.now());
+  const preview = useOfferPreview(offerId);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -54,6 +58,11 @@ export default function OfferCard({ order, expiresAt, distanceKm, pending, onAcc
       <Text style={styles.meta}>
         {distanceKm != null ? `~${distanceKm.toFixed(1)} km până la restaurant` : 'Distanță estimată'}
       </Text>
+      {offerPreviewLines(preview).map((line) => (
+        <Text key={line} style={styles.meta}>
+          {line}
+        </Text>
+      ))}
 
       <View style={styles.actions}>
         <TouchableOpacity style={styles.declineBtn} onPress={onDecline} disabled={pending}>

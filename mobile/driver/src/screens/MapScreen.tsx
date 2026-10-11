@@ -351,6 +351,7 @@ export default function MapScreen({ navigation, route }: Props) {
       {/* Push-dispatch offer — scored, exclusive, 30s to respond. */}
       {liveOffer && (
         <OfferCard
+          offerId={liveOffer.offer.id}
           order={liveOffer.order}
           expiresAt={liveOffer.offer.expiresAt}
           distanceKm={liveOffer.offer.distanceKm}

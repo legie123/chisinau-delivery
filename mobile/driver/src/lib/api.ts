@@ -5,6 +5,7 @@ import {
   courierArrivedAtRestaurant,
   declineDispatchOffer as rpcDeclineDispatchOffer,
   getCourierCashStatus,
+  getOfferPreview,
   setCourierOnlineStatus,
   type CourierCashStatus,
 } from "@chisinau/shared-api";
@@ -29,6 +30,7 @@ import {
 import { stopDeliveryTracking } from "./backgroundLocation";
 import { registerForPush, unregisterPush } from "./push";
 import { addressLines, toPoint, type LatLng } from "./orderView";
+import { toOfferPreview, type OfferPreview } from "./offerPreview";
 
 // Every status change goes through @chisinau/shared-api (the same typed RPC
 // wrappers the web uses); reads stay plain RLS-scoped selects. Money goes
@@ -436,6 +438,12 @@ export async function fetchMyLiveOffer(): Promise<{ offer: DispatchOfferRow; ord
     },
     order,
   };
+}
+
+// Sector + total km of the live offer (offer_preview). Throws on failure; the caller treats the
+// preview as optional, the offer itself must never depend on it.
+export async function fetchOfferPreview(offerId: string): Promise<OfferPreview | null> {
+  return toOfferPreview(await getOfferPreview(supabase, offerId as OfferId));
 }
 
 export function acceptDispatchOffer(offerId: string): Promise<string | null> {

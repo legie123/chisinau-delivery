@@ -3608,6 +3608,15 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: {
           hour_of_day: number
+      offer_preview: {
+        Args: { p_offer_id: string }
+        Returns: {
+          dropoff_sector: string
+          pickup_km: number
+          total_km: number
+          trip_km: number
+        }[]
+      }
           intensity_pct: number
           orders_count: number
         }[]

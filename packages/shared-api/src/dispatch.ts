@@ -22,6 +22,18 @@ export async function declineDispatchOffer(db: Db, offerId: OfferId): Promise<vo
 }
 
 /**
+ * Sector + distances of the courier's own LIVE offer, before accepting (street and coordinates
+ * stay hidden). The RPC returns zero rows for anyone but the holder and for an offer no longer
+ * live, so null means "nothing to show". Nullable fields are real nulls (no pin / no fix) even
+ * though the generated type says non-null: table-returning RPCs get no nullability.
+ */
+export async function getOfferPreview(db: Db, offerId: OfferId) {
+  const { data, error } = await db.rpc("offer_preview", { p_offer_id: offerId });
+  if (error) throw new RpcError(error);
+  return data?.[0] ?? null;
+}
+
+/**
  * Courier toggles their availability (online ↔ offline) for dispatch.
  * Also opens/closes the courier_shifts log ("tura") server-side — the
  * earnings-per-shift KPI instrument (Faza 5 #5) has no separate write path.
