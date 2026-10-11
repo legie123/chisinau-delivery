@@ -10,7 +10,7 @@ declare
   v_c uuid; v_cu uuid;
   v_o_pin uuid; v_o_nopin uuid;
   v_t public.courier_tariff_config;
-  v_fee numeric; v_flag boolean; v_expect numeric; v_dist numeric; n int;
+  v_fee numeric; v_flag boolean; v_expect numeric; v_dist numeric; n int; v_o_rest uuid;
 begin
   select id, lat, lng into v_rest, v_rlat, v_rlng from public.restaurants where is_active and lat is not null order by name limit 1;
   insert into public.addresses (customer_id, street_address, lat, lng) values (c_cust, 'Str. Sim 151 pin', v_rlat + 0.0450, v_rlng) returning id into v_addr_pin;
@@ -69,4 +69,21 @@ begin
   select courier_fee_distance_assumed into v_flag from public.orders where id = v_o_nopin;
   if v_flag is distinct from true then raise exception 'FAIL 151.F4: courier cleared the flag'; end if;
   raise notice 'PASS 151.F4: the courier cannot clear the flag';
+
+  -- ===== F5: the RESTAURANT pin missing (address fully pinned) is also an assumption -> flagged, same fee =====
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method, payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl)
+  values ('standard', c_cust, v_rest, v_addr_pin, 'ready_for_pickup', 'card_on_delivery', 'unpaid', 200, 30, 230) returning id into v_o_rest;
+  update public.orders set courier_id = v_c, status = 'courier_assigned', courier_fee_quoted_mdl = null where id = v_o_rest;
+  update public.restaurants set lat = null, lng = null where id = v_rest;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_cu, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.advance_delivery_status(v_o_rest, 'picked_up');
+  perform public.advance_delivery_status(v_o_rest, 'en_route');
+  perform public.advance_delivery_status(v_o_rest, 'delivered', true);
+  reset role;
+  select courier_fee_mdl, courier_fee_distance_assumed into v_fee, v_flag from public.orders where id = v_o_rest;
+  v_expect := round(v_t.base_mdl + v_t.per_km_mdl * 6.0, 2);
+  if v_flag is distinct from true then raise exception 'FAIL 151.F5: restaurant without a pin not flagged (flag=%)', v_flag; end if;
+  if v_fee is distinct from v_expect then raise exception 'FAIL 151.F5: amount changed: paid % expected %', v_fee, v_expect; end if;
+  raise notice 'PASS 151.F5: restaurant without a pin flagged, fee unchanged at % MDL', v_fee;
 end $$;

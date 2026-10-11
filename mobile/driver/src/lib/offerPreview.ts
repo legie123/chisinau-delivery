@@ -42,3 +42,14 @@ export function offerPreviewLines(p: OfferPreview | null): string[] {
   }
   return lines;
 }
+
+/**
+ * The preview belongs to ONE offer id. If the card switches from offer A to B without unmounting, the
+ * first render of B must not show A's sector and km (the fetch for B has not landed yet).
+ */
+export function previewFor(
+  held: { offerId: string; preview: OfferPreview | null } | null,
+  offerId: string,
+): OfferPreview | null {
+  return held && held.offerId === offerId ? held.preview : null;
+}

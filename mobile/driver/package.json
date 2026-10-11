@@ -41,5 +41,8 @@
     "typecheck": "tsc --noEmit",
     "test": "../../node_modules/.bin/vitest run --config vitest.config.mts"
   },
+  "engines": {
+    "node": ">=20.19.4"
+  },
   "private": true
 }

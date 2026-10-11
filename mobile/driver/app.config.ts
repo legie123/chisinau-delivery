@@ -11,9 +11,11 @@ const LOCATION_WHEN_IN_USE =
   "Dragons Curier folosește locația ta ca să-ți arate poziția pe hartă și distanța până la restaurant.";
 
 // Android map tiles need a Google Maps key (iOS uses Apple Maps). It comes ONLY from
-// the build env, never from the repo. The key is given twice on purpose, as in
-// mobile/client: react-native-maps' own config plugin removes the manifest key unless
-// it gets it as a prop, while prebuild's fallback reads android.config.googleMaps.
+// the build env, never from the repo, and goes ONLY to android.config.googleMaps: prebuild
+// writes it into the manifest (proved with `expo prebuild`), and Expo strips android.config
+// from the PUBLIC config that ships inside the app and in update manifests. Passing it as a
+// react-native-maps plugin prop (as mobile/client does) would also put it in the public config.
+// Restrict the key to the package + signing SHA in Google Cloud: a manifest key is readable.
 const mapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
 
 const config: ExpoConfig = {
@@ -78,7 +80,6 @@ const config: ExpoConfig = {
       },
     ],
     "expo-task-manager",
-    ...(mapsKey ? [["react-native-maps", { androidGoogleMapsApiKey: mapsKey }] as [string, object]] : []),
     // The app never uses Face ID: without this the plugin adds an English
     // NSFaceIDUsageDescription to Info.plist.
     ["expo-secure-store", { faceIDPermission: false }],

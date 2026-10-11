@@ -69,3 +69,12 @@ describe("build / dev loop", () => {
     expect(dev).toMatch(/expo start --dev-client --clear/);
   });
 });
+
+describe("Google Maps key stays out of the PUBLIC app config", () => {
+  it("app.config.ts passes it only to android.config.googleMaps, never as a plugin prop (public config ships in the app)", () => {
+    const s = src("app.config.ts");
+    expect(s).toMatch(/config: \{ googleMaps: \{ apiKey: mapsKey \} \}/);
+    expect(s).not.toMatch(/androidGoogleMapsApiKey/);
+    expect(s).not.toMatch(/["']react-native-maps["']/);
+  });
+});

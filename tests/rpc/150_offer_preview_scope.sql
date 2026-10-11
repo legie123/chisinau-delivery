@@ -102,6 +102,24 @@ begin
   end if;
   raise notice 'PASS 150.P6: no pin and no fix -> sector shown, distances null';
 
+  -- ===== P8: an ACCEPTED offer gives the holder nothing (the address is theirs by then, not a preview) =====
+  update public.dispatch_offers set status = 'accepted' where id = v_offer2;
+  set local role authenticated;
+  select count(*) into n from public.offer_preview(v_offer2);
+  reset role;
+  if n <> 0 then raise exception 'FAIL 150.P8: accepted offer still previewed (% rows)', n; end if;
+  raise notice 'PASS 150.P8: accepted offer gives 0 rows';
+
+  -- ===== P9: a live ('offered') offer on a CANCELLED order gives nothing (expire_stale_orders cancels the
+  --       order but leaves its offer 'offered') =====
+  update public.dispatch_offers set status = 'offered', expires_at = now() + interval '30 seconds' where id = v_offer2;
+  update public.orders set status = 'cancelled' where id = v_o2;
+  set local role authenticated;
+  select count(*) into n from public.offer_preview(v_offer2);
+  reset role;
+  if n <> 0 then raise exception 'FAIL 150.P9: cancelled order still previewed (% rows)', n; end if;
+  raise notice 'PASS 150.P9: live offer on a cancelled order gives 0 rows';
+
   -- ===== P7: a deactivated courier holding a live offer gets nothing =====
   update public.dispatch_offers set status = 'declined' where id = v_offer2;  -- one live offer per courier
   update public.dispatch_offers set status = 'offered', expires_at = now() + interval '30 seconds' where id = v_offer;

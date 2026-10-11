@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { offerPreviewLines, toOfferPreview } from "../src/lib/offerPreview";
+import { offerPreviewLines, previewFor, toOfferPreview } from "../src/lib/offerPreview";
 
 const src = (f: string) => readFileSync(path.join(path.resolve(__dirname, ".."), f), "utf8");
 
@@ -45,14 +45,44 @@ describe("offerPreviewLines", () => {
   });
 });
 
-// "Built, never called" guard: the pure helpers are worthless unless the card runs them.
+describe("previewFor (a preview belongs to one offer id)", () => {
+  const a = { sector: "Botanica", pickupKm: 1, tripKm: 2, totalKm: 3 };
+  it("shows the held preview only for the offer it was fetched for", () => {
+    expect(previewFor({ offerId: "A", preview: a }, "A")).toBe(a);
+  });
+  it("offer A -> B: B shows nothing until its own fetch lands (no stale frame of A)", () => {
+    expect(previewFor({ offerId: "A", preview: a }, "B")).toBeNull();
+  });
+  it("nothing fetched yet, or a fetch that found no row -> null", () => {
+    expect(previewFor(null, "A")).toBeNull();
+    expect(previewFor({ offerId: "A", preview: null }, "A")).toBeNull();
+  });
+});
+
+// "Built, never called" guard: the pure helpers are worthless unless the card runs them. The hook
+// guards (catch, alive flag, id-keyed read) are checked individually: each one removed must fail.
 describe("wiring: the OfferCard really asks for the preview", () => {
-  it("api.ts calls the typed RPC wrapper; the hook calls api.ts once per offer id; the card renders the lines", () => {
+  it("api.ts calls the typed RPC wrapper; the card renders the lines; MapScreen passes the offer id", () => {
     expect(src("src/lib/api.ts")).toMatch(/getOfferPreview\(supabase, offerId as OfferId\)/);
-    expect(src("src/hooks/useOfferPreview.ts")).toMatch(/fetchOfferPreview\(offerId\)[\s\S]*\[offerId\]/);
     const card = src("src/components/OfferCard.tsx");
     expect(card).toMatch(/useOfferPreview\(offerId\)/);
     expect(card).toMatch(/offerPreviewLines\(preview\)/);
     expect(src("src/screens/MapScreen.tsx")).toMatch(/offerId=\{liveOffer\.offer\.id\}/);
+  });
+  const hook = () => src("src/hooks/useOfferPreview.ts");
+  it("the hook fetches once per offer id", () => {
+    expect(hook()).toMatch(/fetchOfferPreview\(offerId\)/);
+    expect(hook()).toMatch(/\}, \[offerId\]\);/);
+  });
+  it("a failed fetch is swallowed (never an unhandled rejection, never a hidden offer)", () => {
+    expect(hook()).toMatch(/\.catch\(\(\) => \{\}\)/);
+  });
+  it("a result landing after unmount or after the id changed is dropped (alive flag + cleanup)", () => {
+    expect(hook()).toMatch(/let alive = true;/);
+    expect(hook()).toMatch(/if \(alive\) setHeld\(\{ offerId, preview \}\)/);
+    expect(hook()).toMatch(/return \(\) => \{\s*alive = false;/);
+  });
+  it("what the card gets is read through previewFor (keyed by offer id)", () => {
+    expect(hook()).toMatch(/return previewFor\(held, offerId\);/);
   });
 });
