@@ -105,7 +105,7 @@ describe("address fields — web parity (sector, bloc, apartament, label)", () =
   it("street and a callable phone are required", () => {
     expect(addressDraftProblem({ ...draft, street: " " })).toMatch(/obligatorie/);
     expect(addressDraftProblem({ ...draft, phone: "12" })).toMatch(/telefon/);
-    expect(addressDraftProblem(draft)).toBeNull();
+    expect(addressDraftProblem({ ...draft, pin: { lat: 47.02, lng: 28.83 } })).toBeNull();
   });
 });
 

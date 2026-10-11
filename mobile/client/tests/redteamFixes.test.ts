@@ -7,6 +7,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   addressEditPlan,
+  addressSaveProblem,
   CASH_CAP_HINT,
   CASH_CAP_MDL,
   chisinauDays,
@@ -21,7 +22,7 @@ import { planReorder, type ReorderGroup } from "../src/lib/reorder";
 
 describe("HIGH 1 — editing an address an order references never mutates it", () => {
   const before = { street_address: "Str. A 1", lat: 47.01, lng: 28.86, is_default: true };
-  const draft = { street: "Str. A 1", phone: "069111111", notes: "etaj 3", pin: null, sector: "", building: "", apartment: "7", label: "Acasă" };
+  const draft = { street: "Str. A 1", phone: "069111111", notes: "etaj 3", pin: { lat: 47.01, lng: 28.86 }, sector: "", building: "", apartment: "7", label: "Acasă" };
 
   it("used by any order → a NEW row (same pin while the street is unchanged), default carried over", () => {
     const plan = addressEditPlan(before, draft, true);
@@ -32,21 +33,20 @@ describe("HIGH 1 — editing an address an order references never mutates it", (
     });
   });
 
-  it("used + street moved → new row without the old pin; a non-default stays non-default", () => {
-    const plan = addressEditPlan({ ...before, is_default: false }, { ...draft, street: "Str. B 2" }, true);
+  it("used + street moved (pin moved on the map) → new row with the new pin; a non-default stays non-default", () => {
+    const plan = addressEditPlan({ ...before, is_default: false }, { ...draft, street: "Str. B 2", pin: { lat: 47.02, lng: 28.85 } }, true);
     expect(plan.kind).toBe("insert");
     if (plan.kind !== "insert") return;
-    expect(plan.row).not.toHaveProperty("lat");
+    expect(plan.row).toMatchObject({ lat: 47.02, lng: 28.85 });
     expect(plan.makeDefault).toBe(false);
   });
 
-  it("never used → updated in place; the pin is dropped only when the street moved", () => {
+  it("never used → updated in place with the pin shown on the map; a moved street needs a moved pin", () => {
     const same = addressEditPlan(before, draft, false);
     expect(same.kind).toBe("update");
-    if (same.kind === "update") expect(same.patch).not.toHaveProperty("lat");
-    const moved = addressEditPlan(before, { ...draft, street: "Str. B 2" }, false);
-    if (moved.kind !== "update") throw new Error("expected update");
-    expect(moved.patch).toMatchObject({ lat: null, lng: null });
+    if (same.kind === "update") expect(same.patch).toMatchObject({ lat: 47.01, lng: 28.86 });
+    // the stale-pin case is refused before the plan runs (addressSaveProblem, tests/pinRequired)
+    expect(addressSaveProblem(before, { ...draft, street: "Str. B 2" })).toMatch(/mută pinul/);
   });
 });
 
