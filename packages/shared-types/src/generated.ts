@@ -94,6 +94,42 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_audit_log: {
+        Row: {
+          action: string
+          actor: string | null
+          actor_role: string
+          at: string
+          id: number
+          new_values: Json | null
+          old_values: Json | null
+          row_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          actor?: string | null
+          actor_role: string
+          at?: string
+          id?: number
+          new_values?: Json | null
+          old_values?: Json | null
+          row_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          actor?: string | null
+          actor_role?: string
+          at?: string
+          id?: number
+          new_values?: Json | null
+          old_values?: Json | null
+          row_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       cash_policy: {
         Row: {
           cap_mdl: number
@@ -715,6 +751,111 @@ export type Database = {
             columns: ["referred_by"]
             isOneToOne: false
             referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_issue_reports: {
+        Row: {
+          courier_id: string
+          created_at: string
+          id: string
+          kind: string
+          order_id: string
+          order_status: string
+        }
+        Insert: {
+          courier_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          order_id: string
+          order_status: string
+        }
+        Update: {
+          courier_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          order_id?: string
+          order_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_issue_reports_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_issue_reports_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
             referencedColumns: ["id"]
           },
         ]
@@ -3649,6 +3790,10 @@ export type Database = {
         Args: { target_address: string }
         Returns: boolean
       }
+      courier_report_issue: {
+        Args: { p_kind: string; p_order_id: string }
+        Returns: boolean
+      }
       current_avoidable_wait_grace_minutes: { Args: never; Returns: number }
       current_cash_policy: {
         Args: never
@@ -3873,6 +4018,7 @@ export type Database = {
         Args: {
           p_catering?: Json
           p_delivery_address_id?: string
+          p_expected_total?: number
           p_idempotency_key?: string
           p_items: Json
           p_notes?: string
@@ -3934,6 +4080,7 @@ export type Database = {
           restaurant_pct: number
         }[]
       }
+      purge_admin_audit_log: { Args: never; Returns: number }
       purge_expired_pii: { Args: never; Returns: undefined }
       quote_venue_booking: {
         Args: { p_booking_id: string; p_price_mdl: number }
