@@ -228,6 +228,12 @@ export async function moveMenuItem(itemId: string, direction: "up" | "down"): Pr
 export async function toggleItemAvailability(itemId: string, isAvailable: boolean): Promise<ActionState> {
   try {
     const { supabase, restaurantId } = await requireOwnRestaurant();
+    // Same gate as createMenuItem: nothing goes public without a photo. Bulk-imported
+    // dishes arrive hidden and photo-less, so this is the door they'd otherwise slip through.
+    if (isAvailable) {
+      const { data: item } = await supabase.from("menu_items").select("photo_url").eq("id", itemId).eq("restaurant_id", restaurantId).maybeSingle();
+      if (!item?.photo_url) return { error: "Adaugă întâi fotografia — un produs fără poză nu apare la clienți." };
+    }
     const { error } = await supabase.from("menu_items").update({ is_available: isAvailable }).eq("id", itemId).eq("restaurant_id", restaurantId);
     if (error) return { error: mapPgError(error) };
     revalidatePath("/restaurant/menu");

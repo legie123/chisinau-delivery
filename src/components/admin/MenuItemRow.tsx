@@ -46,7 +46,7 @@ export function MenuItemRow({ item, optionGroups = [] }: { item: MenuItem; optio
       const result = await toggleItemAvailability(item.id, next);
       if (result.error) {
         setIsAvailable(!next);
-        setError("Nu am putut schimba disponibilitatea.");
+        setError(result.error);
       }
     });
   }

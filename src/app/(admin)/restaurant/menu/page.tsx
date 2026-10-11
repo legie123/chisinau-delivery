@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AddCategoryForm } from "@/components/admin/AddCategoryForm";
 import { AddMenuItemForm } from "@/components/admin/AddMenuItemForm";
@@ -65,6 +66,12 @@ export default async function RestaurantMenuPage() {
         Meniul meu{restaurantName ? <> — <span className="pg-gold-text">{restaurantName}</span></> : ""}
       </h1>
 
+      <Link
+        href="/restaurant/menu/import"
+        className="mb-6 inline-flex min-h-11 items-center rounded-full bg-white/5 px-4 text-sm text-white/75 ring-1 ring-white/10 transition hover:bg-white/10"
+      >
+        ⇪ Import din Excel / Google Sheets
+      </Link>
       <AddCategoryForm />
       <AddMenuItemForm restaurantId={restaurantId} categories={categoryList} />
 
