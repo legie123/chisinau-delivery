@@ -819,6 +819,79 @@ export type Database = {
         }
         Relationships: []
       }
+      dispatch_errors: {
+        Row: {
+          count: number
+          error_code: string
+          first_at: string
+          last_at: string
+          message: string
+          order_id: string
+          phase: string
+        }
+        Insert: {
+          count?: number
+          error_code: string
+          first_at?: string
+          last_at?: string
+          message: string
+          order_id: string
+          phase: string
+        }
+        Update: {
+          count?: number
+          error_code?: string
+          first_at?: string
+          last_at?: string
+          message?: string
+          order_id?: string
+          phase?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_errors_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "dispatch_errors_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_errors_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_errors_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_errors_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_errors_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatch_offers: {
         Row: {
           courier_id: string
