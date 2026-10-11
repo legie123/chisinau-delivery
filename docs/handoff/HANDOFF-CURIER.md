@@ -99,3 +99,35 @@ Re-verifică fiecare rând în cod înainte să-l construiești — gap-map-ul e
 ```
 Citește integral ~/code/chisinau-delivery/docs/handoff/HANDOFF-CURIER.md și lucrează pe suprafața CURIER după regulile de acolo. /bucla
 ```
+
+## 10. Stare sector CURIER (actualizată de sesiunea CURIER, 2026-10-11 seara)
+Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur working tree, iar un `checkout` le-ar muta pe toate). Commit-urile se fac din index temporar (`GIT_INDEX_FILE`), fișierele comune ca HEAD + rândurile proprii.
+
+| gate | stare | dovadă / blocaj |
+|---|---|---|
+| 1 verificare adversarială | în lucru | verif-curier re-rulează pe `83ee8a7` (prima rundă: NEVALIDAT, 5 defecte reparate în `80b9efa`) |
+| 2 defecte rămase | DONE | `83ee8a7`: flag pe 3 stări + backfill (local 28 true / 61 necunoscut, suma 2060,33 neschimbată; sim 152 pe 5 mutații; rollback executat); lockfile reconstruit, `scripts/lock-justify.mjs`: 333 mutate / 333 justificate SDK / 0 derivă (control: 13 derivă pe lock-ul vechi) |
+| 3 matrice | DONE | tabelul de mai jos |
+| 4 construcție | în lucru | ordinea de mai jos |
+| 5 build nativ | BLOCKED (owner) | EAS dev client = minute de build + cod urcat pe Expo; telefon Android; backend accesibil de pe telefon (tunel CLIENT sau staging) |
+| 6 release | BLOCKED parțial | crash reporting = SDK nou (aprobare), declarația Play pentru locația în fundal, semnare/store = owner |
+
+### Matrice de paritate — aplicația curierului (verificat în cod, 2026-10-11)
+| Flux | Stare | Fișierul care dovedește | Blochează o comandă reală? |
+|---|---|---|---|
+| Onboarding + documente | PARTIAL | web: `src/app/(customer)/devino-partener/CourierApplicationForm.tsx`; aprobare `src/app/(admin)/platform/onboarding/actions.ts`; contul vine prin `inviteCourier` (`src/app/(admin)/platform/couriers/actions.ts:26`, cere service role + SMTP); în app rândul „Documente” e mort (`mobile/driver/src/screens/ProfileScreen.tsx:37`) | DA pe hosted (fără SMTP nu primește cont; ADMIN/owner); local nu (conturi seed) |
+| Online / offline | EXISTA | `MapScreen.tsx:174` + `ProfileScreen.tsx:144` → `set_courier_online_status` | nu |
+| Card ofertă cu timeout | EXISTA | `components/OfferCard.tsx` (30 s, `onExpire`) + `offer_preview` (sector, km total); sweeper-ul expiră oferta în DB | nu |
+| Accept / refuz | EXISTA | `lib/api.ts` `acceptDispatchOffer` / `declineDispatchOffer` (RPC) | nu |
+| Navigație la restaurant | EXISTA | `ActiveDeliveryScreen.tsx:176-179` `navUrl(pickup)` + `tel:` | nu |
+| Confirmare pickup | EXISTA | „Am ajuns la restaurant” (`ActiveDeliveryScreen.tsx:288`, `courier_arrived_at_restaurant`) + swipe → `advanceOrEnqueue(en_route)`; numărul comenzii pe card (`api.ts:285`) | nu |
+| Navigație la client | EXISTA | `navUrl(dropoff)`, fără pin → adresa text (`lib/orderView.ts`); `tel:` client | nu |
+| Confirmare livrare | PARTIAL | swipe + „Ai încasat plata?” (`ActiveDeliveryScreen.tsx:128`); LIPSĂ foto la livrare (`attach_delivery_proof` există doar în shared-api/web, nicio cameră în app) și calea „nu pot livra” | nu (foto = semnal soft) |
+| Cash | PARTIAL | `payment_confirmed` la livrare; plafonul în `EarningsScreen.tsx`; depunerea o înregistrează doar adminul (`couriers/actions.ts:68`); „Nu încă” nu are continuare (client care nu plătește) | nu (ops are calea) |
+| Câștiguri + istoric | PARTIAL | `EarningsScreen.tsx`, `OrdersHistoryScreen.tsx`; lipsește bacșișul pe livrare | nu |
+| Push | PARTIAL | `lib/push.ts:43-51` cere `projectId` EAS — absent (`EAS_PROJECT_ID` doar din env) → zero token-uri; drain-ul are URL local implicit (`20260718000200:128`) | DA: cu app-ul în fundal curierul nu primește oferta (gate 5 + FCM/owner) |
+| Locație în fundal | PARTIAL | `lib/backgroundLocation.ts` (doar în livrare, 14 teste); nedovedit pe device după SDK 57 (Expo Go nu rulează task-uri de fundal) | nu (heartbeat foreground + broadcast) |
+| Raportare problemă | LIPSA | 0 rezultate pentru running_late / customer_unreachable / report în `mobile/driver/src`; „Ajutor & Suport” mort (`ProfileScreen.tsx:40`) | indirect: client de negăsit = comanda rămâne `en_route` până o anulează adminul |
+| Rețea slabă | EXISTA | `lib/offlineQueue.ts`, `hooks/useOfflineSync.ts`, `lib/offerPoll.ts`, `tests/lapsedSession.test.ts` | nu |
+
+**Ordinea construcției (gate 4):** cele două DA depind de owner (SMTP/onboarding hosted, push/EAS/FCM). Din ce nu e blocat: (1) raportare problemă (LIPSA), (2) foto la livrare (PARTIAL; dependența nativă intră înainte de build-ul dev client, altfel trebuie refăcut), apoi cash „nu plătește”, bacșiș pe livrare, rândurile moarte din Profil.
