@@ -31,20 +31,27 @@ interface Props {
 
 export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   // The order passed in was read BEFORE this courier was assigned, when RLS still
-  // hid the drop-off (pin, door details, phone). Re-read once assigned; offline,
-  // the passed copy stays and the screen still works from the typed address.
+  // hid the drop-off (pin, door details, phone). Re-read now and every 10 s until the
+  // drop-off is readable (a failed first read used to leave the placeholder for good).
+  // Until then "Spre client" is hidden instead of searching Maps for the placeholder text.
   const [order, setOrder] = useState<DriverOrder & { status?: string }>(route.params.order);
+  const dropoffKnown = order.dropoff !== null || order.dropoffText !== null;
   useEffect(() => {
+    if (dropoffKnown) return;
     let alive = true;
-    fetchActiveOrder()
-      .then((active) => {
-        if (alive && active && active.order.id === route.params.order.id) setOrder(active.order);
-      })
-      .catch((e: unknown) => console.warn('[order] refresh', e));
+    const refresh = () =>
+      fetchActiveOrder()
+        .then((active) => {
+          if (alive && active && active.order.id === route.params.order.id) setOrder(active.order);
+        })
+        .catch((e: unknown) => console.warn('[order] refresh', e));
+    void refresh();
+    const timer = setInterval(() => void refresh(), 10_000);
     return () => {
       alive = false;
+      clearInterval(timer);
     };
-  }, [route.params.order.id]);
+  }, [route.params.order.id, dropoffKnown]);
   // Derive the UI step from the order's REAL DB status so a remount into an already
   // picked-up/en_route delivery resumes correctly instead of resetting to 'pickup'
   // (which made the swipe call picked_up -> the RPC rejects en_route->picked_up and
@@ -156,11 +163,8 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
     },
   });
 
-  // Real device GPS once a fix lands; the city center is only a placeholder
-  // while it warms up or if location permission was denied.
-  const courierCoord = livePosition
-    ? { latitude: livePosition.lat, longitude: livePosition.lng }
-    : { latitude: CHISINAU_CENTER.lat, longitude: CHISINAU_CENTER.lng };
+  // The courier's own marker only with a real fix (no placeholder point on the map).
+  const courierCoord = livePosition ? { latitude: livePosition.lat, longitude: livePosition.lng } : null;
   // Pickup and drop-off only when they have a real pin — no invented points.
   const pickupCoord = order.pickup ? { latitude: order.pickup.lat, longitude: order.pickup.lng } : null;
   const dropoffCoord = order.dropoff ? { latitude: order.dropoff.lat, longitude: order.dropoff.lng } : null;
@@ -169,7 +173,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
 
   // The active leg: the restaurant until pickup, then the customer.
   const legNavUrl =
-    status === 'pickup' ? navUrl(order.pickup, order.pickupAddress) : navUrl(order.dropoff, order.deliveryAddress);
+    status === 'pickup' ? navUrl(order.pickup, order.pickupAddress) : navUrl(order.dropoff, order.dropoffText);
   const legPhoneUrl = status === 'pickup' ? telUrl(order.restaurantPhone) : telUrl(order.customerPhone);
   const openUrl = (url: string) =>
     Linking.openURL(url).catch(() => Alert.alert('Nu s-a putut deschide', 'Verifică dacă ai o aplicație de hărți sau telefon.'));
@@ -206,11 +210,13 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
           strokeWidth={4}
           lineDashPattern={[8, 4]}
         />
-        <Marker coordinate={courierCoord} tappable>
-          <View style={styles.courierMarker}>
-            <Text style={{ fontSize: 18 }}>🛵</Text>
-          </View>
-        </Marker>
+        {courierCoord && (
+          <Marker coordinate={courierCoord} tappable>
+            <View style={styles.courierMarker}>
+              <Text style={{ fontSize: 18 }}>🛵</Text>
+            </View>
+          </Marker>
+        )}
         {pickupCoord && (
           <Marker coordinate={pickupCoord} tappable>
             <View style={[styles.pointMarker, { backgroundColor: COLORS.success }]}>

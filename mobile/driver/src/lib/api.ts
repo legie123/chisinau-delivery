@@ -66,6 +66,7 @@ export interface DriverOrder {
   // once the order is assigned to this courier (addresses_courier_assigned_read).
   pickup: LatLng | null;
   dropoff: LatLng | null;
+  dropoffText: string | null; // real street (or catering venue); null until readable
   deliveryDoor: string; // bloc, scara, etaj, ap., interfon
   deliveryNotes: string | null;
   customerPhone: string | null;
@@ -283,6 +284,7 @@ async function mapOrders(rows: OrderRow[]): Promise<DriverOrder[]> {
       customerName: r.order_type === "catering" ? "Eveniment catering" : "Client",
       pickup: toPoint(restaurant?.lat, restaurant?.lng),
       dropoff: toPoint(address?.lat, address?.lng),
+      dropoffText: cateringVenue ?? lines?.street ?? null,
       deliveryDoor: lines?.door ?? "",
       deliveryNotes: address?.notes ?? null,
       customerPhone: address?.contact_phone ?? null,

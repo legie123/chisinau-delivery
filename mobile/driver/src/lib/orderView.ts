@@ -6,10 +6,20 @@ export type LatLng = { lat: number; lng: number };
 
 /** A real map point, or null. Never invents a coordinate when one is missing. */
 export function toPoint(lat: unknown, lng: unknown): LatLng | null {
-  if (lat == null || lng == null) return null;
-  const a = Number(lat);
-  const b = Number(lng);
-  return Number.isFinite(a) && Number.isFinite(b) ? { lat: a, lng: b } : null;
+  const a = coord(lat);
+  const b = coord(lng);
+  return a !== null && b !== null ? { lat: a, lng: b } : null;
+}
+
+// Numbers, or numeric strings (PostgREST numeric). Number("") and Number(false) are 0,
+// which would put a pin in the Gulf of Guinea, so blanks and booleans are rejected.
+function coord(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
 /** Google Maps directions to the pin; the typed address in Chișinău when there is no pin. */

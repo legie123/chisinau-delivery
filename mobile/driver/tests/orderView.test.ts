@@ -13,6 +13,11 @@ describe("toPoint", () => {
     expect(toPoint(47.01, undefined)).toBeNull();
     expect(toPoint("x", "y")).toBeNull();
   });
+  it("does not turn blanks or booleans into 0,0 (red-team D6)", () => {
+    expect(toPoint("", "")).toBeNull();
+    expect(toPoint(" ", false)).toBeNull();
+    expect(toPoint(true, 1)).toBeNull();
+  });
 });
 
 describe("navUrl", () => {
@@ -28,6 +33,7 @@ describe("navUrl", () => {
   });
   it("has nothing to navigate to without pin or text", () => {
     expect(navUrl(null, "")).toBeNull();
+    expect(navUrl(null, null)).toBeNull();
   });
 });
 

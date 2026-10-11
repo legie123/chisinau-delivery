@@ -264,27 +264,22 @@ export default function MapScreen({ navigation, route }: Props) {
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: 47.0105,
-          longitude: 28.8638,
+          latitude: CHISINAU_CENTER.lat,
+          longitude: CHISINAU_CENTER.lng,
           latitudeDelta: 0.035,
           longitudeDelta: 0.035,
         }}
         customMapStyle={darkMapStyle}
       >
-        {/* Courier position — real device GPS, falls back to the city center
-            marker only until the first fix lands or if permission is denied. */}
-        <Marker
-          coordinate={
-            devicePosition
-              ? { latitude: devicePosition.lat, longitude: devicePosition.lng }
-              : { latitude: CHISINAU_CENTER.lat, longitude: CHISINAU_CENTER.lng }
-          }
-          tappable
-        >
-          <View style={styles.courierMarker}>
-            <Text style={styles.courierEmoji}>🛵</Text>
-          </View>
-        </Marker>
+        {/* Courier position — only a real device fix; no marker until it lands
+            (the banner explains a denied permission). */}
+        {devicePosition && (
+          <Marker coordinate={{ latitude: devicePosition.lat, longitude: devicePosition.lng }} tappable>
+            <View style={styles.courierMarker}>
+              <Text style={styles.courierEmoji}>🛵</Text>
+            </View>
+          </Marker>
+        )}
 
         {/* Order markers */}
         {/* Only restaurants with a real pin get a marker; the list below still shows every order. */}
