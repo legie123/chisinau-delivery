@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
-import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, userMessage, type DriverOrder } from '../lib/api';
+import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, userMessage, type DriverOrder } from '../lib/api';
+import { ISSUE_LABELS, issueKindsFor, issueReportedText, type IssueKind } from '../lib/issues';
 import { navUrl, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
@@ -98,6 +99,21 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       return;
     }
     setArrived(true);
+  };
+
+  // Problem report: one tap per kind; the server ignores a repeat (returns false) instead of stacking.
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueSending, setIssueSending] = useState(false);
+  const handleReport = async (kind: IssueKind) => {
+    setIssueSending(true);
+    const { error, isNew } = await reportIssue(order.id, kind);
+    setIssueSending(false);
+    if (error) {
+      Alert.alert('Nu s-a putut trimite', error);
+      return;
+    }
+    setIssueOpen(false);
+    Alert.alert(ISSUE_LABELS[kind], issueReportedText(isNew));
   };
 
   const panResponder = PanResponder.create({
@@ -307,6 +323,26 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
               )}
             </View>
           )}
+
+          {/* Problem report — kinds follow the leg (same rule as courier_report_issue). */}
+          {status !== 'delivered' && (
+            <TouchableOpacity style={styles.gpsBanner} onPress={() => setIssueOpen((o) => !o)} disabled={issueSending}>
+              <Ionicons name="alert-circle" size={16} color={COLORS.white} />
+              <Text style={styles.gpsBannerText}>Raportează o problemă</Text>
+            </TouchableOpacity>
+          )}
+          {issueOpen &&
+            issueKindsFor(status).map((kind) => (
+              <TouchableOpacity
+                key={kind}
+                style={[styles.gpsBanner, { opacity: issueSending ? 0.5 : 1 }]}
+                onPress={() => void handleReport(kind)}
+                disabled={issueSending}
+              >
+                <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
+                <Text style={styles.gpsBannerText}>{ISSUE_LABELS[kind]}</Text>
+              </TouchableOpacity>
+            ))}
 
           {/* Customer Info Card */}
           <View style={styles.customerCard}>

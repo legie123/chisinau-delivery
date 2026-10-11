@@ -73,6 +73,21 @@ export async function recordGeofenceEvent(
  * `path` is the storage object path already uploaded to the private
  * 'delivery-proof' bucket (see uploadDeliveryProofPhoto in src/lib/storage).
  */
+/**
+ * The assigned courier reports a problem on an active delivery (courier_report_issue). Restaurant
+ * kinds only before pickup, customer kinds only after; one per kind per order. Returns false when
+ * the same kind was already reported (idempotent retry), true for a new report.
+ */
+export async function reportDeliveryIssue(
+  db: Db,
+  orderId: OrderId,
+  kind: "running_late" | "restaurant_delayed" | "venue_not_found" | "customer_unreachable" | "address_wrong",
+): Promise<boolean> {
+  const { data, error } = await db.rpc("courier_report_issue", { p_order_id: orderId, p_kind: kind });
+  if (error) throw new RpcError(error);
+  return data === true;
+}
+
 export async function attachDeliveryProof(db: Db, orderId: OrderId, path: string): Promise<void> {
   const { error } = await db.rpc("attach_delivery_proof", { p_order_id: orderId, p_path: path });
   if (error) throw new RpcError(error);

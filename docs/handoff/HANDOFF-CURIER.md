@@ -127,7 +127,7 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 | Câștiguri + istoric | PARTIAL | `EarningsScreen.tsx`, `OrdersHistoryScreen.tsx`; lipsește bacșișul pe livrare | nu |
 | Push | PARTIAL | `lib/push.ts:43-51` cere `projectId` EAS — absent (`EAS_PROJECT_ID` doar din env) → zero token-uri; drain-ul are URL local implicit (`20260718000200:128`) | DA: cu app-ul în fundal curierul nu primește oferta (gate 5 + FCM/owner) |
 | Locație în fundal | PARTIAL | `lib/backgroundLocation.ts` (doar în livrare, 14 teste); nedovedit pe device după SDK 57 (Expo Go nu rulează task-uri de fundal) | nu (heartbeat foreground + broadcast) |
-| Raportare problemă | LIPSA | 0 rezultate pentru running_late / customer_unreachable / report în `mobile/driver/src`; „Ajutor & Suport” mort (`ProfileScreen.tsx:40`) | indirect: client de negăsit = comanda rămâne `en_route` până o anulează adminul |
+| Raportare problemă | EXISTA (cod + sim; nedovedit pe device) | `ActiveDeliveryScreen.tsx` „Raportează o problemă” → `lib/issues.ts` (tipuri pe etapă) → `courier_report_issue` (`20261012000205`, sim 153); adminul nu le vede încă într-o suprafață (cerere ADMIN) | indirect, rămâne cât adminul nu le afișează |
 | Rețea slabă | EXISTA | `lib/offlineQueue.ts`, `hooks/useOfflineSync.ts`, `lib/offerPoll.ts`, `tests/lapsedSession.test.ts` | nu |
 
 **Ordinea construcției (gate 4):** cele două DA depind de owner (SMTP/onboarding hosted, push/EAS/FCM). Din ce nu e blocat: (1) raportare problemă (LIPSA), (2) foto la livrare (PARTIAL; dependența nativă intră înainte de build-ul dev client, altfel trebuie refăcut), apoi cash „nu plătește”, bacșiș pe livrare, rândurile moarte din Profil.

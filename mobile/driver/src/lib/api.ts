@@ -6,6 +6,7 @@ import {
   declineDispatchOffer as rpcDeclineDispatchOffer,
   getCourierCashStatus,
   getOfferPreview,
+  reportDeliveryIssue,
   setCourierOnlineStatus,
   type CourierCashStatus,
 } from "@chisinau/shared-api";
@@ -31,6 +32,7 @@ import { stopDeliveryTracking } from "./backgroundLocation";
 import { registerForPush, unregisterPush } from "./push";
 import { addressLines, toPoint, type LatLng } from "./orderView";
 import { toOfferPreview, type OfferPreview } from "./offerPreview";
+import type { IssueKind } from "./issues";
 
 // Every status change goes through @chisinau/shared-api (the same typed RPC
 // wrappers the web uses); reads stay plain RLS-scoped selects. Money goes
@@ -328,6 +330,15 @@ export function claimOrder(orderId: string): Promise<string | null> {
 
 export function markArrivedAtRestaurant(orderId: string): Promise<string | null> {
   return attempt(() => courierArrivedAtRestaurant(supabase, orderId as OrderId));
+}
+
+/** Report a problem on the active delivery. Romanian error, or which text to show on success. */
+export async function reportIssue(orderId: string, kind: IssueKind): Promise<{ error: string | null; isNew: boolean }> {
+  try {
+    return { error: null, isNew: await reportDeliveryIssue(supabase, orderId as OrderId, kind) };
+  } catch (err) {
+    return { error: userMessage(err), isNew: false };
+  }
 }
 
 /** Last-known position while online and idle (see ./heartbeat). Romanian error or null. */
