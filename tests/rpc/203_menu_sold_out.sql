@@ -41,12 +41,12 @@ begin
 
   -- S4: bad mode, foreign item, customer → refused
   begin perform public.set_menu_item_sold_out(c_item, 'tomorrow'); raise exception 'S4: bad mode accepted';
-  exception when others then if sqlerrm like 'S4:%' then raise; end if; end;
+  exception when raise_exception then if sqlerrm like 'S4:%' then raise; end if; end;
   begin perform public.set_menu_item_sold_out(c_foreign_item, 'today'); raise exception 'S4b: foreign item accepted';
-  exception when others then if sqlerrm like 'S4b:%' then raise; end if; end;
+  exception when raise_exception then if sqlerrm like 'S4b:%' then raise; end if; end;
   perform set_config('request.jwt.claims', json_build_object('sub', c_cust, 'role', 'authenticated')::text, true);
   begin perform public.set_menu_item_sold_out(c_item, 'today'); raise exception 'S4c: customer accepted';
-  exception when others then if sqlerrm like 'S4c:%' then raise; end if; end;
+  exception when raise_exception then if sqlerrm like 'S4c:%' then raise; end if; end;
 
   -- S5: anon cannot execute
   reset role;

@@ -42,7 +42,7 @@ begin
   begin
     perform public.set_restaurant_busy(c_rest, 20);
     raise exception 'B4: 20 min accepted';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'B4:%' then raise; end if;
   end;
 
@@ -50,7 +50,7 @@ begin
   begin
     perform public.set_restaurant_busy(c_foreign, 15);
     raise exception 'B5: foreign venue accepted';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'B5:%' then raise; end if;
   end;
 
@@ -59,7 +59,7 @@ begin
   begin
     perform public.set_restaurant_busy(c_rest, 0);
     raise exception 'B6: customer accepted';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'B6:%' then raise; end if;
   end;
 
