@@ -109,3 +109,12 @@ Citește integral ~/code/chisinau-delivery/docs/handoff/HANDOFF-RESTAURANT.md ș
 **Datorie găsită la BOOT:** sim-urile 200/201/203 testează refuzurile cu `exception when others` → trec și dacă funcția lipsește (fals-verde) — de reparat la primul gate; migrațiile 000301–000304 n-au rollback scris (regula nouă) — de adăugat.
 **Instrumente:** skill-ul de replică și `/debug` NU sunt instalate; matricea se face din `replica/` (recon public-only, verificat: 0 mențiuni de decompilare) + cod. Agenți: `t-verify`, `t-redteam`, `t-scan`. Ruflo: fără tool-uri în sesiune (carantină globală). Browserul Playwright MCP e ocupat de altă sesiune → Chromium headless izolat din script.
 **BLOCKED:** G5 dispozitiv real (hardware) · testul de sistem `npm run test:e2e` (comite date `E2E-*`, cere OK de la user).
+
+### G1 — calitatea pinului (2026-10-12) · DONE raport, regula = BLOCKED owner
+Măsurat pe baza locală (q-urile în `.bucla/progress.md` RESTAURANT):
+- Restaurante: **14/14 au pin, 0 în afara Chișinăului** (bbox 46.90–47.12 / 28.70–29.00). Premisa „pinul restaurantului lipsește” e **falsă** pe datele locale.
+- Dar pinurile sunt **demo**, nu verificate: valori rotunde (Osaka 47.050000/28.810000, Amber 47.068000/28.860000…), Sakura și Nexus au coordonate identice; CLAUDE.md o spune explicit („Restaurant coordinates are demo values”).
+- Cele **28 de livrări pe 6,0 km presupuși** (`orders.courier_fee_distance_assumed`) vin TOATE din partea clientului: 8 catering (catering-ul nu are pin deloc, doar `event_address_text`; 7 din 8 sunt E2E) + 20 standard din 2026-08-06 fără nicio adresă legată. 0 din cauza restaurantului.
+- Gol real: `restaurants.lat/lng` sunt nullable și nimic nu leagă activarea de pin — dovedit în tranzacție anulată: `update restaurants set lat=null, lng=null, is_active=true` → reușește. Restaurantele din înscrierea proprie intră cu NULL (`platform/restaurants/actions.ts`); pinul îl pune doar adminul (Nominatim sau manual, `RestaurantLocationControl`).
+**Regula propusă (decide owner-ul):** A *(recomandat)* activarea cere pin în raza de serviciu + confirmarea partenerului pe hartă („aici e ușa de ridicare”); B activarea cere doar pin pus de admin (geocodare); C status quo. A costă un pas în onboarding; B lasă pinul de geocodare (centrul clădirii, nu ușa); C lasă activarea fără pin posibilă.
+**Pentru alte sectoare (în CROSS-REQUESTS):** catering fără pin (CLIENT/CURIER), comenzi standard fără adresă (CLIENT, `place_order` cu pin obligatoriu din W2).
