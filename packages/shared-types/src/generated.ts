@@ -1622,6 +1622,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ops_alerts: {
+        Row: {
+          acked_at: string | null
+          acked_by: string | null
+          created_at: string
+          id: string
+          kind: string
+          message: string
+          notified_at: string | null
+          ref_id: string
+        }
+        Insert: {
+          acked_at?: string | null
+          acked_by?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          message: string
+          notified_at?: string | null
+          ref_id: string
+        }
+        Update: {
+          acked_at?: string | null
+          acked_by?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string
+          notified_at?: string | null
+          ref_id?: string
+        }
+        Relationships: []
+      }
       order_complaints: {
         Row: {
           created_at: string
@@ -2288,6 +2321,7 @@ export type Database = {
           courier_commission_pct: number
           id: boolean
           no_courier_cancel_minutes: number
+          restaurant_accept_alert_minutes: number
           restaurant_commission_pct: number
           updated_at: string
         }
@@ -2296,6 +2330,7 @@ export type Database = {
           courier_commission_pct?: number
           id?: boolean
           no_courier_cancel_minutes?: number
+          restaurant_accept_alert_minutes?: number
           restaurant_commission_pct?: number
           updated_at?: string
         }
@@ -2304,6 +2339,7 @@ export type Database = {
           courier_commission_pct?: number
           id?: boolean
           no_courier_cancel_minutes?: number
+          restaurant_accept_alert_minutes?: number
           restaurant_commission_pct?: number
           updated_at?: string
         }
@@ -3451,6 +3487,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      admin_ack_ops_alert: { Args: { p_alert_id: string }; Returns: undefined }
       admin_add_payout_adjustment: {
         Args: {
           p_amount_mdl: number
@@ -3973,6 +4010,7 @@ export type Database = {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
         Returns: undefined
       }
+      scan_ops_alerts: { Args: never; Returns: number }
       search_menu_items: {
         Args: { p_query: string }
         Returns: {
