@@ -3490,6 +3490,11 @@ export type Database = {
       expire_dispatch_offers: { Args: never; Returns: number }
       expire_stale_orders: { Args: never; Returns: number }
       generate_order_number: { Args: never; Returns: string }
+      generate_payouts_internal: {
+        Args: { p_end: string; p_start: string }
+        Returns: number
+      }
+      generate_weekly_payouts: { Args: { p_now?: string }; Returns: number }
       get_courier_cash_status: {
         Args: never
         Returns: {
