@@ -51,6 +51,11 @@ export default async function RestaurantEarningsPage() {
   }
 
   const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
+  // Current + 3 previous Chișinău weeks for the CSV export links.
+  const exportWeeks = [0, 1, 2, 3].map((i) => {
+    const w = currentWeekRange(new Date(weekStart.getTime() - i * 7 * 86_400_000 + 12 * 3_600_000));
+    return { startDate: w.startDate, endDate: new Date(w.end.getTime() - 12 * 3_600_000).toISOString().slice(0, 10) };
+  });
 
   const [{ data: weekOrders }, { data: payoutRows }, { data: account }] = await Promise.all([
     // Money basis matches the Wave-1 payout logic: paid + keyed off delivered_at,
@@ -113,6 +118,19 @@ export default async function RestaurantEarningsPage() {
       </PremiumReveal>
 
       <PayoutAccountForm current={account} />
+
+      <div className="mb-8 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-white/55">Raport vânzări (CSV, Excel):</span>
+        {exportWeeks.map((w, i) => (
+          <a
+            key={w.startDate}
+            href={`/restaurant/earnings/export?week=${w.startDate}`}
+            className="min-h-11 content-center rounded-full bg-white/5 px-3.5 text-xs text-white/75 ring-1 ring-white/10 transition hover:bg-white/10"
+          >
+            {i === 0 ? "Săptămâna curentă" : `${fmtDate(w.startDate)} – ${fmtDate(w.endDate)}`}
+          </a>
+        ))}
+      </div>
 
       <h2 className="pg-gold-text mb-3 text-sm font-semibold uppercase tracking-wide">Plăți</h2>
       {payouts.length === 0 ? (
