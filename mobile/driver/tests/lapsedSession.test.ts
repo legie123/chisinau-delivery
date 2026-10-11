@@ -54,6 +54,7 @@ vi.mock("expo-location", () => ({
   Accuracy: { High: 4 },
   ActivityType: { OtherNavigation: 4 },
   requestForegroundPermissionsAsync: async () => ({ status: "granted" }),
+  getBackgroundPermissionsAsync: async () => ({ status: "granted" }),
   requestBackgroundPermissionsAsync: async () => ({ status: "granted" }),
   hasStartedLocationUpdatesAsync: async () => h.gpsStarted,
   startLocationUpdatesAsync: async () => void (h.gpsStarted = true),

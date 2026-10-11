@@ -21,6 +21,7 @@ import { ISSUE_LABELS, issueKindsFor, issueReportedText, type IssueKind } from '
 import { navUrl, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
+import { askBackgroundDisclosure } from '../lib/locationDisclosure';
 import { useDevicePosition } from '../hooks/useDevicePosition';
 
 const { width } = Dimensions.get('window');
@@ -81,7 +82,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   // until the server confirms en_route, see lib/gpsGate).
   const startGps = () => {
     getMyCourierId()
-      .then((courierId) => (courierId ? startDeliveryTracking(order.id, courierId) : null))
+      .then((courierId) => (courierId ? startDeliveryTracking(order.id, courierId, askBackgroundDisclosure) : null))
       .then(setGpsWarning)
       .catch((e: unknown) => setGpsWarning(userMessage(e, 'GPS-ul în fundal nu a putut porni.')));
   };

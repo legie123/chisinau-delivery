@@ -30,6 +30,7 @@ import {
   DriverOrder,
 } from '../lib/api';
 import { resumeDeliveryTracking, startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
+import { askBackgroundDisclosure } from '../lib/locationDisclosure';
 import { useDevicePosition } from '../hooks/useDevicePosition';
 import { useLiveOffer } from '../hooks/useLiveOffer';
 import { heartbeatDue } from '../lib/heartbeat';
@@ -152,7 +153,7 @@ export default function MapScreen({ navigation, route }: Props) {
   useEffect(() => {
     if (!activeLoaded) return;
     if (activeOrderId && courierId) {
-      startDeliveryTracking(activeOrderId, courierId)
+      startDeliveryTracking(activeOrderId, courierId, askBackgroundDisclosure)
         .then(setTrackingWarning)
         .catch((err: unknown) => setTrackingWarning(userMessage(err, 'GPS-ul în fundal nu a putut porni.')));
     } else {

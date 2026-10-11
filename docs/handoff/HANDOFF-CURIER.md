@@ -110,7 +110,7 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 | 3 matrice | DONE | tabelul de mai jos |
 | 4 construcție | în lucru | ordinea de mai jos |
 | 5 build nativ | BLOCKED (owner) | EAS dev client = minute de build + cod urcat pe Expo; telefon Android; backend accesibil de pe telefon (tunel CLIENT sau staging) |
-| 6 release | BLOCKED parțial | crash reporting = SDK nou (aprobare), declarația Play pentru locația în fundal, semnare/store = owner |
+| 6 release | BLOCKED parțial | FĂCUT: dezvăluirea vizibilă pentru locația în fundal (cerință Google Play) înainte de promptul OS (`lib/locationDisclosure.ts`). Rămân: crash reporting = SDK nou (aprobare), formularul Play pentru locația în fundal + video, `SYSTEM_ALERT_WINDOW` din șablon de verificat în release, semnare/store = owner |
 
 ### Matrice de paritate — aplicația curierului (verificat în cod, 2026-10-11)
 | Flux | Stare | Fișierul care dovedește | Blochează o comandă reală? |
