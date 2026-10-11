@@ -27,7 +27,9 @@ import {
   fetchPricingHistory,
   fetchTodayEarnings,
   fetchWeekEarnings,
+  historyFeeNote,
   historyNet,
+  historyTipLabel,
   offerNetLabel,
 } from "./earnings";
 import { stopDeliveryTracking } from "./backgroundLocation";
@@ -425,6 +427,8 @@ export interface DeliveredRow {
   restaurant: string;
   time: string;
   netMdl: number | null; // null = livrată dar neîncasată (not settled → never summed)
+  tipLabel: string | null; // part of netMdl, shown so the courier sees what the tip was
+  feeNote: string | null; // the fee used the 6.0 km assumption (a pin was missing)
 }
 
 export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; today: MoneySummary }> {
@@ -435,7 +439,7 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
   const [{ data, error }, today] = await Promise.all([
     supabase
       .from("orders")
-      .select("id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, restaurants(name)")
+      .select("id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, courier_fee_distance_assumed, restaurants(name)")
       .eq("status", "delivered")
       .eq("courier_id", courierId)
       .order("delivered_at", { ascending: false, nullsFirst: false })
@@ -452,6 +456,8 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
       restaurant: (o.restaurants as unknown as { name: string } | null)?.name ?? "Restaurant",
       time: d.toLocaleString("ro-RO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
       netMdl: historyNet(o, commission),
+      tipLabel: historyTipLabel(o.tip_mdl),
+      feeNote: historyFeeNote(o.courier_fee_distance_assumed),
     };
   });
   return { rows, today };

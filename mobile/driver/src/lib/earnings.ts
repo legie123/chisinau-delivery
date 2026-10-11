@@ -87,3 +87,14 @@ export function payoutPeriodLabel(start: string, end: string): string {
   const fmt = (d: string) => new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", timeZone: "UTC" });
   return `${fmt(start)} – ${fmt(end)}`;
 }
+
+/** Per-delivery tip line in the history ("incl." because the net already contains it). */
+export function historyTipLabel(tip: number | string | null | undefined): string | null {
+  const n = tip === null || tip === undefined || tip === "" ? NaN : Number(tip);
+  return Number.isFinite(n) && n > 0 ? `incl. bacșiș ${n} MDL` : null;
+}
+
+/** orders.courier_fee_distance_assumed: only true is worth a note (false = measured, null = not evaluated). */
+export function historyFeeNote(assumed: boolean | null | undefined): string | null {
+  return assumed === true ? "tarif pe distanță estimată (lipsea un pin)" : null;
+}
