@@ -1952,6 +1952,30 @@ export type Database = {
           },
         ]
       }
+      payout_accounts: {
+        Row: {
+          holder_name: string
+          iban: string
+          recipient_id: string
+          recipient_type: string
+          updated_at: string
+        }
+        Insert: {
+          holder_name: string
+          iban: string
+          recipient_id: string
+          recipient_type: string
+          updated_at?: string
+        }
+        Update: {
+          holder_name?: string
+          iban?: string
+          recipient_id?: string
+          recipient_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payout_orders: {
         Row: {
           gross_mdl: number
@@ -3527,6 +3551,7 @@ export type Database = {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
       }
+      is_valid_iban: { Args: { p: string }; Returns: boolean }
       mark_ready_for_pickup: {
         Args: { p_order_id: string }
         Returns: undefined
@@ -3583,6 +3608,15 @@ export type Database = {
         }
         Returns: undefined
       }
+      offer_preview: {
+        Args: { p_offer_id: string }
+        Returns: {
+          dropoff_sector: string
+          pickup_km: number
+          total_km: number
+          trip_km: number
+        }[]
+      }
       order_courier_contact: {
         Args: { p_order_id: string }
         Returns: {
@@ -3608,15 +3642,6 @@ export type Database = {
         Args: { p_restaurant_id: string }
         Returns: {
           hour_of_day: number
-      offer_preview: {
-        Args: { p_offer_id: string }
-        Returns: {
-          dropoff_sector: string
-          pickup_km: number
-          total_km: number
-          trip_km: number
-        }[]
-      }
           intensity_pct: number
           orders_count: number
         }[]
@@ -3795,6 +3820,15 @@ export type Database = {
       }
       set_order_tip: {
         Args: { p_order_id: string; p_tip_mdl: number }
+        Returns: undefined
+      }
+      set_payout_account: {
+        Args: {
+          p_holder_name: string
+          p_iban: string
+          p_recipient_id: string
+          p_recipient_type: string
+        }
         Returns: undefined
       }
       set_prep_time_estimate: {
