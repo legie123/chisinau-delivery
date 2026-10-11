@@ -70,3 +70,5 @@ mobile/*/dist/
 
 # cross-app E2E report
 /tests/e2e/.last-report.json
+
+.topg/
