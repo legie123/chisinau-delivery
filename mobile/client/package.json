@@ -40,7 +40,8 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke:order": "node scripts/run-smoke.mjs"
+    "smoke:order": "node scripts/run-smoke.mjs",
+    "check:config": "node scripts/check-public-config.mjs"
   },
   "private": true
 }
