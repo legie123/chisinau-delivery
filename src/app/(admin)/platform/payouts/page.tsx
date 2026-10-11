@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import type { Payout } from "@/lib/types/domain";
 import { GeneratePayoutsForm } from "@/components/admin/GeneratePayoutsForm";
 import { PayoutMarkPaidButton } from "@/components/admin/PayoutMarkPaidButton";
+import { buildPayoutBankCsv } from "@/lib/payouts/bankCsv";
+import { loadPendingBankRows } from "@/lib/payouts/pendingBankRows";
 
 // Platform payout console: commission rates, a generator for a chosen period,
 // and the full ledger of every payout (courier + restaurant) with a
@@ -47,6 +49,7 @@ export default async function PlatformPayoutsPage() {
     .select("*")
     .order("created_at", { ascending: false });
   const rows = (payoutRows ?? []) as Payout[];
+  const bank = buildPayoutBankCsv(await loadPendingBankRows(supabase));
 
   // Friendly recipient names via two lookups + a map (courier.full_name /
   // restaurant.name) — payouts store only recipient_id.
@@ -97,6 +100,24 @@ export default async function PlatformPayoutsPage() {
       <div className="mb-8">
         <GeneratePayoutsForm />
       </div>
+
+      <section className="mb-8 flex flex-wrap items-center gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+        <a
+          href="/platform/payouts/export"
+          className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-black hover:bg-gold/90"
+        >
+          Exportă CSV pentru bancă
+        </a>
+        <p className="text-sm text-white/60">
+          {bank.exported} transferuri în așteptare · {round2(bank.totalMdl)} MDL
+          {bank.skippedNonPositive > 0 && ` · ${bank.skippedNonPositive} recuperări excluse`}
+        </p>
+        {bank.missingIban.length > 0 && (
+          <p className="w-full text-sm text-gold/90">
+            Fără IBAN (nu intră în fișier): {bank.missingIban.join(", ")}
+          </p>
+        )}
+      </section>
 
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/60">Toate plățile</h2>
       {rows.length === 0 ? (
