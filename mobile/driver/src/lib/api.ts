@@ -63,6 +63,7 @@ async function attempt(fn: () => Promise<unknown>): Promise<string | null> {
 export interface DriverOrder {
   id: string;
   status: string;
+  orderNumber: string;
   restaurant: string;
   pickupAddress: string;
   deliveryAddress: string;
@@ -289,6 +290,7 @@ async function mapOrders(rows: OrderRow[]): Promise<DriverOrder[]> {
       deliveryAddress: cateringVenue ?? lines?.street ?? "Adresa se afișează după acceptare",
       distance: "",
       earnings: offerNetLabel(r, pct),
+      orderNumber: r.order_number,
       items: `Comandă ${r.order_number} · total ${r.total_mdl} MDL`,
       customerName: r.order_type === "catering" ? "Eveniment catering" : "Client",
       pickup: toPoint(restaurant?.lat, restaurant?.lng),

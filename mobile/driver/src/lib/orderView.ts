@@ -56,3 +56,11 @@ export function addressLines(a: DoorAddress): { street: string; door: string } {
     .join(", ");
   return { street: a.street_address, door };
 }
+
+// Handover code the kitchen asks for at the counter (RESTAURANT's rule, src/lib/kitchen/pickupCode.ts on
+// sector/restaurant; copied, never imported across mobile/ <-> src/): last 3 digits of the order number
+// (every order number is CHD-YYYY-NNNNNN). null = no code, never an invented one.
+export function pickupCode(orderNumber: string): string | null {
+  const m = /(\d{3})$/.exec(orderNumber.trim());
+  return m ? m[1] : null;
+}

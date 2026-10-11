@@ -18,7 +18,7 @@ import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
 import * as ImagePicker from 'expo-image-picker';
 import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, uploadDeliveryProof, userMessage, type DriverOrder } from '../lib/api';
 import { ISSUE_LABELS, issueKindsFor, issueReportedText, type IssueKind } from '../lib/issues';
-import { navUrl, telUrl } from '../lib/orderView';
+import { navUrl, pickupCode, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
 import { askBackgroundDisclosure } from '../lib/locationDisclosure';
@@ -319,6 +319,15 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
               <View style={[styles.gpsDot, geoError ? styles.gpsDotError : null]} />
               <Text style={styles.gpsBannerText}>
                 {gpsWarning ?? geoError ?? 'Locația ta se transmite live clientului'}
+              </Text>
+            </View>
+          )}
+
+          {/* Handover code the kitchen asks for (RESTAURANT's rule): big, before "Am ridicat". */}
+          {status === 'pickup' && pickupCode(order.orderNumber) && (
+            <View style={[styles.gpsBanner, { justifyContent: 'center', paddingVertical: 14 }]}>
+              <Text style={[styles.gpsBannerText, { fontSize: 22, fontWeight: '800', letterSpacing: 2 }]}>
+                Cod ridicare: {pickupCode(order.orderNumber)}
               </Text>
             </View>
           )}
