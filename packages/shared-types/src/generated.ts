@@ -2922,6 +2922,7 @@ export type Database = {
           created_at: string
           cuisine_type: string
           delivery_fee_mdl: number
+          delivery_radius_km: number
           description: string | null
           geo: unknown
           id: string
@@ -2952,6 +2953,7 @@ export type Database = {
           created_at?: string
           cuisine_type: string
           delivery_fee_mdl?: number
+          delivery_radius_km?: number
           description?: string | null
           geo?: unknown
           id?: string
@@ -2982,6 +2984,7 @@ export type Database = {
           created_at?: string
           cuisine_type?: string
           delivery_fee_mdl?: number
+          delivery_radius_km?: number
           description?: string | null
           geo?: unknown
           id?: string
@@ -4121,6 +4124,7 @@ export type Database = {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
       }
+      remind_pending_restaurant_orders: { Args: never; Returns: number }
       request_venue_booking: {
         Args: {
           p_contact_person: string
@@ -4156,6 +4160,10 @@ export type Database = {
       restaurant_sees_courier_point: {
         Args: { point_at: string; target_courier: string }
         Returns: boolean
+      }
+      restaurants_delivering_to: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: string[]
       }
       review_onboarding_application: {
         Args: { p_approve: boolean; p_id: string; p_note?: string }
