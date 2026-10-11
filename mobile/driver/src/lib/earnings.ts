@@ -96,5 +96,5 @@ export function historyTipLabel(tip: number | string | null | undefined): string
 
 /** orders.courier_fee_distance_assumed: only true is worth a note (false = measured, null = not evaluated). */
 export function historyFeeNote(assumed: boolean | null | undefined): string | null {
-  return assumed === true ? "tarif pe distanță estimată (lipsea un pin)" : null;
+  return assumed === true ? "tarif de bază (lipsea un pin) — km se adaugă la revizuire" : null;
 }

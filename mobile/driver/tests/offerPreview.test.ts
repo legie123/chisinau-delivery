@@ -39,8 +39,12 @@ describe("offerPreviewLines", () => {
       "~3.3 km de la restaurant la client",
     ]);
   });
-  it("no sector, no distances -> nothing invented", () => {
-    expect(offerPreviewLines({ sector: null, pickupKm: 1, tripKm: null, totalKm: null })).toEqual([]);
+  it("no trip distance (a pin missing) -> no km invented, and the courier is told only the base fee is paid", () => {
+    expect(offerPreviewLines({ sector: null, pickupKm: 1, tripKm: null, totalKm: null })).toEqual([
+      "Fără pin la livrare: se plătește tariful de bază, km se adaugă la revizuire",
+    ]);
+  });
+  it("no preview (not the holder, failed, not loaded) -> nothing", () => {
     expect(offerPreviewLines(null)).toEqual([]);
   });
 });

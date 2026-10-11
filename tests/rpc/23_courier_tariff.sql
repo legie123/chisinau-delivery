@@ -118,9 +118,13 @@ begin
   perform public.advance_delivery_status('e0000000-0000-0000-0000-000000000019'::uuid, 'delivered', true);
 
   select courier_fee_mdl into v_final19 from public.orders where id = 'e0000000-0000-0000-0000-000000000019';
-  if v_final19 is distinct from v_quote19 then
-    raise exception 'FAIL: order 19 final (%) did not hold at its quote (%) — the floor did not hold when the live tariff dropped (would-be % )',
-      v_final19, v_quote19, round(5.00 + 1.00 * v_dist19, 2);
+  -- Owner decision 2026-10-12 (migration 20261012000206): an order without a pin pays the BASE fee of the
+  -- live tariff — no 6 km, and the 6 km ready quote is not a floor. The floor for MEASURED orders is pinned by
+  -- tests/rpc/151 F6 (this order used to be the floor case only because it had no address).
+  if v_final19 is distinct from round(5.00 + coalesce((select courier_fee_surcharge_mdl from public.orders
+                                                       where id = 'e0000000-0000-0000-0000-000000000019'), 0), 2) then
+    raise exception 'FAIL: order 19 (no address) final = % (expected the live base fee 5.00, no km on a guess; old quote %)',
+      v_final19, v_quote19;
   end if;
 
   -- ==== 5. PAYOUT — coalesce(courier_fee_mdl, delivery_fee_mdl) in EVERY

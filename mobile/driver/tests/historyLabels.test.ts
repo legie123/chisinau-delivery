@@ -19,7 +19,7 @@ describe("historyTipLabel — the tip inside the net, shown per delivery", () =>
 
 describe("historyFeeNote — say when the fee used an assumed distance", () => {
   it("only true says so; false (measured) and null (not evaluated) say nothing", () => {
-    expect(historyFeeNote(true)).toMatch(/estimată/);
+    expect(historyFeeNote(true)).toMatch(/tarif de bază.*revizuire/);
     expect(historyFeeNote(false)).toBeNull();
     expect(historyFeeNote(null)).toBeNull();
   });
