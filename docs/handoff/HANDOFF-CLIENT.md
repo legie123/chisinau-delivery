@@ -36,3 +36,7 @@
 - C2–C6 din PLAN-CONSTRUCTIE.
 - `DeliveryMap` (comun) cu tile-uri CARTO moarte — predare trimisă.
 - Raza implicită 10 km = PROVIZORIE, ratificare owner.
+
+## Verificatori 2026-10-12 (rezultate)
+- CLIENT gate 2 NEVALIDAT → (1) retry idempotent ocolea totalul: REPARAT 20261012000104, sim 106. (2) catering: `confirm_catering_quote` nu primește suma afișată, `place_order` catering ignoră `p_expected_total` — DE FĂCUT (confirm = funcție RESTAURANT → predare). (3) `test:price` nu acoperă randarea CartScreen — limită declarată. (4) web fără total: REPARAT în 70d9288. (5) `check:config` nelegat de nicio poartă — de legat.
+- ADMIN plăți (scrise de această sesiune) NEVALIDAT: (1) CSV plătește în plus când există clawback negativ pending (105,50 MDL în probă); (2) cron-ul plătește doar săptămâna trecută, nu recuperează comenzi marcate plătite târziu / rulări ratate; (3) orice staff schimbă IBAN-ul fără urmă; (4) erori ignorate + 414 la >200 beneficiari în pendingBankRows. Scripturi: scratchpad/rt/. NEREPARATE — prioritate maximă pentru cine preia plățile.
