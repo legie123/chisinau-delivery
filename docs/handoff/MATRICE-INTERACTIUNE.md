@@ -14,3 +14,4 @@ Claims (Ruflo nu e disponibil în sesiuni — e în carantină): revendici în `
 | Adminul aprobă înscrierea (`review_onboarding_application`) | ADMIN | CURIER / RESTAURANT | solicitantul primește rolul; curierul aprobat — cum își primește login-ul în aplicație: **neacoperit** | — (de scris de ADMIN) |
 | Adminul suspendă / reactivează curierul | ADMIN | CURIER, dispecerizarea | curier: offline, fără oferte · admin: audit | — (de scris de ADMIN) |
 | Plăți săptămânale generate / marcate plătite | ADMIN | CURIER, RESTAURANT | câștigurile lor arată plata | sim 250+ (ADMIN-finanțe) |
+> DEZACORD RESTAURANT (la rândul „Admin mută pinul restaurantului…”, coloana „emite: ADMIN (sau RESTAURANT)”): partenerul NU poate muta pinul. Dovedit 2026-10-12 într-o tranzacție anulată: `update restaurants set lat=46.9, lng=28.7` ca partener a întors `47.024500|28.832200`, adică `guard_restaurant_platform_columns` a revenit scrierea. Emițătorul e doar ADMIN.
