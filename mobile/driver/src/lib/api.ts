@@ -1,6 +1,7 @@
 import {
   RpcError,
   acceptDispatchOffer as rpcAcceptDispatchOffer,
+  attachDeliveryProof,
   claimOrderAsCourier,
   courierArrivedAtRestaurant,
   declineDispatchOffer as rpcDeclineDispatchOffer,
@@ -8,6 +9,7 @@ import {
   getOfferPreview,
   reportDeliveryIssue,
   setCourierOnlineStatus,
+  storageErrorText,
   type CourierCashStatus,
 } from "@chisinau/shared-api";
 import {
@@ -33,6 +35,7 @@ import { registerForPush, unregisterPush } from "./push";
 import { addressLines, toPoint, type LatLng } from "./orderView";
 import { toOfferPreview, type OfferPreview } from "./offerPreview";
 import type { IssueKind } from "./issues";
+import { proofPath } from "./deliveryProof";
 
 // Every status change goes through @chisinau/shared-api (the same typed RPC
 // wrappers the web uses); reads stay plain RLS-scoped selects. Money goes
@@ -330,6 +333,24 @@ export function claimOrder(orderId: string): Promise<string | null> {
 
 export function markArrivedAtRestaurant(orderId: string): Promise<string | null> {
   return attempt(() => courierArrivedAtRestaurant(supabase, orderId as OrderId));
+}
+
+/**
+ * Proof-of-delivery photo: upload the camera JPEG into the private bucket under the order's folder,
+ * then attach that path (attach_delivery_proof: assigned courier, en_route or <= 1 h after delivery).
+ * A soft signal, never a gate on the delivery. Romanian error or null.
+ */
+export async function uploadDeliveryProof(orderId: string, uri: string): Promise<string | null> {
+  try {
+    const path = proofPath(orderId, Date.now(), Math.random().toString(36).slice(2));
+    const body = await (await fetch(uri)).arrayBuffer();
+    const { error } = await supabase.storage.from("delivery-proof").upload(path, body, { contentType: "image/jpeg" });
+    if (error) return storageErrorText(error);
+    await attachDeliveryProof(supabase, orderId as OrderId, path);
+    return null;
+  } catch (err) {
+    return userMessage(err);
+  }
 }
 
 /** Report a problem on the active delivery. Romanian error, or which text to show on success. */

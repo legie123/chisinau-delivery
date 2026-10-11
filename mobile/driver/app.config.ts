@@ -80,6 +80,16 @@ const config: ExpoConfig = {
       },
     ],
     "expo-task-manager",
+    // Proof-of-delivery photo: camera only. Microphone and photo library are blocked (false removes
+    // the iOS key and blocks the Android permission), so the stores see only what the app uses.
+    [
+      "expo-image-picker",
+      {
+        cameraPermission: "Dragons Curier folosește camera doar ca să fotografiezi comanda predată, ca dovadă de livrare.",
+        microphonePermission: false,
+        photosPermission: false,
+      },
+    ],
     // The app never uses Face ID: without this the plugin adds an English
     // NSFaceIDUsageDescription to Info.plist.
     ["expo-secure-store", { faceIDPermission: false }],

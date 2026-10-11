@@ -122,7 +122,7 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 | Navigație la restaurant | EXISTA | `ActiveDeliveryScreen.tsx:176-179` `navUrl(pickup)` + `tel:` | nu |
 | Confirmare pickup | EXISTA | „Am ajuns la restaurant” (`ActiveDeliveryScreen.tsx:288`, `courier_arrived_at_restaurant`) + swipe → `advanceOrEnqueue(en_route)`; numărul comenzii pe card (`api.ts:285`) | nu |
 | Navigație la client | EXISTA | `navUrl(dropoff)`, fără pin → adresa text (`lib/orderView.ts`); `tel:` client | nu |
-| Confirmare livrare | PARTIAL | swipe + „Ai încasat plata?” (`ActiveDeliveryScreen.tsx:128`); LIPSĂ foto la livrare (`attach_delivery_proof` există doar în shared-api/web, nicio cameră în app) și calea „nu pot livra” | nu (foto = semnal soft) |
+| Confirmare livrare | PARTIAL (foto: cod + teste, nedovedit pe device) | swipe + „Ai încasat plata?” (`ActiveDeliveryScreen.tsx`); foto la livrare: „Fă o poză la livrare” → `expo-image-picker` (doar cameră) → bucket privat `delivery-proof/<order>/…` → `attach_delivery_proof` (sim 33); lipsește încă calea „nu pot livra” | nu (foto = semnal soft) |
 | Cash | PARTIAL | `payment_confirmed` la livrare; plafonul în `EarningsScreen.tsx`; depunerea o înregistrează doar adminul (`couriers/actions.ts:68`); „Nu încă” nu are continuare (client care nu plătește) | nu (ops are calea) |
 | Câștiguri + istoric | PARTIAL | `EarningsScreen.tsx`, `OrdersHistoryScreen.tsx`; lipsește bacșișul pe livrare | nu |
 | Push | PARTIAL | `lib/push.ts:43-51` cere `projectId` EAS — absent (`EAS_PROJECT_ID` doar din env) → zero token-uri; drain-ul are URL local implicit (`20260718000200:128`) | DA: cu app-ul în fundal curierul nu primește oferta (gate 5 + FCM/owner) |
@@ -130,4 +130,4 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 | Raportare problemă | EXISTA (cod + sim; nedovedit pe device) | `ActiveDeliveryScreen.tsx` „Raportează o problemă” → `lib/issues.ts` (tipuri pe etapă) → `courier_report_issue` (`20261012000205`, sim 153); adminul nu le vede încă într-o suprafață (cerere ADMIN) | indirect, rămâne cât adminul nu le afișează |
 | Rețea slabă | EXISTA | `lib/offlineQueue.ts`, `hooks/useOfflineSync.ts`, `lib/offerPoll.ts`, `tests/lapsedSession.test.ts` | nu |
 
-**Ordinea construcției (gate 4):** cele două DA depind de owner (SMTP/onboarding hosted, push/EAS/FCM). Din ce nu e blocat: (1) raportare problemă (LIPSA), (2) foto la livrare (PARTIAL; dependența nativă intră înainte de build-ul dev client, altfel trebuie refăcut), apoi cash „nu plătește”, bacșiș pe livrare, rândurile moarte din Profil.
+**Ordinea construcției (gate 4):** cele două DA depind de owner (SMTP/onboarding hosted, push/EAS/FCM). Din ce nu e blocat: (1) raportare problemă (LIPSA), (2) foto la livrare — FĂCUT în cod (dependența nativă e deja în package.json, deci intră în primul build dev client), apoi cash „nu plătește”, bacșiș pe livrare, rândurile moarte din Profil.

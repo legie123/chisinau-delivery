@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
-import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, userMessage, type DriverOrder } from '../lib/api';
+import * as ImagePicker from 'expo-image-picker';
+import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, uploadDeliveryProof, userMessage, type DriverOrder } from '../lib/api';
 import { ISSUE_LABELS, issueKindsFor, issueReportedText, type IssueKind } from '../lib/issues';
 import { navUrl, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
@@ -99,6 +100,27 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       return;
     }
     setArrived(true);
+  };
+
+  // Proof-of-delivery photo (soft signal, never a gate): camera only, uploaded to the private bucket.
+  const [proofSending, setProofSending] = useState(false);
+  const [proofSaved, setProofSaved] = useState(false);
+  const handleProofPhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Camera nu e permisă', 'Permite accesul la cameră din setările telefonului ca să faci poza la livrare.');
+      return;
+    }
+    const shot = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.4, allowsEditing: false, exif: false });
+    if (shot.canceled || shot.assets.length === 0) return;
+    setProofSending(true);
+    const err = await uploadDeliveryProof(order.id, shot.assets[0].uri);
+    setProofSending(false);
+    if (err) {
+      Alert.alert('Poza nu s-a salvat', err);
+      return;
+    }
+    setProofSaved(true);
   };
 
   // Problem report: one tap per kind; the server ignores a repeat (returns false) instead of stacking.
@@ -322,6 +344,20 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
                 </TouchableOpacity>
               )}
             </View>
+          )}
+
+          {/* Proof of delivery — only on the delivery leg (attach_delivery_proof accepts en_route). */}
+          {status === 'delivering' && (
+            <TouchableOpacity
+              style={[styles.gpsBanner, { opacity: proofSending ? 0.5 : 1 }]}
+              onPress={() => void handleProofPhoto()}
+              disabled={proofSending}
+            >
+              <Ionicons name={proofSaved ? 'checkmark-circle' : 'camera'} size={16} color={COLORS.white} />
+              <Text style={styles.gpsBannerText}>
+                {proofSending ? 'Se încarcă poza…' : proofSaved ? 'Poza de livrare e salvată (poți face alta)' : 'Fă o poză la livrare'}
+              </Text>
+            </TouchableOpacity>
           )}
 
           {/* Problem report — kinds follow the leg (same rule as courier_report_issue). */}
