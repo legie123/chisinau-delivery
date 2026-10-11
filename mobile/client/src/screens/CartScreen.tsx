@@ -17,6 +17,7 @@ import {
   buildOrderInput,
   CASH_CAP_HINT,
   cashCapExceeded,
+  checkoutTotals,
   chisinauWallTime,
   defaultAddressChoice,
   newIdempotencyKey,
@@ -94,21 +95,25 @@ export default function CartScreen({ navigation }: Props) {
     set(v);
   };
 
-  useEffect(() => {
-    if (!cart.restaurantId) return;
-    let stale = false;
-    supabase
-      .from('restaurants')
-      .select('delivery_fee_mdl, min_order_amount_mdl, restaurant_hours(restaurant_id, day_of_week, opens_at, closes_at, is_closed)')
-      .eq('id', cart.restaurantId)
-      .single()
-      .then(({ data }) => {
-        if (!stale && data) {
-          setSummary({ deliveryFee: Number(data.delivery_fee_mdl), minOrder: Number(data.min_order_amount_mdl), hours: (data.restaurant_hours ?? []) as HoursRow[] });
-        }
-      });
-    return () => { stale = true; };
-  }, [cart.restaurantId]);
+  // Re-read on every focus and after a "price changed" refusal (priceRetry): place_order charges
+  // the CURRENT fee and refuses a total that differs from the one shown (p_expected_total).
+  useFocusEffect(
+    useCallback(() => {
+      if (!cart.restaurantId) return;
+      let stale = false;
+      supabase
+        .from('restaurants')
+        .select('delivery_fee_mdl, min_order_amount_mdl, restaurant_hours(restaurant_id, day_of_week, opens_at, closes_at, is_closed)')
+        .eq('id', cart.restaurantId)
+        .single()
+        .then(({ data }) => {
+          if (!stale && data) {
+            setSummary({ deliveryFee: Number(data.delivery_fee_mdl), minOrder: Number(data.min_order_amount_mdl), hours: (data.restaurant_hours ?? []) as HoursRow[] });
+          }
+        });
+      return () => { stale = true; };
+    }, [cart.restaurantId, priceRetry]),
+  );
 
   // Last payment method + tip (web: localStorage), restored once.
   useEffect(() => {
@@ -159,10 +164,11 @@ export default function CartScreen({ navigation }: Props) {
     }, [signature, priceRetry]),
   );
 
-  const subtotal = cartSubtotal(cart.lines);
-  const deliveryFee = summary?.deliveryFee ?? 0;
-  const tipMdl = tipFor(subtotal, tip, customTip);
-  const total = subtotal + deliveryFee + tipMdl;
+  const { subtotal, deliveryFee, tip: tipMdl, total } = checkoutTotals(
+    cart.lines,
+    summary?.deliveryFee ?? 0,
+    tipFor(cartSubtotal(cart.lines), tip, customTip),
+  );
   const tipError = tipProblem(subtotal, tipMdl);
   const belowMinimum = summary ? subtotal < summary.minOrder : false;
   // Said before place_order would refuse it (same sum the server checks: no tip) — a
@@ -218,6 +224,7 @@ export default function CartScreen({ navigation }: Props) {
           deliveryAddressId: deliveryAddressId!,
           paymentMethod: payment,
           idempotencyKey: idempotencyKey.current,
+          deliveryFeeMdl: deliveryFee,
           notes: addressId === 'new' ? undefined : notes,
           requestedFor,
         });
@@ -237,6 +244,9 @@ export default function CartScreen({ navigation }: Props) {
         createdAddress.current = null;
         navigation.replace('OrderTracking', { orderId });
       } catch (err) {
+        // The server re-priced to a different total: reload fee + prices so the screen shows
+        // what would be charged now; the customer confirms again with the new total.
+        if (!placedId && err instanceof Error && err.message.includes('prețul s-a schimbat')) setPriceRetry(n => n + 1);
         const closed: [string, string][] = scheduled ? [['închis la ora', 'Restaurantul este închis la ora aleasă — alege altă oră.']] : [];
         setError(placedId ? 'Comanda a fost plasată.' : errorText(err, 'Nu am putut trimite comanda. Încearcă din nou.', closed));
       } finally {

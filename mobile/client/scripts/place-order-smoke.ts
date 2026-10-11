@@ -28,11 +28,11 @@ export async function main(env: { url: string; anonKey: string; email: string; p
   // An open, ordering restaurant — prefer an item WITH a required option group.
   const { data: restaurants } = await db
     .from("restaurants")
-    .select("id, name, min_order_amount_mdl")
+    .select("id, name, min_order_amount_mdl, delivery_fee_mdl")
     .eq("is_active", true)
     .eq("accepting_orders", true)
     .in("venue_type", ["restaurant", "sushi_bar"]);
-  let picked: { r: { id: string; name: string; min_order_amount_mdl: number }; item: { id: string; name: string; price_mdl: number }; groups: OptionGroupLike[] } | null = null;
+  let picked: { r: { id: string; name: string; min_order_amount_mdl: number; delivery_fee_mdl: number }; item: { id: string; name: string; price_mdl: number }; groups: OptionGroupLike[] } | null = null;
   for (const r of restaurants ?? []) {
     const { data: open } = await db.rpc("restaurant_open_at", { p_restaurant_id: r.id, p_at: new Date().toISOString() });
     if (open === false) continue;
@@ -74,7 +74,7 @@ export async function main(env: { url: string; anonKey: string; email: string; p
   if (addrError) throw new Error(`address insert failed: ${addrError.message}`);
 
   const key = newIdempotencyKey();
-  const input = buildOrderInput(cart, { deliveryAddressId: address.id, paymentMethod: "cash", idempotencyKey: key });
+  const input = buildOrderInput(cart, { deliveryAddressId: address.id, paymentMethod: "cash", idempotencyKey: key, deliveryFeeMdl: Number(r.delivery_fee_mdl) });
   const orderId = await placeOrder(db, input);
   const retryId = await placeOrder(db, input); // same key -> same order, no duplicate
 

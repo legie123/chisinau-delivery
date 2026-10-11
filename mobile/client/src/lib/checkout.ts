@@ -1,5 +1,5 @@
 import type { PlaceOrderInput } from "@chisinau/shared-api";
-import { isOpenNow, placeOrderItems, type CartState, type HoursRow } from "@chisinau/shared-domain";
+import { cartSubtotal, isOpenNow, placeOrderItems, type CartState, type HoursRow } from "@chisinau/shared-domain";
 
 // The place_order payload, built in ONE place — CartScreen and the smoke script
 // (scripts/place-order-smoke.ts) both call this, so what is proven against the DB is
@@ -138,9 +138,28 @@ export function newIdempotencyKey(now = Date.now(), rand = Math.random): string 
   return `${now.toString(36)}-${rand().toString(36).slice(2)}-${rand().toString(36).slice(2)}`;
 }
 
+/** The checkout's money, in ONE place: what CartScreen shows and what place_order is told to
+ *  expect. Bani-rounded like numeric(10,2). expectedTotal excludes the tip (set_order_tip adds
+ *  it afterwards, capped); total includes it. */
+export function checkoutTotals(lines: CartState["lines"], deliveryFeeMdl: number, tipMdl: number) {
+  const bani = (n: number) => Math.round(n * 100) / 100;
+  const subtotal = bani(cartSubtotal(lines));
+  const deliveryFee = bani(deliveryFeeMdl);
+  const tip = bani(tipMdl);
+  return { subtotal, deliveryFee, tip, expectedTotal: bani(subtotal + deliveryFee), total: bani(subtotal + deliveryFee + tip) };
+}
+
 export function buildOrderInput(
   cart: CartState,
-  opts: { deliveryAddressId: string; paymentMethod: PaymentChoice; idempotencyKey: string; notes?: string; requestedFor?: string },
+  opts: {
+    deliveryAddressId: string;
+    paymentMethod: PaymentChoice;
+    idempotencyKey: string;
+    /** The delivery fee the checkout DISPLAYED — the server refuses if its own differs. */
+    deliveryFeeMdl: number;
+    notes?: string;
+    requestedFor?: string;
+  },
 ): PlaceOrderInput {
   if (!cart.restaurantId || cart.lines.length === 0) throw new Error("Coșul este gol.");
   return {
@@ -152,6 +171,7 @@ export function buildOrderInput(
     notes: opts.notes?.trim() || undefined,
     requestedFor: opts.requestedFor,
     idempotencyKey: opts.idempotencyKey,
+    expectedTotalMdl: checkoutTotals(cart.lines, opts.deliveryFeeMdl, 0).expectedTotal,
   };
 }
 

@@ -55,8 +55,8 @@ describe("scheduled delivery — Chișinău wall time → requested_for", () => 
   it("buildOrderInput carries requestedFor to place_order (p_requested_for)", () => {
     const cart = addToCart(EMPTY_CART, { id: "r1", name: "R" }, { id: "m1", name: "Roll", price_mdl: 100 });
     const iso = "2026-07-15T10:00:00.000Z";
-    expect(buildOrderInput(cart, { deliveryAddressId: "a", paymentMethod: "cash", idempotencyKey: "k", requestedFor: iso }).requestedFor).toBe(iso);
-    expect(buildOrderInput(cart, { deliveryAddressId: "a", paymentMethod: "cash", idempotencyKey: "k" }).requestedFor).toBeUndefined();
+    expect(buildOrderInput(cart, { deliveryAddressId: "a", paymentMethod: "cash", idempotencyKey: "k", deliveryFeeMdl: 0, requestedFor: iso }).requestedFor).toBe(iso);
+    expect(buildOrderInput(cart, { deliveryAddressId: "a", paymentMethod: "cash", idempotencyKey: "k", deliveryFeeMdl: 0 }).requestedFor).toBeUndefined();
   });
 });
 
