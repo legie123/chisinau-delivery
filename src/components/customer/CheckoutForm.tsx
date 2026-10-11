@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { confirmOnlinePayment, placeOrder, RpcError, setOrderTip, startOnlinePayment } from "@chisinau/shared-api";
+import { PinPickerMap } from "@/components/customer/PinPickerMap";
 import { createClient } from "@/lib/supabase/client";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
 import { useCartReconcile } from "@/hooks/useCartReconcile";
@@ -59,6 +60,8 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const [selectedAddressId, setSelectedAddressId] = useState<string>(addresses[0]?.id ?? "new");
   // Telefonul cerut pentru o adresă salvată care încă nu are unul.
   const [missingPhone, setMissingPhone] = useState("");
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+  const selectedNeedsPin = selectedAddressId !== "new" && selectedAddress != null && (selectedAddress.lat == null || selectedAddress.lng == null);
   const selectedAddressHasPhone =
     selectedAddressId === "new" ||
     Boolean(addresses.find((a) => a.id === selectedAddressId)?.contact_phone);
@@ -111,36 +114,10 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   // Reuse a once-created address on retry so a failed place_order doesn't
   // accumulate duplicate address rows.
   const [createdAddressId, setCreatedAddressId] = useState<string | null>(null);
-  // Optional GPS pin for the new address → real dropoff marker + courier navigation.
+  // Delivery pin (C1, required by place_order): new address, or a saved one from before C1.
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const hydrated = useHydrated();
-
-  function captureLocation() {
-    setLocationError(null);
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setLocationError("Locația nu este disponibilă pe acest dispozitiv.");
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({ lat: Number(pos.coords.latitude.toFixed(6)), lng: Number(pos.coords.longitude.toFixed(6)) });
-        setLocating(false);
-      },
-      () => {
-        setLocating(false);
-        setLocationError("Nu am putut obține locația — verifică permisiunile.");
-      },
-      { enableHighAccuracy: true, timeout: 8000 },
-    );
-  }
-
-  function clearLocation() {
-    setCoords(null);
-    setLocationError(null);
-  }
+  const [savedPin, setSavedPin] = useState<{ lat: number; lng: number } | null>(null);
 
   // Resume a persisted payment step after a refresh/Back so we don't re-render a
   // blank checkout (which re-submitted). If none, this is a no-op. (panel BLOCKER #1)
@@ -231,6 +208,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         if (newAddress.contact_phone.replace(/\D/g, "").length < 6) {
           throw new Error("Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.");
         }
+        if (!coords) throw new Error("Fixează pinul adresei pe hartă — curierul trebuie să știe exact unde livrează.");
         if (createdAddressId) {
           // A previous submit already saved this address but place_order failed;
           // reuse it instead of inserting a duplicate.
@@ -250,16 +228,22 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
           deliveryAddressId = inserted.id;
           setCreatedAddressId(inserted.id);
         }
-      } else if (!selectedAddressHasPhone) {
+      } else if (!selectedAddressHasPhone || selectedNeedsPin) {
         // Adresele salvate ÎNAINTE de 2026-08-15 n-au telefon (câmpul nu exista).
         // Fără asta, clienții vechi n-ar fi întrebați niciodată și curierul ar
         // rămâne exact la fel de blocat la poartă ca până acum.
-        if (missingPhone.replace(/\D/g, "").length < 6) {
+        if (!selectedAddressHasPhone && missingPhone.replace(/\D/g, "").length < 6) {
           throw new Error("Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.");
+        }
+        if (selectedNeedsPin && !savedPin) {
+          throw new Error("Fixează pinul adresei pe hartă — curierul trebuie să știe exact unde livrează.");
         }
         const { error: phoneError } = await supabase
           .from("addresses")
-          .update({ contact_phone: missingPhone.trim() })
+          .update({
+            ...(!selectedAddressHasPhone ? { contact_phone: missingPhone.trim() } : {}),
+            ...(selectedNeedsPin && savedPin ? savedPin : {}),
+          })
           .eq("id", selectedAddressId);
         if (phoneError) throw new Error(phoneError.message);
       }
@@ -287,6 +271,8 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         deliveryAddressId: deliveryAddressId ?? undefined,
         requestedFor: requestedForIso ?? undefined,
         idempotencyKey,
+        // The total shown above (subtotal + delivery fee): place_order refuses a different one.
+        expectedTotalMdl: Math.round((subtotal + deliveryFee) * 100) / 100,
       });
       placedOrderId = orderId;
 
@@ -334,6 +320,12 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
             ? "Comenzile peste 1400 MDL se achită cu cardul la livrare — alege «Card (POS)» mai jos."
             : raw.includes("închis la ora") // #31: the place_order hours gate
             ? "Restaurantul este închis la ora selectată. Alege alt restaurant sau altă oră."
+            : raw.includes("prețul s-a schimbat")
+            ? `${raw.charAt(0).toUpperCase()}${raw.slice(1)}. Reîncarcă pagina ca să vezi prețul actual.`
+            : raw.includes("epuizat")
+            ? "Un produs din coș s-a epuizat — scoate-l și reîncearcă."
+            : raw.includes("fixează pinul") || raw.includes("în afara zonei")
+            ? `${raw.charAt(0).toUpperCase()}${raw.slice(1)}.`
             : raw.includes("menu item unavailable")
               ? "Un articol din coș nu mai este disponibil — reîncarcă meniul."
               : raw.includes("alege o opțiune") // required modifier group not chosen (e.g. stale reorder)
@@ -451,6 +443,14 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
             </p>
           </div>
         )}
+        {selectedNeedsPin && (
+          <div className="mt-2.5">
+            <p className="mb-2 text-xs text-gold">
+              Adresa aleasă nu are pin pe hartă — fixează-l o dată, îl păstrăm pentru data viitoare.
+            </p>
+            <PinPickerMap value={savedPin} onChange={setSavedPin} />
+          </div>
+        )}
 
         {selectedAddressId === "new" && (
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
@@ -504,32 +504,8 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               onChange={(e) => setNewAddress({ ...newAddress, notes: e.target.value })}
               className={inputClass}
             />
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={captureLocation}
-                  disabled={locating}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-white/5 px-4 py-3 text-sm text-white/80 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
-                >
-                  {coords ? "📍 Pin salvat ✓ (schimbă)" : locating ? "Te localizăm…" : "📍 Folosește locația mea"}
-                </button>
-                {coords && (
-                  <button
-                    type="button"
-                    onClick={clearLocation}
-                    className="shrink-0 rounded-xl bg-white/5 px-3 py-3 text-xs text-white/60 ring-1 ring-white/10 transition hover:bg-white/10"
-                  >
-                    Șterge pin
-                  </button>
-                )}
-              </div>
-              {coords && (
-                <p className="text-xs text-white/40">
-                  Pin: {coords.lat}, {coords.lng}
-                </p>
-              )}
-              {locationError && <p className="text-xs text-primary">{locationError}</p>}
+            <div className="sm:col-span-2">
+              <PinPickerMap value={coords} onChange={setCoords} />
             </div>
           </div>
         )}
