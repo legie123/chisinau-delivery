@@ -20,7 +20,7 @@ PIDF=mobile/.tunnel.pid
 LOGF=mobile/.tunnel.log
 bash scripts/mobile/tunnel-down.sh >/dev/null 2>&1 || true
 
-eval "$(supabase status -o env 2>/dev/null | grep -E '^ANON_KEY=|^JWT_SECRET=')"
+eval "$(bash scripts/supabase-status.sh 2>/dev/null | grep -E '^ANON_KEY=|^JWT_SECRET=')"
 if [ -z "${ANON_KEY:-}" ]; then
   echo "Local Supabase not running. Start it: bash scripts/supabase-up.sh" >&2
   exit 1

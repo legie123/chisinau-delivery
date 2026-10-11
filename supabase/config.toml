@@ -163,6 +163,10 @@ site_url = "http://127.0.0.1:3000"
 additional_redirect_urls = ["https://127.0.0.1:3000"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
+# Rotated secret, kept in ~/.claude/secrets/chisinau-delivery-supabase-jwt.env and exported by
+# scripts/supabase-up.sh. Without this line the stack signs with the PUBLIC default secret and
+# scripts/mobile/tunnel.sh rightly refuses to expose it (c10afa9 said so, but never added it).
+jwt_secret = "env(SUPABASE_AUTH_JWT_SECRET)"
 # JWT issuer URL. If not set, defaults to auth.external_url.
 # jwt_issuer = ""
 # Path to JWT signing key. DO NOT commit your signing keys file to git.

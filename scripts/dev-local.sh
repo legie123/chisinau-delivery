@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."
 WRAP=(env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin")
 
 # Local Supabase URL / anon / service-role keys from the running local stack.
-eval "$("${WRAP[@]}" supabase status -o env 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY')"
+eval "$(bash scripts/supabase-status.sh 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY')"
 if [ -z "${API_URL:-}" ]; then
   echo "✗ Local Supabase isn't running. Start it first:  supabase start" >&2
   exit 1

@@ -20,7 +20,7 @@ if [ ! -f "apps/$APP/package.json" ]; then
 fi
 
 WRAP=(env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin")
-eval "$("${WRAP[@]}" supabase status -o env 2>/dev/null | grep -E '^API_URL|^ANON_KEY')"
+eval "$(bash scripts/supabase-status.sh 2>/dev/null | grep -E '^API_URL|^ANON_KEY')"
 if [ -z "${API_URL:-}" ]; then
   echo "✗ Local Supabase isn't running. Start it first:  bash scripts/supabase-up.sh" >&2
   exit 1

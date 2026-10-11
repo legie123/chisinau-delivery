@@ -24,7 +24,7 @@ PORT="${APP_PORT:-$DEFAULT_PORT}"
 WRAP=(env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin")
 
 # Local Supabase URL / anon / service-role keys from the running local stack (never printed).
-eval "$("${WRAP[@]}" supabase status -o env 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY|^JWT_SECRET')"
+eval "$(bash scripts/supabase-status.sh 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY|^JWT_SECRET')"
 if [ -z "${API_URL:-}" ]; then
   echo "✗ Local Supabase isn't running. Start it first:  bash scripts/supabase-up.sh" >&2
   exit 1
