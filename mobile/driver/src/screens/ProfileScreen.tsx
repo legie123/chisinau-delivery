@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, userMessage, CourierProfile, CourierStatus } from '../lib/api';
+import PayoutAccountForm from '../components/PayoutAccountForm';
 
 const VEHICLE_LABEL: Record<string, string> = {
   bike: '🚲 Bicicletă',
@@ -54,6 +55,7 @@ export default function ProfileScreen() {
   const [toggling, setToggling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [reloads, setReloads] = useState(0); // pull-to-refresh re-runs the focus load
+  const [payoutOpen, setPayoutOpen] = useState(false);
 
   // Every focus (bottom tabs stay mounted): status and counts follow the shift.
   useFocusEffect(
@@ -180,12 +182,19 @@ export default function ProfileScreen() {
 
         {/* Menu */}
         <View style={styles.menuSection}>
+          {payoutOpen && profile && <PayoutAccountForm courierId={profile.id} onClose={() => setPayoutOpen(false)} />}
           {MENU_ITEMS.map((item, i) => (
             <TouchableOpacity
               key={i}
               style={styles.menuItem}
               activeOpacity={0.7}
-              onPress={item.label === 'Deconectare' ? () => void handleSignOut() : undefined}
+              onPress={
+                item.label === 'Deconectare'
+                  ? () => void handleSignOut()
+                  : item.label === 'Cont bancar' && profile
+                    ? () => setPayoutOpen((o) => !o)
+                    : undefined
+              }
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
                 <Ionicons name={item.icon as any} size={20} color={item.color} />

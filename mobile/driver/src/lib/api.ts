@@ -353,6 +353,36 @@ export async function uploadDeliveryProof(orderId: string, uri: string): Promise
   }
 }
 
+// ---------- Payout account (IBAN for the weekly payout) ----------
+
+export interface PayoutAccount {
+  iban: string;
+  holderName: string;
+}
+
+/** The courier's own payout account (RLS: own row only), null when none is saved yet. */
+export async function fetchMyPayoutAccount(courierId: string): Promise<PayoutAccount | null> {
+  const { data, error } = await supabase
+    .from("payout_accounts")
+    .select("iban, holder_name")
+    .eq("recipient_type", "courier")
+    .eq("recipient_id", courierId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? { iban: data.iban, holderName: data.holder_name } : null;
+}
+
+/** Save (insert or replace) the courier's IBAN via set_payout_account (self or admin only). */
+export async function savePayoutAccount(courierId: string, iban: string, holder: string): Promise<string | null> {
+  const { error } = await supabase.rpc("set_payout_account", {
+    p_recipient_type: "courier",
+    p_recipient_id: courierId,
+    p_iban: iban,
+    p_holder_name: holder,
+  });
+  return error ? userMessage(new RpcError(error)) : null;
+}
+
 /** Report a problem on the active delivery. Romanian error, or which text to show on success. */
 export async function reportIssue(orderId: string, kind: IssueKind): Promise<{ error: string | null; isNew: boolean }> {
   try {
