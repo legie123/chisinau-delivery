@@ -19,7 +19,7 @@ begin
   begin
     perform public.admin_open_complaint(v_order, 'late', 'A doua reclamație');
     raise exception 'FAIL 252.1: a second open complaint on the same order was accepted';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
   end;
   raise notice 'PASS 252.1: one open complaint per order';
@@ -28,7 +28,7 @@ begin
   begin
     perform public.admin_resolve_complaint(v_c, '  ');
     raise exception 'FAIL 252.2: resolved with an empty resolution';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
   end;
   perform public.admin_resolve_complaint(v_c, 'Sunat clientul, retrimis produsul');
@@ -39,7 +39,7 @@ begin
   begin
     perform public.admin_resolve_complaint(v_c, 'din nou');
     raise exception 'FAIL 252.2: a resolved complaint was resolved again';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
   end;
   v_c2 := public.admin_open_complaint(v_order, 'quality', 'Mâncare rece');
@@ -50,7 +50,7 @@ begin
   begin
     perform public.admin_open_complaint(v_order, 'late', 'x x x');
     raise exception 'FAIL 252.3: a customer opened a complaint through the admin RPC';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
   end;
   perform set_config('request.jwt.claims', null, true);

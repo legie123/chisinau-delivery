@@ -19,6 +19,33 @@ export async function openComplaintAction(orderId: string, kind: string, note: s
   }
 }
 
+// Case-by-case compensation: a signed amount for the order's restaurant or courier, paid (or
+// deducted) in the next payout run. The RPC takes the payee from the order and bounds the amount.
+export async function addAdjustmentAction(
+  orderId: string,
+  complaintId: string,
+  recipientType: "restaurant" | "courier",
+  amountMdl: number,
+  reason: string,
+): Promise<{ error: string | null }> {
+  try {
+    const { supabase } = await requirePlatformAdmin();
+    if (!Number.isFinite(amountMdl) || amountMdl === 0) return { error: "Introdu o sumă nenulă (minus = reținere)." };
+    if (reason.trim().length < 3) return { error: "Scrie motivul ajustării." };
+    const { error } = await supabase.rpc("admin_add_payout_adjustment", {
+      p_complaint_id: complaintId,
+      p_recipient_type: recipientType,
+      p_amount_mdl: amountMdl,
+      p_reason: reason,
+    });
+    if (error) return { error: mapPgError(error) };
+    revalidatePath(`/platform/orders/${orderId}`);
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
+}
+
 export async function resolveComplaintAction(
   orderId: string,
   complaintId: string,

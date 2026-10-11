@@ -13,7 +13,7 @@ import {
 import { StuckOrderActions } from "../../queues/StuckOrderActions";
 import { PaymentActions } from "../../queues/PaymentActions";
 import { ReassignCourierControl, type AvailableCourier } from "../../queues/ReassignCourierControl";
-import { OrderComplaints, type OrderComplaint } from "@/components/admin/OrderComplaints";
+import { OrderComplaints, type OrderComplaint, type PayoutAdjustment } from "@/components/admin/OrderComplaints";
 
 const IN_FLIGHT = ["courier_assigned", "picked_up", "en_route"];
 
@@ -54,7 +54,8 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: order }, { data: items }, { data: events }, { data: catering }, { data: complaints }] = await Promise.all([
+  const [{ data: order }, { data: items }, { data: events }, { data: catering }, { data: complaints }, { data: adjustments }] =
+    await Promise.all([
     supabase
       .from("orders")
       .select("*, restaurants(name, phone), couriers(full_name, phone)")
@@ -66,6 +67,11 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
     supabase
       .from("order_complaints")
       .select("id, kind, note, status, resolution, created_at, resolved_at")
+      .eq("order_id", id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("payout_adjustments")
+      .select("id, complaint_id, recipient_type, amount_mdl, reason, payout_id")
       .eq("order_id", id)
       .order("created_at", { ascending: true }),
   ]);
@@ -253,7 +259,12 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
 
       <section className="mt-5 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Reclamații</h2>
-        <OrderComplaints orderId={o.id} complaints={(complaints ?? []) as OrderComplaint[]} />
+        <OrderComplaints
+          orderId={o.id}
+          complaints={(complaints ?? []) as OrderComplaint[]}
+          adjustments={(adjustments ?? []) as PayoutAdjustment[]}
+          hasCourier={!!o.courier_id}
+        />
       </section>
 
       <section className="mt-5 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">

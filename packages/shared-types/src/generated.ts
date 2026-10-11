@@ -2064,6 +2064,102 @@ export type Database = {
         }
         Relationships: []
       }
+      payout_adjustments: {
+        Row: {
+          amount_mdl: number
+          complaint_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          order_id: string | null
+          payout_id: string | null
+          reason: string
+          recipient_id: string
+          recipient_type: string
+        }
+        Insert: {
+          amount_mdl: number
+          complaint_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id?: string | null
+          payout_id?: string | null
+          reason: string
+          recipient_id: string
+          recipient_type: string
+        }
+        Update: {
+          amount_mdl?: number
+          complaint_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          order_id?: string | null
+          payout_id?: string | null
+          reason?: string
+          recipient_id?: string
+          recipient_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_adjustments_complaint_id_fkey"
+            columns: ["complaint_id"]
+            isOneToOne: false
+            referencedRelation: "order_complaints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "payout_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_adjustments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payout_adjustments_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "payouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payout_orders: {
         Row: {
           gross_mdl: number
@@ -3354,6 +3450,15 @@ export type Database = {
           p_storage_path: string
         }
         Returns: undefined
+      }
+      admin_add_payout_adjustment: {
+        Args: {
+          p_amount_mdl: number
+          p_complaint_id: string
+          p_reason: string
+          p_recipient_type: string
+        }
+        Returns: string
       }
       admin_assign_courier: {
         Args: { p_new_courier_id: string; p_order_id: string }

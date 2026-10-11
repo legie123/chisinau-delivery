@@ -29,7 +29,7 @@ begin
   begin
     perform public.set_payout_account('courier', v_courier, 'MD25AG000225100013104168', 'Ion Curier');
     raise exception 'FAIL 251.2: bad checksum accepted by the RPC';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
   end;
   begin
@@ -45,7 +45,7 @@ begin
   begin
     perform public.set_payout_account('courier', v_courier, 'RO49AAAA1B31007593840000', 'Hoț');
     raise exception 'FAIL 251.3: another courier overwrote the IBAN';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
   end;
   -- 251.4 restaurant staff sets the restaurant IBAN; a customer cannot
@@ -55,7 +55,7 @@ begin
   begin
     perform public.set_payout_account('restaurant', v_rest, 'MD24AG000225100013104168', 'Client');
     raise exception 'FAIL 251.4: a customer wrote a restaurant IBAN';
-  exception when others then
+  exception when raise_exception then
     if sqlerrm like 'FAIL%' then raise; end if;
   end;
   perform set_config('request.jwt.claims', null, true);

@@ -1,7 +1,16 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { openComplaintAction, resolveComplaintAction } from "@/app/(admin)/platform/orders/[id]/actions";
+import { addAdjustmentAction, openComplaintAction, resolveComplaintAction } from "@/app/(admin)/platform/orders/[id]/actions";
+
+export interface PayoutAdjustment {
+  id: string;
+  complaint_id: string | null;
+  recipient_type: "restaurant" | "courier";
+  amount_mdl: number;
+  reason: string;
+  payout_id: string | null;
+}
 
 export interface OrderComplaint {
   id: string;
@@ -28,12 +37,25 @@ const field =
 
 // Pilot support log: ops write down a complaint received by phone and how it was settled.
 // One open complaint per order (enforced in the DB); no money moves from here.
-export function OrderComplaints({ orderId, complaints }: { orderId: string; complaints: OrderComplaint[] }) {
+export function OrderComplaints({
+  orderId,
+  complaints,
+  adjustments,
+  hasCourier,
+}: {
+  orderId: string;
+  complaints: OrderComplaint[];
+  adjustments: PayoutAdjustment[];
+  hasCourier: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState("missing_item");
   const [note, setNote] = useState("");
   const [resolution, setResolution] = useState("");
+  const [payee, setPayee] = useState<"restaurant" | "courier">("restaurant");
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
   const open = complaints.find((c) => c.status === "open");
 
   function run(fn: () => Promise<{ error: string | null }>, reset: () => void) {
@@ -63,8 +85,65 @@ export function OrderComplaints({ orderId, complaints }: { orderId: string; comp
               Rezolvare{c.resolved_at ? ` (${fmt.format(new Date(c.resolved_at))})` : ""}: {c.resolution}
             </p>
           )}
+          {adjustments
+            .filter((a) => a.complaint_id === c.id)
+            .map((a) => (
+              <p key={a.id} className="mt-1 text-sm text-white/70">
+                Ajustare {a.recipient_type === "restaurant" ? "restaurant" : "curier"}:{" "}
+                <span className={Number(a.amount_mdl) < 0 ? "text-red-300" : "text-gold"}>
+                  {Number(a.amount_mdl) > 0 ? "+" : "−"}
+                  {Math.abs(Number(a.amount_mdl))} MDL
+                </span>{" "}
+                — {a.reason} · {a.payout_id ? "inclusă într-o plată" : "intră în următoarea plată"}
+              </p>
+            ))}
         </div>
       ))}
+
+      {open && (
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={payee}
+            onChange={(e) => setPayee(e.target.value as "restaurant" | "courier")}
+            aria-label="Beneficiarul ajustării"
+            className={field}
+          >
+            <option value="restaurant">Restaurant</option>
+            {hasCourier && <option value="courier">Curier</option>}
+          </select>
+          <input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            inputMode="decimal"
+            aria-label="Suma ajustării în MDL"
+            placeholder="MDL (minus = reținere)"
+            className={`${field} w-40`}
+          />
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            aria-label="Motivul ajustării"
+            placeholder="Motiv"
+            className={`${field} min-w-48 flex-1`}
+          />
+          <button
+            type="button"
+            disabled={pending || !amount || reason.trim().length < 3}
+            onClick={() =>
+              run(
+                () => addAdjustmentAction(orderId, open.id, payee, Number(amount.replace(",", ".")), reason),
+                () => {
+                  setAmount("");
+                  setReason("");
+                },
+              )
+            }
+            className="rounded-xl bg-white/10 px-3 py-1.5 text-sm font-semibold text-white ring-1 ring-white/15 disabled:opacity-40"
+          >
+            Adaugă ajustare la plată
+          </button>
+        </div>
+      )}
 
       {open ? (
         <div className="flex flex-wrap items-center gap-2">
