@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
 import { ReconnectNotice } from "@/components/shared/ReconnectNotice";
+import { kitchenAlertAudio } from "@/lib/kitchen/alertAudio";
 import type { Order } from "@/lib/types/domain";
 
 const ALERT_TITLE = "🔴 Comandă nouă!";
@@ -55,6 +56,40 @@ export function OrderQueueLive({
   // dreptul să scriem „Live" — necunoscut nu se rotunjește la bine.
   const [connection, setConnection] = useState<"connecting" | "live" | "degraded">("connecting");
   const degraded = connection === "degraded";
+  // Sound needs one tap per page load (lib/kitchen/alertAudio). Until then the queue shows the
+  // unlock button rather than a beep that silently never plays.
+  const [soundOn, setSoundOn] = useState(false);
+  const [wakeLockOn, setWakeLockOn] = useState<boolean | null>(null);
+
+  // Kitchen tablet: keep the screen on while the queue is open (showConnection = the orders
+  // page, not catering). The browser drops the lock when the tab hides; re-acquire on return.
+  useEffect(() => {
+    if (!showConnection || typeof navigator === "undefined") return;
+    let disposed = false;
+    let lock: WakeLockSentinel | null = null;
+    const acquire = () => {
+      // Unsupported (older Safari) rejects like a refused request: both end in "may sleep".
+      (navigator.wakeLock ? navigator.wakeLock.request("screen") : Promise.reject(new Error("unsupported")))
+        .then((l) => {
+          if (disposed) return void l.release().catch(() => {});
+          void lock?.release().catch(() => {});
+          lock = l;
+          setWakeLockOn(true);
+          l.addEventListener("release", () => !disposed && setWakeLockOn(false));
+        })
+        .catch(() => setWakeLockOn(false));
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") acquire();
+    };
+    acquire();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      disposed = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      void lock?.release().catch(() => {});
+    };
+  }, [showConnection]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -96,30 +131,12 @@ export function OrderQueueLive({
   }, [alerting]);
 
   // Audible ping, repeated — a muted tab or a partner not looking at the
-  // screen still needs a chance to notice within the SLA window.
+  // screen still needs a chance to notice within the SLA window. A beep that
+  // could not play (sound locked again) brings the unlock button back.
   useEffect(() => {
     if (!alerting) return;
-    let ctx: AudioContext | null = null;
     const beep = () => {
-      try {
-        const AudioCtx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (!AudioCtx) return;
-        ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = 880;
-        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.45);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start();
-        osc.stop(ctx.currentTime + 0.45);
-        const closeCtx = ctx;
-        setTimeout(() => closeCtx.close().catch(() => {}), 600);
-      } catch {
-        // Web Audio blocked (autoplay policy, unsupported) — the visual cues still fire.
-      }
+      if (!kitchenAlertAudio.beep()) setSoundOn(false);
     };
     beep();
     const id = setInterval(beep, 2500);
@@ -197,7 +214,34 @@ export function OrderQueueLive({
     )
   ) : null;
 
-  if (!degraded) return pill;
+  const kitchenControls = showConnection ? (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      {!soundOn && (
+        <button
+          type="button"
+          onClick={() => {
+            void kitchenAlertAudio.unlock().then(() => setSoundOn(kitchenAlertAudio.running()));
+          }}
+          className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-white ring-1 ring-primary/40"
+        >
+          🔔 Activează sunetul pentru comenzi noi
+        </button>
+      )}
+      {wakeLockOn === false && (
+        <span className="text-xs text-amber-200" title="Browserul nu poate ține ecranul aprins; setează tableta să nu se stingă.">
+          Ecranul se poate stinge
+        </span>
+      )}
+    </span>
+  ) : null;
+
+  if (!degraded)
+    return (
+      <>
+        {pill}
+        {kitchenControls}
+      </>
+    );
   // A treia plasare a acestei benzi, și de data asta măsurată, nu aleasă.
   // Istoric: `fixed top-3` scria peste „Program / Catering / Câștiguri" (1440,
   // V1), deci a fost mutată la `fixed bottom-4` — „colțul de jos e liber la
@@ -218,8 +262,11 @@ export function OrderQueueLive({
   // de două ori în aceeași privire. Un singur semnal, cel care explică și ce
   // se întâmplă mai departe.
   return (
-    <div className="w-full">
-      <ReconnectNotice detail="coada se reîmprospătează automat" placement="flow" />
-    </div>
+    <>
+      {kitchenControls}
+      <div className="w-full">
+        <ReconnectNotice detail="coada se reîmprospătează automat" placement="flow" />
+      </div>
+    </>
   );
 }
