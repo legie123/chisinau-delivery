@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cartLineId, useCartStore } from "@/lib/orders/cart";
+import { isSoldOut } from "@chisinau/shared-domain";
 import type { MenuCategory, MenuItem, MenuOptionGroup, Restaurant } from "@/lib/types/domain";
 import { ItemModifierModal } from "@/components/customer/ItemModifierModal";
 
@@ -213,6 +214,8 @@ export function MenuBrowser({
                 const inCart = qtyInCart(item.id);
                 const hasGroups = groupsFor(item.id).length > 0;
                 const isEager = eagerKey === `${section.id}:${item.id}`;
+                const soldOut = isSoldOut(item.sold_out_until);
+                const cannotAdd = !restaurant.accepting_orders || closedNow || soldOut;
                 return (
                   <div
                     key={`${section.id}:${item.id}`}
@@ -220,13 +223,16 @@ export function MenuBrowser({
                     id={`item-${section.id}-${item.id}`}
                     className={`flex items-stretch justify-between gap-4 rounded-2xl bg-white/[0.04] p-4 ring-1 transition ${
                       highlightId === item.id ? "ring-2 ring-gold" : "ring-white/[0.06] hover:ring-white/15"
-                    }`}
+                    } ${soldOut ? "opacity-50" : ""}`}
                   >
                     <div className="flex min-w-0 flex-1 flex-col">
                       <h3 className="font-semibold text-white">{item.name}</h3>
                       {item.description && <p className="mt-1 line-clamp-2 text-sm text-white/50">{item.description}</p>}
                       <div className="mt-auto flex items-center gap-3 pt-3">
                         <span className="text-[15px] font-bold text-primary">{item.price_mdl} MDL</span>
+                        {soldOut && (
+                          <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold text-white/60 ring-1 ring-white/15">Epuizat</span>
+                        )}
                         {/* Modifier items keep the in-row text button — its presence
                             IS the required-modifier signal. Zero-modifier items move
                             the affordance onto the photo (see below). */}
@@ -234,7 +240,7 @@ export function MenuBrowser({
                           <button
                             type="button"
                             onClick={() => handleAdd(item)}
-                            disabled={!restaurant.accepting_orders || closedNow}
+                            disabled={cannotAdd}
                             className="flex items-center gap-1.5 rounded-full bg-primary-dark px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             {inCart > 0 ? (
@@ -264,7 +270,7 @@ export function MenuBrowser({
                           <button
                             type="button"
                             onClick={() => handleAdd(item)}
-                            disabled={!restaurant.accepting_orders || closedNow}
+                            disabled={cannotAdd}
                             aria-label={`Adaugă ${item.name} în coș`}
                             className="absolute -right-2 -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-primary-dark text-lg font-bold leading-none text-white shadow-lg ring-2 ring-[#0a0a14] transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                           >
@@ -282,7 +288,7 @@ export function MenuBrowser({
                         <button
                           type="button"
                           onClick={() => handleAdd(item)}
-                          disabled={!restaurant.accepting_orders || closedNow}
+                          disabled={cannotAdd}
                           className="flex shrink-0 items-center gap-1.5 self-end rounded-full bg-primary-dark px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-primary-darker disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           {inCart > 0 ? `Adaugă încă (${inCart})` : "Adaugă +"}

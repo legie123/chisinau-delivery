@@ -7,6 +7,7 @@ import {
 } from "@chisinau/shared-api";
 import { chisinauNow, formatPrepRange, isOpenNow, nextOpeningLabel, type HoursRow } from "@chisinau/shared-domain";
 import { supabase } from "./supabase";
+import { isSoldOut, liveAvailability } from "./browse";
 import type { MenuItem, OptionGroup, Restaurant } from "../types";
 import type { LiveItem, LiveOption } from "@chisinau/shared-domain";
 import type { ReorderGroup, ReorderLiveItem, ReorderSourceItem } from "./reorder";
@@ -108,7 +109,7 @@ export async function fetchMenu(
 ): Promise<{ items: MenuItem[]; categories: string[]; groups: Record<string, OptionGroup[]> }> {
   let itemsQuery = supabase
     .from("menu_items")
-    .select("id, restaurant_id, name, description, price_mdl, photo_url, category_id, catering_min_qty")
+    .select("id, restaurant_id, name, description, price_mdl, photo_url, category_id, catering_min_qty, sold_out_until")
     .eq("restaurant_id", restaurantId)
     .eq("is_available", true);
   if (!opts.catering) itemsQuery = itemsQuery.eq("is_catering_only", false);
@@ -127,6 +128,7 @@ export async function fetchMenu(
     imageUrl: i.photo_url,
     category: (i.category_id && catName.get(i.category_id)) || "Meniu",
     cateringMinQty: i.catering_min_qty,
+    soldOut: isSoldOut(i.sold_out_until),
   }));
 
   // Catering too: place_order enforces required groups on every order type.
@@ -160,13 +162,13 @@ export async function fetchMenu(
  *  null on any read error: offline keeps the cart as it is. */
 export async function fetchLiveMenu(itemIds: string[], optionIds: string[]): Promise<{ items: LiveItem[]; options: LiveOption[] } | null> {
   const [{ data: items, error }, { data: options, error: optError }] = await Promise.all([
-    supabase.from("menu_items").select("id, price_mdl, is_available").in("id", itemIds),
+    supabase.from("menu_items").select("id, price_mdl, is_available, sold_out_until").in("id", itemIds),
     optionIds.length
       ? supabase.from("menu_options").select("id, price_delta_mdl, is_available").in("id", optionIds)
       : Promise.resolve({ data: [] as LiveOption[], error: null }),
   ]);
   if (error || optError || !items) return null;
-  return { items, options: options ?? [] };
+  return { items: items.map((i) => liveAvailability(i)), options: options ?? [] };
 }
 
 export async function fetchInsights(restaurantId: string) {

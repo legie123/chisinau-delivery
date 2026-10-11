@@ -35,6 +35,8 @@ export interface MenuItem {
   imageUrl: string | null;
   category: string;
   cateringMinQty: number | null;
+  /** "Epuizat" from the kitchen: shown greyed out, cannot be added (place_order refuses it). */
+  soldOut: boolean;
 }
 
 export type OptionGroup = OptionGroupLike & { menuItemId: string };

@@ -263,7 +263,7 @@ export default function RestaurantScreen({ route, navigation }: Props) {
           {filteredItems.map(item => (
             <View
               key={item.id}
-              style={[styles.menuItem, highlightId === item.id && styles.menuItemHighlight]}
+              style={[styles.menuItem, highlightId === item.id && styles.menuItemHighlight, item.soldOut && styles.menuItemSoldOut]}
               onLayout={item.id === targetItemId ? e => setTargetY(e.nativeEvent.layout.y) : undefined}
             >
               <View style={styles.menuItemText}>
@@ -271,7 +271,9 @@ export default function RestaurantScreen({ route, navigation }: Props) {
                 <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>
                 <View style={styles.menuItemBottom}>
                   <Text style={styles.menuItemPrice}>{item.priceMdl} MDL</Text>
-                  {ordering && (
+                  {item.soldOut ? (
+                    <Text style={styles.soldOutBadge} accessibilityLabel={`${item.name}: epuizat`}>Epuizat</Text>
+                  ) : ordering && (
                     <TouchableOpacity style={styles.addBtn} onPress={() => onAddPress(item)}>
                       <Text style={styles.addBtnText}>{(groups[item.id] ?? []).length > 0 ? 'Alege +' : 'Adaugă +'}</Text>
                     </TouchableOpacity>
@@ -379,6 +381,8 @@ const styles = StyleSheet.create({
   menuItemDesc: { fontSize: 12, color: COLORS.textSecondary, marginTop: 4, lineHeight: 16 },
   menuItemBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 },
   menuItemPrice: { fontSize: 15, fontWeight: '900', color: COLORS.white },
+  menuItemSoldOut: { opacity: 0.45 },
+  soldOutBadge: { fontSize: 12, fontWeight: '700', color: COLORS.textMuted, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
   addBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: 'rgba(233,69,96,0.05)' },
   addBtnText: { fontSize: 12, fontWeight: '800', color: COLORS.primary },
   menuItemImage: { width: 90, height: 90, borderRadius: 16 },
