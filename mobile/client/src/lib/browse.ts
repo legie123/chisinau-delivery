@@ -41,7 +41,9 @@ export function filterRestaurants(list: Restaurant[], f: BrowseFilter): Restaura
     if (q && !r.name.toLowerCase().includes(q) && !r.category.toLowerCase().includes(q)) return false;
     return true;
   });
-  return sortRestaurants(kept, f.sort);
+  const sorted = sortRestaurants(kept, f.sort);
+  // place_order refuses an address outside the radius (sim 102): those restaurants go last.
+  return [...sorted.filter((r) => r.deliversHere !== false), ...sorted.filter((r) => r.deliversHere === false)];
 }
 
 export function sortRestaurants(list: Restaurant[], sort: SortKey): Restaurant[] {

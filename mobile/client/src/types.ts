@@ -24,6 +24,8 @@ export interface Restaurant {
   distanceM: number | null;
   acceptsCatering: boolean;
   cateringMin: number | null;
+  /** Delivers to the customer's pinned default address (restaurants_delivering_to); null = unknown. */
+  deliversHere: boolean | null;
 }
 
 export interface MenuItem {

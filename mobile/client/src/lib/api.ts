@@ -62,9 +62,29 @@ export async function fetchRestaurants(position?: { lat: number; lng: number } |
   const distance = new Map(nearby.map((n) => [n.id, n.distance_m]));
   const { dow, time } = chisinauNow();
 
-  const list = rows.map((r) => toRestaurant(r, byId.get(r.id), r.restaurant_hours, distance.get(r.id) ?? null, dow, time));
+  const zone = await deliveryZone();
+  const list = rows.map((r) => ({
+    ...toRestaurant(r, byId.get(r.id), r.restaurant_hours, distance.get(r.id) ?? null, dow, time),
+    deliversHere: zone ? zone.has(r.id) : null,
+  }));
   if (distance.size === 0) return list;
   return list.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
+}
+
+/** Restaurants that deliver to the signed-in customer's default PINNED address (the place_order
+ *  radius rule, restaurants_delivering_to). null = unknown (signed out, no pinned address, offline):
+ *  the list then stays as it was — place_order is still the one that decides. */
+async function deliveryZone(): Promise<Set<string> | null> {
+  try {
+    const book = await fetchAddressBook();
+    const home = book.find((a) => a.lat != null && a.lng != null);
+    if (!home) return null;
+    const { data, error } = await supabase.rpc("restaurants_delivering_to", { p_lat: Number(home.lat), p_lng: Number(home.lng) });
+    if (error || !data) return null;
+    return new Set(data as string[]);
+  } catch {
+    return null;
+  }
 }
 
 export function toRestaurant(
@@ -100,6 +120,7 @@ export function toRestaurant(
     distanceM,
     acceptsCatering: r.accepts_catering,
     cateringMin: r.catering_min_amount_mdl,
+    deliversHere: null,
   };
 }
 
