@@ -17,6 +17,13 @@ const STATUS_EMOJI: Record<string, string> = {
   en_route: "🛵",
 };
 
+const REJECT_REASONS = [
+  "Produs epuizat",
+  "Bucătăria e supraîncărcată",
+  "Închidem în curând",
+  "Problemă tehnică",
+];
+
 export function OrderQueueRow({
   order,
   items = [],
@@ -206,12 +213,32 @@ export function OrderQueueRow({
       </Link>
 
       {rejecting && order.status === "pending_restaurant" && (
-        <div className="mt-1 flex w-full items-center gap-2">
+        <div className="mt-1 flex w-full flex-col gap-2">
+        {/* Motive presetate: un tap pe tabletă, cu mâinile ude, în loc de tastat.
+            Textul ajunge neschimbat la client (orders.cancellation_reason). */}
+        <div className="flex flex-wrap gap-1.5">
+          {REJECT_REASONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRejectReason(r)}
+              aria-pressed={rejectReason === r}
+              className={`rounded-full px-3 py-2 text-xs ring-1 transition ${
+                rejectReason === r
+                  ? "bg-primary-dark text-white ring-primary/60"
+                  : "bg-white/5 text-white/70 ring-white/10 hover:bg-white/10"
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+        <div className="flex w-full items-center gap-2">
           <input
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             aria-label="Motivul refuzului"
-            placeholder="Motivul refuzului (obligatoriu)"
+            placeholder="Alege un motiv sau scrie altul"
             className="flex-1 rounded-xl bg-white/5 px-3 py-2 text-sm text-white placeholder-white/35 ring-1 ring-white/10 outline-none focus:ring-primary/60"
           />
           <button
@@ -222,6 +249,7 @@ export function OrderQueueRow({
           >
             Trimite refuzul
           </button>
+        </div>
         </div>
       )}
     </li>

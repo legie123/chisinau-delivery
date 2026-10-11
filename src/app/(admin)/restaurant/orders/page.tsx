@@ -5,6 +5,7 @@ import { OrderQueueLive } from "@/components/admin/OrderQueueLive";
 import { RestaurantPickupMap } from "@/components/admin/RestaurantPickupMap";
 import { RestaurantWaitKpiChips } from "@/components/admin/RestaurantWaitKpiChips";
 import { PushOptIn } from "@/components/shared/PushOptIn";
+import { BusyModeControl } from "@/components/admin/BusyModeControl";
 import type { Order, OrderItem, PrepEstimate, RestaurantWaitKpiRow } from "@/lib/types/domain";
 
 const QUEUE_STATUSES = ["pending_restaurant", "accepted", "ready_for_pickup", "courier_assigned", "picked_up", "en_route"];
@@ -19,7 +20,7 @@ export default async function RestaurantOrdersPage() {
   // than one row. Take the primary (oldest) link so the queue never 500s.
   const { data: staffRows } = await supabase
     .from("restaurant_staff")
-    .select("restaurant_id, restaurants(accept_sla_minutes, lat, lng)")
+    .select("restaurant_id, restaurants(accept_sla_minutes, lat, lng, busy_extra_minutes, busy_until)")
     .eq("user_id", user?.id ?? "")
     .order("created_at", { ascending: true })
     .limit(1);
@@ -27,7 +28,13 @@ export default async function RestaurantOrdersPage() {
 
   // restaurant_staff.restaurant_id -> restaurants is a to-ONE FK, so PostgREST
   // embeds an object, not an array.
-  const rest = staffRow?.restaurants as unknown as { accept_sla_minutes: number; lat: number | null; lng: number | null } | null;
+  const rest = staffRow?.restaurants as unknown as {
+    accept_sla_minutes: number;
+    lat: number | null;
+    lng: number | null;
+    busy_extra_minutes: number;
+    busy_until: string | null;
+  } | null;
   const acceptSlaMinutes = rest?.accept_sla_minutes ?? 7;
   const restaurantPoint = rest?.lat != null && rest?.lng != null ? { lat: rest.lat, lng: rest.lng } : null;
 
@@ -135,6 +142,11 @@ export default async function RestaurantOrdersPage() {
           </span>
         )}
       </div>
+      {rest && (
+        <div className="mb-4">
+          <BusyModeControl extraMinutes={rest.busy_extra_minutes} until={rest.busy_until} />
+        </div>
+      )}
       {orderList.length === 0 ? (
         <div className="pg-card flex flex-col items-center gap-3 py-14 text-center">
           <span className="text-5xl" aria-hidden>🍱</span>

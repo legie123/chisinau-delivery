@@ -2527,6 +2527,8 @@ export type Database = {
           accepts_catering: boolean
           address: string
           avg_prep_minutes: number
+          busy_extra_minutes: number
+          busy_until: string | null
           catering_min_amount_mdl: number | null
           cover_photo_url: string | null
           created_at: string
@@ -2555,6 +2557,8 @@ export type Database = {
           accepts_catering?: boolean
           address: string
           avg_prep_minutes?: number
+          busy_extra_minutes?: number
+          busy_until?: string | null
           catering_min_amount_mdl?: number | null
           cover_photo_url?: string | null
           created_at?: string
@@ -2583,6 +2587,8 @@ export type Database = {
           accepts_catering?: boolean
           address?: string
           avg_prep_minutes?: number
+          busy_extra_minutes?: number
+          busy_until?: string | null
           catering_min_amount_mdl?: number | null
           cover_photo_url?: string | null
           created_at?: string
@@ -3794,6 +3800,10 @@ export type Database = {
           p_restaurant_pct: number
         }
         Returns: string
+      }
+      set_restaurant_busy: {
+        Args: { p_extra_minutes: number; p_restaurant_id: string }
+        Returns: undefined
       }
       start_online_payment: { Args: { p_order_id: string }; Returns: string }
       start_view_as: {

@@ -10,7 +10,7 @@ import {
   setPrepTimeEstimate as setPrepTimeEstimateRpc,
 } from "@chisinau/shared-api";
 import { asOrderId } from "@chisinau/shared-types";
-import { requireUser } from "@/lib/auth/require";
+import { requireOwnRestaurant, requireUser } from "@/lib/auth/require";
 
 export type ActionResult = { error: string | null };
 
@@ -96,6 +96,24 @@ export async function setPrepTimeEstimate(orderId: string, minutes: number): Pro
     await setPrepTimeEstimateRpc(supabase, asOrderId(orderId), minutes);
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : "Acțiunea nu a putut fi efectuată." };
+  }
+  revalidatePath("/restaurant/orders");
+  return { error: null };
+}
+
+// Busy mode: +15/30/45 min on every prep estimate for one hour (0 = off). The RPC
+// validates the value and the caller's access; the customer ETA and the next
+// accepted order's estimated_ready_at both read it through get_prep_estimates.
+export async function setRestaurantBusy(minutes: 0 | 15 | 30 | 45): Promise<ActionResult> {
+  try {
+    const { supabase, restaurantId } = await requireOwnRestaurant();
+    const { error } = await supabase.rpc("set_restaurant_busy", {
+      p_restaurant_id: restaurantId,
+      p_extra_minutes: minutes,
+    });
+    if (error) return { error: "Modul aglomerat nu s-a putut salva. Reîncearcă." };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
   }
   revalidatePath("/restaurant/orders");
   return { error: null };
