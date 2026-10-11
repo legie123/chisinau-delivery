@@ -326,6 +326,14 @@ export function markArrivedAtRestaurant(orderId: string): Promise<string | null>
   return attempt(() => courierArrivedAtRestaurant(supabase, orderId as OrderId));
 }
 
+/** Last-known position while online and idle (see ./heartbeat). Romanian error or null. */
+export async function upsertMyLocation(courierId: string, point: LatLng): Promise<string | null> {
+  const { error } = await supabase
+    .from("courier_locations")
+    .upsert({ courier_id: courierId, lat: point.lat, lng: point.lng });
+  return error ? userMessage(error, "Poziția nu a putut fi trimisă.") : null;
+}
+
 export function setOnline(online: boolean): Promise<string | null> {
   return attempt(() => setCourierOnlineStatus(supabase, online));
 }

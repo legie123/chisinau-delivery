@@ -24,6 +24,7 @@ import {
   acceptDispatchOffer,
   declineDispatchOffer,
   userMessage,
+  upsertMyLocation,
   CHISINAU_CENTER,
   CourierStatus,
   DriverOrder,
@@ -31,6 +32,7 @@ import {
 import { resumeDeliveryTracking, startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
 import { useDevicePosition } from '../hooks/useDevicePosition';
 import { useLiveOffer } from '../hooks/useLiveOffer';
+import { heartbeatDue } from '../lib/heartbeat';
 import OfferCard from '../components/OfferCard';
 import { Alert } from 'react-native';
 
@@ -111,6 +113,29 @@ export default function MapScreen({ navigation, route }: Props) {
       appState.remove();
     };
   }, [refreshAll]);
+
+  // Idle heartbeat (lib/heartbeat): online with no delivery -> re-send the last fix so
+  // dispatch ranks this courier on a real position. A stationary phone fires no new fix,
+  // hence the timer reading the latest one from a ref.
+  const positionRef = useRef(devicePosition);
+  positionRef.current = devicePosition;
+  const lastBeatRef = useRef(0);
+  const idleOnline = courierStatus === 'online' && activeLoaded && !activeDelivery;
+  useEffect(() => {
+    if (!idleOnline || !courierId) return;
+    const tick = () => {
+      const now = Date.now();
+      const point = positionRef.current;
+      if (!point || !heartbeatDue({ online: true, delivering: false, hasFix: true, lastAt: lastBeatRef.current, now })) return;
+      lastBeatRef.current = now;
+      void upsertMyLocation(courierId, point).then((err) => {
+        if (err) lastBeatRef.current = 0; // retry on the next tick instead of going stale
+      });
+    };
+    tick();
+    const timer = setInterval(tick, 10_000);
+    return () => clearInterval(timer);
+  }, [idleOnline, courierId]);
 
   // Offer push tapped (App.tsx navigates here with a fresh offerTapAt): fetch
   // the live offer now instead of waiting for the next poll.
