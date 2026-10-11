@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { currentWeekRange } from "@chisinau/shared-domain";
 import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { Payout } from "@/lib/types/domain";
+import { PayoutAccountForm } from "@/components/admin/PayoutAccountForm";
 
 // "Câștiguri" for the restaurant partner: this-week gross sales (subtotal of
 // delivered orders in the Chisinau week Mon–Sun — the payout period, migration
@@ -51,7 +52,7 @@ export default async function RestaurantEarningsPage() {
 
   const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
 
-  const [{ data: weekOrders }, { data: payoutRows }] = await Promise.all([
+  const [{ data: weekOrders }, { data: payoutRows }, { data: account }] = await Promise.all([
     // Money basis matches the Wave-1 payout logic: paid + keyed off delivered_at,
     // and catering counts too (its food value = total - fee - tip). (audit #8/#13)
     supabase
@@ -68,6 +69,12 @@ export default async function RestaurantEarningsPage() {
       .eq("recipient_type", "restaurant")
       .eq("recipient_id", staffRow.restaurant_id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("payout_accounts")
+      .select("iban, holder_name")
+      .eq("recipient_type", "restaurant")
+      .eq("recipient_id", staffRow.restaurant_id)
+      .maybeSingle(),
   ]);
 
   const week = (weekOrders ?? []) as {
@@ -104,6 +111,8 @@ export default async function RestaurantEarningsPage() {
           {weekCount} {weekCount === 1 ? "comandă livrată" : "comenzi livrate"} · înainte de comisionul platformei
         </p>
       </PremiumReveal>
+
+      <PayoutAccountForm current={account} />
 
       <h2 className="pg-gold-text mb-3 text-sm font-semibold uppercase tracking-wide">Plăți</h2>
       {payouts.length === 0 ? (
