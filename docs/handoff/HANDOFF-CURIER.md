@@ -115,7 +115,7 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 ### Matrice de paritate — aplicația curierului (verificat în cod, 2026-10-11)
 | Flux | Stare | Fișierul care dovedește | Blochează o comandă reală? |
 |---|---|---|---|
-| Onboarding + documente | PARTIAL | web: `src/app/(customer)/devino-partener/CourierApplicationForm.tsx`; aprobare `src/app/(admin)/platform/onboarding/actions.ts`; contul vine prin `inviteCourier` (`src/app/(admin)/platform/couriers/actions.ts:26`, cere service role + SMTP); în app rândul „Documente” e mort (`mobile/driver/src/screens/ProfileScreen.tsx:37`) | DA pe hosted (fără SMTP nu primește cont; ADMIN/owner); local nu (conturi seed) |
+| Onboarding + documente | PARTIAL | web: `src/app/(customer)/devino-partener/CourierApplicationForm.tsx`; aprobare `src/app/(admin)/platform/onboarding/actions.ts`; contul vine prin `inviteCourier` (`src/app/(admin)/platform/couriers/actions.ts:26`, cere service role + SMTP); în app rândurile moarte din Profil (Documente, Vehicul, Program, Setări, Editează) au fost scoase până au un backend; „Ajutor & Suport” apare doar cu `EXPO_PUBLIC_SUPPORT_PHONE` setat (numărul = owner) | DA pe hosted (fără SMTP nu primește cont; ADMIN/owner); local nu (conturi seed) |
 | Online / offline | EXISTA | `MapScreen.tsx:174` + `ProfileScreen.tsx:144` → `set_courier_online_status` | nu |
 | Card ofertă cu timeout | EXISTA | `components/OfferCard.tsx` (30 s, `onExpire`) + `offer_preview` (sector, km total); sweeper-ul expiră oferta în DB | nu |
 | Accept / refuz | EXISTA | `lib/api.ts` `acceptDispatchOffer` / `declineDispatchOffer` (RPC) | nu |

@@ -42,7 +42,8 @@ describe("holderError / maskIban", () => {
 describe("wiring: Profile -> form -> RPC", () => {
   it("the 'Cont bancar' row opens the payout form (no longer a dead row)", () => {
     const s = src("src/screens/ProfileScreen.tsx");
-    expect(s).toMatch(/item\.label === 'Cont bancar'/);
+    expect(s).toMatch(/label: 'Cont bancar'[^\n]*action: 'payout'/);
+    expect(s).toMatch(/case 'payout':\s*if \(profile\) setPayoutOpen\(\(o\) => !o\);/);
     expect(s).toMatch(/<PayoutAccountForm courierId=\{profile\.id\}/);
   });
   it("the form validates before saving and saves through savePayoutAccount", () => {
