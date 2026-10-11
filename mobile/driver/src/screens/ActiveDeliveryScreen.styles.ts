@@ -78,24 +78,6 @@ export const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginTop: -1,
   },
-  notificationBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: '#FF3B30',
-    borderRadius: 9,
-    width: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#1E1E35',
-  },
-  badgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
   addressBanner: {
     position: 'absolute',
     top: 110,
@@ -257,17 +239,6 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: COLORS.white,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  ratingText: {
-    fontSize: 11,
-    color: COLORS.gold,
-    fontWeight: '700',
   },
   actionButtons: {
     flexDirection: 'row',

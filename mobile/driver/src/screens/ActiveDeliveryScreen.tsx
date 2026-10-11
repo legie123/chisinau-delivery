@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
-import { CHISINAU_CENTER, getMyCourierId, markArrivedAtRestaurant, userMessage } from '../lib/api';
+import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, userMessage, type DriverOrder } from '../lib/api';
+import { navUrl, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
 import { useDevicePosition } from '../hooks/useDevicePosition';
@@ -29,7 +30,21 @@ interface Props {
 }
 
 export default function ActiveDeliveryScreen({ route, navigation }: Props) {
-  const { order } = route.params;
+  // The order passed in was read BEFORE this courier was assigned, when RLS still
+  // hid the drop-off (pin, door details, phone). Re-read once assigned; offline,
+  // the passed copy stays and the screen still works from the typed address.
+  const [order, setOrder] = useState<DriverOrder & { status?: string }>(route.params.order);
+  useEffect(() => {
+    let alive = true;
+    fetchActiveOrder()
+      .then((active) => {
+        if (alive && active && active.order.id === route.params.order.id) setOrder(active.order);
+      })
+      .catch((e: unknown) => console.warn('[order] refresh', e));
+    return () => {
+      alive = false;
+    };
+  }, [route.params.order.id]);
   // Derive the UI step from the order's REAL DB status so a remount into an already
   // picked-up/en_route delivery resumes correctly instead of resetting to 'pickup'
   // (which made the swipe call picked_up -> the RPC rejects en_route->picked_up and
@@ -141,15 +156,23 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
     },
   });
 
-  const routeCoords = [
-    // Real device GPS once a fix lands; the city center is only a placeholder
-    // while it warms up or if location permission was denied.
-    livePosition
-      ? { latitude: livePosition.lat, longitude: livePosition.lng }
-      : { latitude: CHISINAU_CENTER.lat, longitude: CHISINAU_CENTER.lng }, // courier
-    { latitude: order.lat, longitude: order.lng }, // pickup
-    { latitude: order.lat + 0.008, longitude: order.lng + 0.005 }, // delivery
-  ];
+  // Real device GPS once a fix lands; the city center is only a placeholder
+  // while it warms up or if location permission was denied.
+  const courierCoord = livePosition
+    ? { latitude: livePosition.lat, longitude: livePosition.lng }
+    : { latitude: CHISINAU_CENTER.lat, longitude: CHISINAU_CENTER.lng };
+  // Pickup and drop-off only when they have a real pin — no invented points.
+  const pickupCoord = order.pickup ? { latitude: order.pickup.lat, longitude: order.pickup.lng } : null;
+  const dropoffCoord = order.dropoff ? { latitude: order.dropoff.lat, longitude: order.dropoff.lng } : null;
+  const routeCoords = [courierCoord, pickupCoord, dropoffCoord].filter((c): c is NonNullable<typeof c> => c !== null);
+  const regionCenter = order.pickup ?? order.dropoff ?? CHISINAU_CENTER;
+
+  // The active leg: the restaurant until pickup, then the customer.
+  const legNavUrl =
+    status === 'pickup' ? navUrl(order.pickup, order.pickupAddress) : navUrl(order.dropoff, order.deliveryAddress);
+  const legPhoneUrl = status === 'pickup' ? telUrl(order.restaurantPhone) : telUrl(order.customerPhone);
+  const openUrl = (url: string) =>
+    Linking.openURL(url).catch(() => Alert.alert('Nu s-a putut deschide', 'Verifică dacă ai o aplicație de hărți sau telefon.'));
 
   const getSwipeText = () => {
     if (status === 'pickup') return 'Glisează: am ridicat comanda →';
@@ -170,8 +193,8 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       <MapView
         style={styles.map}
         initialRegion={{
-          latitude: order.lat,
-          longitude: order.lng,
+          latitude: regionCenter.lat,
+          longitude: regionCenter.lng,
           latitudeDelta: 0.025,
           longitudeDelta: 0.025,
         }}
@@ -183,21 +206,25 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
           strokeWidth={4}
           lineDashPattern={[8, 4]}
         />
-        <Marker coordinate={routeCoords[0]} tappable>
+        <Marker coordinate={courierCoord} tappable>
           <View style={styles.courierMarker}>
             <Text style={{ fontSize: 18 }}>🛵</Text>
           </View>
         </Marker>
-        <Marker coordinate={routeCoords[1]} tappable>
-          <View style={[styles.pointMarker, { backgroundColor: COLORS.success }]}>
-            <Ionicons name="restaurant" size={14} color={COLORS.white} />
-          </View>
-        </Marker>
-        <Marker coordinate={routeCoords[2]} tappable>
-          <View style={[styles.pointMarker, { backgroundColor: COLORS.primary }]}>
-            <Ionicons name="location" size={14} color={COLORS.white} />
-          </View>
-        </Marker>
+        {pickupCoord && (
+          <Marker coordinate={pickupCoord} tappable>
+            <View style={[styles.pointMarker, { backgroundColor: COLORS.success }]}>
+              <Ionicons name="restaurant" size={14} color={COLORS.white} />
+            </View>
+          </Marker>
+        )}
+        {dropoffCoord && (
+          <Marker coordinate={dropoffCoord} tappable>
+            <View style={[styles.pointMarker, { backgroundColor: COLORS.primary }]}>
+              <Ionicons name="location" size={14} color={COLORS.white} />
+            </View>
+          </Marker>
+        )}
       </MapView>
 
       {/* Top Header */}
@@ -216,12 +243,8 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.headerBtn}>
-          <Ionicons name="notifications" size={20} color={COLORS.white} />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.badgeText}>3</Text>
-          </View>
-        </TouchableOpacity>
+        {/* Keeps the logo centred; there is no notification inbox yet. */}
+        <View style={styles.headerBtn} />
       </View>
 
       {/* Floating Address Banner inside Map */}
@@ -262,6 +285,23 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
             </TouchableOpacity>
           )}
 
+          {(legNavUrl || legPhoneUrl) && (
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {legNavUrl && (
+                <TouchableOpacity style={[styles.gpsBanner, { flex: 1 }]} onPress={() => openUrl(legNavUrl)}>
+                  <Ionicons name="navigate" size={16} color={COLORS.white} />
+                  <Text style={styles.gpsBannerText}>{status === 'pickup' ? 'Spre restaurant' : 'Spre client'}</Text>
+                </TouchableOpacity>
+              )}
+              {legPhoneUrl && (
+                <TouchableOpacity style={[styles.gpsBanner, { flex: 1 }]} onPress={() => openUrl(legPhoneUrl)}>
+                  <Ionicons name="call" size={16} color={COLORS.white} />
+                  <Text style={styles.gpsBannerText}>{status === 'pickup' ? 'Sună restaurantul' : 'Sună clientul'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           {/* Customer Info Card */}
           <View style={styles.customerCard}>
             <View style={styles.customerAvatar}>
@@ -269,10 +309,6 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
             </View>
             <View style={styles.customerInfo}>
               <Text style={styles.customerName}>{order.customerName}</Text>
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={12} color={COLORS.gold} />
-                <Text style={styles.ratingText}>4.9</Text>
-              </View>
             </View>
 
           </View>
@@ -298,6 +334,12 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
               <Text style={styles.addressText}>
                 {status === 'pickup' ? order.pickupAddress : order.deliveryAddress}
               </Text>
+              {status !== 'pickup' && order.deliveryDoor ? (
+                <Text style={styles.addressText}>{order.deliveryDoor}</Text>
+              ) : null}
+              {status !== 'pickup' && order.deliveryNotes ? (
+                <Text style={styles.addressText}>📝 {order.deliveryNotes}</Text>
+              ) : null}
             </View>
           </View>
 

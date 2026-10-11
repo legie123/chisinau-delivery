@@ -28,6 +28,7 @@ import {
 } from "./earnings";
 import { stopDeliveryTracking } from "./backgroundLocation";
 import { registerForPush, unregisterPush } from "./push";
+import { addressLines, toPoint, type LatLng } from "./orderView";
 
 // Every status change goes through @chisinau/shared-api (the same typed RPC
 // wrappers the web uses); reads stay plain RLS-scoped selects. Money goes
@@ -60,8 +61,15 @@ export interface DriverOrder {
   earnings: string; // NET of the quoted courier fee (floor), same as the web's „Câștig net"
   items: string;
   customerName: string;
-  lat: number;
-  lng: number;
+  // Real points only: null when the restaurant/address has no pin (the map then
+  // shows no marker instead of a made-up one). The drop-off is readable only
+  // once the order is assigned to this courier (addresses_courier_assigned_read).
+  pickup: LatLng | null;
+  dropoff: LatLng | null;
+  deliveryDoor: string; // bloc, scara, etaj, ap., interfon
+  deliveryNotes: string | null;
+  customerPhone: string | null;
+  restaurantPhone: string | null;
 }
 
 const NOT_A_COURIER = "Contul acesta nu este de curier. Intră cu contul primit de la dispecerat.";
@@ -211,23 +219,12 @@ export async function getCommission(): Promise<CommissionSource> {
   return history;
 }
 
-function formatAddress(a: {
-  street_address: string;
-  building: string | null;
-  apartment: string | null;
-} | null): string {
-  if (!a) return "Adresa se afișează după acceptare";
-  return [a.street_address, a.building && `bloc ${a.building}`, a.apartment && `ap. ${a.apartment}`]
-    .filter(Boolean)
-    .join(", ");
-}
-
-// Chișinău fallback coordinates — the schema has no per-order lat/lng yet, so
-// markers fan out around the city center until customers drop real pins.
-// Also used by MapScreen/ActiveDeliveryScreen as the map's initial region and
-// as a placeholder for the courier's own marker before a real GPS fix lands.
+// Map's initial region and the courier's own marker before the first GPS fix.
+// Never used as an order's position.
 export const CHISINAU_CENTER = { lat: 47.0105, lng: 28.8638 };
-const CENTER = CHISINAU_CENTER;
+
+const ADDRESS_COLUMNS =
+  "id, street_address, building, entrance, floor, apartment, intercom_code, notes, contact_phone, lat, lng";
 
 type OrderRow = {
   id: string;
@@ -251,9 +248,9 @@ async function mapOrders(rows: OrderRow[]): Promise<DriverOrder[]> {
   const addressIds = rows.map((r) => r.delivery_address_id).filter((x): x is string => !!x);
 
   const [restaurants, addresses, catering, pct] = await Promise.all([
-    supabase.from("restaurants").select("id, name, address").in("id", restaurantIds),
+    supabase.from("restaurants").select("id, name, address, phone, lat, lng").in("id", restaurantIds),
     addressIds.length > 0
-      ? supabase.from("addresses").select("id, street_address, building, apartment").in("id", addressIds)
+      ? supabase.from("addresses").select(ADDRESS_COLUMNS).in("id", addressIds)
       : Promise.resolve({ data: [], error: null }),
     supabase
       .from("catering_details")
@@ -269,22 +266,27 @@ async function mapOrders(rows: OrderRow[]): Promise<DriverOrder[]> {
   const addressById = new Map((addresses.data ?? []).map((a) => [a.id, a]));
   const cateringByOrder = new Map((catering.data ?? []).map((c) => [c.order_id, c.event_address_text]));
 
-  return rows.map((r, i) => {
+  return rows.map((r) => {
     const restaurant = restaurantById.get(r.restaurant_id);
     const address = r.delivery_address_id ? (addressById.get(r.delivery_address_id) ?? null) : null;
     const cateringVenue = cateringByOrder.get(r.id);
+    const lines = address ? addressLines(address) : null;
     return {
       id: r.id,
       status: r.status,
       restaurant: restaurant?.name ?? "Restaurant",
       pickupAddress: restaurant?.address ?? "",
-      deliveryAddress: cateringVenue ?? formatAddress(address),
+      deliveryAddress: cateringVenue ?? lines?.street ?? "Adresa se afișează după acceptare",
       distance: "",
       earnings: offerNetLabel(r, pct),
       items: `Comandă ${r.order_number} · total ${r.total_mdl} MDL`,
       customerName: r.order_type === "catering" ? "Eveniment catering" : "Client",
-      lat: CENTER.lat + 0.004 * Math.sin(i * 2.1),
-      lng: CENTER.lng + 0.006 * Math.cos(i * 2.1),
+      pickup: toPoint(restaurant?.lat, restaurant?.lng),
+      dropoff: toPoint(address?.lat, address?.lng),
+      deliveryDoor: lines?.door ?? "",
+      deliveryNotes: address?.notes ?? null,
+      customerPhone: address?.contact_phone ?? null,
+      restaurantPhone: restaurant?.phone ?? null,
     };
   });
 }

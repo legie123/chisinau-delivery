@@ -262,10 +262,11 @@ export default function MapScreen({ navigation, route }: Props) {
         </Marker>
 
         {/* Order markers */}
-        {orders.map(order => (
+        {/* Only restaurants with a real pin get a marker; the list below still shows every order. */}
+        {orders.map(order => order.pickup && (
           <Marker
             key={order.id}
-            coordinate={{ latitude: order.lat, longitude: order.lng }}
+            coordinate={{ latitude: order.pickup.lat, longitude: order.pickup.lng }}
             onPress={() => showOrderCard(order)}
             tappable
           >
