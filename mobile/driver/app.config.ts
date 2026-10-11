@@ -10,6 +10,12 @@ const LOCATION_ALWAYS =
 const LOCATION_WHEN_IN_USE =
   "Dragons Curier folosește locația ta ca să-ți arate poziția pe hartă și distanța până la restaurant.";
 
+// Android map tiles need a Google Maps key (iOS uses Apple Maps). It comes ONLY from
+// the build env, never from the repo. The key is given twice on purpose, as in
+// mobile/client: react-native-maps' own config plugin removes the manifest key unless
+// it gets it as a prop, while prebuild's fallback reads android.config.googleMaps.
+const mapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
+
 const config: ExpoConfig = {
   name: "Dragons Curier",
   slug: "dragons-curier",
@@ -44,11 +50,14 @@ const config: ExpoConfig = {
       "POST_NOTIFICATIONS",
     ],
     predictiveBackGestureEnabled: false,
+    ...(mapsKey ? { config: { googleMaps: { apiKey: mapsKey } } } : {}),
   },
   web: {
     favicon: "./assets/favicon.png",
   },
   plugins: [
+    "expo-font",
+    "expo-status-bar",
     [
       "expo-location",
       {
@@ -69,6 +78,7 @@ const config: ExpoConfig = {
       },
     ],
     "expo-task-manager",
+    ...(mapsKey ? [["react-native-maps", { androidGoogleMapsApiKey: mapsKey }] as [string, object]] : []),
     // The app never uses Face ID: without this the plugin adds an English
     // NSFaceIDUsageDescription to Info.plist.
     ["expo-secure-store", { faceIDPermission: false }],
