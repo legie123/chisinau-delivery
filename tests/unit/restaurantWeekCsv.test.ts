@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { foodValue, weekCsv, type CsvOrder } from "@/app/(admin)/restaurant/earnings/csv";
+import { dayRange, foodValue, weekCsv, type CsvOrder } from "@/app/(admin)/restaurant/earnings/csv";
 
 const std: CsvOrder = {
   order_number: "CHD-1",
@@ -31,5 +31,17 @@ describe("restaurant weekly CSV", () => {
 
   it("quotes cells that contain the separator", () => {
     expect(weekCsv([{ ...std, order_number: 'A;"B' }]).split("\r\n")[1].startsWith('"A;""B"')).toBe(true);
+  });
+});
+
+describe("dayRange (Chișinău day)", () => {
+  it("is local midnight to local midnight", () => {
+    const { start, end } = dayRange("2026-10-12");
+    expect(start.toISOString()).toBe("2026-10-11T21:00:00.000Z"); // 00:00 EEST
+    expect(end.toISOString()).toBe("2026-10-12T21:00:00.000Z");
+  });
+  it("keeps the DST day at 25 h (clocks go back on 25 Oct 2026)", () => {
+    const { start, end } = dayRange("2026-10-25");
+    expect((end.getTime() - start.getTime()) / 3_600_000).toBe(25);
   });
 });

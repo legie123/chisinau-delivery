@@ -1,3 +1,4 @@
+import { todayStart } from "@chisinau/shared-domain";
 import { PAYMENT_METHOD_LABEL, type PaymentMethod } from "@/lib/types/domain";
 
 // Weekly sales report for the partner, as CSV for Excel in Romanian locale:
@@ -43,4 +44,11 @@ export function weekCsv(orders: CsvOrder[]): string {
   }
   rows.push(["TOTAL", "", "", `${orders.length} comenzi`, money(Math.round(total * 100) / 100)]);
   return "﻿" + rows.map((r) => r.map(cell).join(";")).join("\r\n") + "\r\n";
+}
+
+/** One Chișinău calendar day "YYYY-MM-DD" as [start, end) instants. Anchored at noon so a
+ *  DST day keeps its real length (25 Oct 2026 lasts 25 h), never start + 24 h. */
+export function dayRange(day: string): { start: Date; end: Date } {
+  const noon = Date.parse(`${day}T12:00:00Z`);
+  return { start: todayStart(new Date(noon)), end: todayStart(new Date(noon + 86_400_000)) };
 }

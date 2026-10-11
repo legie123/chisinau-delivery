@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { currentWeekRange } from "@chisinau/shared-domain";
+import { chisinauDate, currentWeekRange } from "@chisinau/shared-domain";
+import { dayRange, foodValue, type CsvOrder } from "./csv";
 import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { Payout } from "@/lib/types/domain";
 import { PayoutAccountForm } from "@/components/admin/PayoutAccountForm";
@@ -51,13 +52,17 @@ export default async function RestaurantEarningsPage() {
   }
 
   const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
+  // Daily settlement: today's delivered orders (same basis as the payouts) + what didn't happen.
+  const today = chisinauDate(new Date());
+  const { start: dayStart, end: dayEnd } = dayRange(today);
+  const lastDays = [0, 1, 2, 3, 4, 5, 6].map((i) => chisinauDate(new Date(dayStart.getTime() - i * 86_400_000 + 12 * 3_600_000)));
   // Current + 3 previous Chișinău weeks for the CSV export links.
   const exportWeeks = [0, 1, 2, 3].map((i) => {
     const w = currentWeekRange(new Date(weekStart.getTime() - i * 7 * 86_400_000 + 12 * 3_600_000));
     return { startDate: w.startDate, endDate: new Date(w.end.getTime() - 12 * 3_600_000).toISOString().slice(0, 10) };
   });
 
-  const [{ data: weekOrders }, { data: payoutRows }, { data: account }] = await Promise.all([
+  const [{ data: weekOrders }, { data: payoutRows }, { data: todayRows }, { data: account }] = await Promise.all([
     // Money basis matches the Wave-1 payout logic: paid + keyed off delivered_at,
     // and catering counts too (its food value = total - fee - tip). (audit #8/#13)
     supabase
@@ -74,6 +79,11 @@ export default async function RestaurantEarningsPage() {
       .eq("recipient_type", "restaurant")
       .eq("recipient_id", staffRow.restaurant_id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("orders")
+      .select("order_number, delivered_at, order_type, payment_method, subtotal_mdl, total_mdl, delivery_fee_mdl, tip_mdl, status, payment_status, created_at")
+      .eq("restaurant_id", staffRow.restaurant_id)
+      .or(`and(status.eq.delivered,delivered_at.gte.${dayStart.toISOString()},delivered_at.lt.${dayEnd.toISOString()}),and(status.in.(rejected,cancelled),created_at.gte.${dayStart.toISOString()},created_at.lt.${dayEnd.toISOString()})`),
     supabase
       .from("payout_accounts")
       .select("iban, holder_name")
@@ -118,6 +128,44 @@ export default async function RestaurantEarningsPage() {
       </PremiumReveal>
 
       <PayoutAccountForm current={account} />
+
+      {(() => {
+        const rows = (todayRows ?? []) as (CsvOrder & { status: string; payment_status: string })[];
+        const delivered = rows.filter((o) => o.status === "delivered" && o.payment_status === "paid");
+        const lost = rows.filter((o) => o.status !== "delivered");
+        const value = Math.round(delivered.reduce((s, o) => s + foodValue(o), 0) * 100) / 100;
+        return (
+          <section className="pg-card mb-8 rounded-2xl p-5">
+            <h2 className="pg-gold-text mb-3 text-sm font-semibold uppercase tracking-wide">Decont azi</h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-xs text-white/40">Livrate</p>
+                <p className="mt-0.5 text-lg font-semibold text-white">{delivered.length}</p>
+              </div>
+              <div>
+                <p className="text-xs text-white/40">Valoare mâncare</p>
+                <p className="pg-gold-text mt-0.5 text-lg font-bold">{value.toFixed(2)} MDL</p>
+              </div>
+              <div>
+                <p className="text-xs text-white/40">Refuzate / anulate</p>
+                <p className="mt-0.5 text-lg font-semibold text-white/70">{lost.length}</p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-white/55">CSV pe zi:</span>
+              {lastDays.map((d, i) => (
+                <a
+                  key={d}
+                  href={`/restaurant/earnings/export?day=${d}`}
+                  className="min-h-11 content-center rounded-full bg-white/5 px-3.5 text-xs text-white/75 ring-1 ring-white/10 transition hover:bg-white/10"
+                >
+                  {i === 0 ? "Azi" : fmtDate(d)}
+                </a>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
 
       <div className="mb-8 flex flex-wrap items-center gap-2 text-sm">
         <span className="text-white/55">Raport vânzări (CSV, Excel):</span>
