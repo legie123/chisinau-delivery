@@ -3912,6 +3912,10 @@ export type Database = {
       }
       expire_dispatch_offers: { Args: never; Returns: number }
       expire_stale_orders: { Args: never; Returns: number }
+      extend_prep_time: {
+        Args: { p_minutes: number; p_order_id: string }
+        Returns: string
+      }
       generate_order_number: { Args: never; Returns: string }
       generate_payouts_internal: {
         Args: { p_end: string; p_start: string }
