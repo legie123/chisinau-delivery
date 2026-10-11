@@ -39,3 +39,25 @@ export async function setCourierTariff(
   if (error) throw new RpcError(error);
   return data as string;
 }
+
+/**
+ * Admin sets a NEW commission version (courier % and restaurant %, 0..100). Versioned + immutable
+ * like the tariff; payouts read the version in effect at each order's delivered_at, which is why
+ * a version can never start in the past through the API (migration 20261012000491).
+ */
+export async function setPricingConfig(
+  db: Db,
+  courierPct: number,
+  restaurantPct: number,
+  effectiveFrom: string,
+  note: string,
+): Promise<string> {
+  const { data, error } = await db.rpc("set_pricing_config", {
+    p_courier_pct: courierPct,
+    p_restaurant_pct: restaurantPct,
+    p_effective_from: effectiveFrom,
+    p_note: note,
+  });
+  if (error) throw new RpcError(error);
+  return data as string;
+}

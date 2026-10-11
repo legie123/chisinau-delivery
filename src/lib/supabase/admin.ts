@@ -4,7 +4,10 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 // Service-role client — bypasses RLS entirely. Only import this from Server
 // Actions/Route Handlers that have already verified the caller is
 // platform_admin. Never expose SUPABASE_SERVICE_ROLE_KEY to the client.
-export function createAdminClient() {
+// actorId: the verified admin this call acts for. It travels as the
+// `x-audit-actor` header, which the admin_audit_log trigger reads; without it a
+// service-role write counts as a system job (webhook, push) and is not audited.
+export function createAdminClient(actorId?: string) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -20,5 +23,6 @@ export function createAdminClient() {
 
   return createSupabaseClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
+    global: actorId ? { headers: { "x-audit-actor": actorId } } : undefined,
   });
 }

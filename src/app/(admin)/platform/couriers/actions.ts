@@ -10,7 +10,7 @@ export type ActionState = { error: string | null };
 
 export async function inviteCourier(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    await requirePlatformAdmin();
+    const { user: actor } = await requirePlatformAdmin();
 
     const email = String(formData.get("email") ?? "").trim();
     const fullName = String(formData.get("full_name") ?? "").trim();
@@ -21,7 +21,7 @@ export async function inviteCourier(_prev: ActionState, formData: FormData): Pro
       return { error: "Email, nume și telefon sunt obligatorii." };
     }
 
-    const admin = createAdminClient();
+    const admin = createAdminClient(actor.id);
 
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, role: "courier" },

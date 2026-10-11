@@ -60,7 +60,7 @@ export async function createRestaurant(_prev: ActionState, formData: FormData): 
 
 export async function invitePartner(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    await requirePlatformAdmin();
+    const { user: actor } = await requirePlatformAdmin();
 
     const restaurantId = String(formData.get("restaurant_id") ?? "");
     const email = String(formData.get("email") ?? "").trim();
@@ -70,7 +70,7 @@ export async function invitePartner(_prev: ActionState, formData: FormData): Pro
       return { error: "Restaurant, email și nume sunt obligatorii." };
     }
 
-    const admin = createAdminClient();
+    const admin = createAdminClient(actor.id);
 
     const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, role: "restaurant_partner" },

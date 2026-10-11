@@ -61,5 +61,6 @@ export function safetyTabs(openFlags?: number): SectionTab[] {
   return [
     { href: "/platform/fraud", label: "Semnalări", badge: openFlags },
     { href: "/platform/ratings", label: "Reclamații" },
+    { href: "/platform/audit", label: "Audit" },
   ];
 }
