@@ -1827,7 +1827,7 @@ export type Database = {
         Row: {
           cancellation_reason: string | null
           courier_arrived_restaurant_at: string | null
-          courier_fee_distance_assumed: boolean
+          courier_fee_distance_assumed: boolean | null
           courier_fee_mdl: number | null
           courier_fee_quoted_mdl: number | null
           courier_fee_surcharge_mdl: number | null
@@ -1858,7 +1858,7 @@ export type Database = {
         Insert: {
           cancellation_reason?: string | null
           courier_arrived_restaurant_at?: string | null
-          courier_fee_distance_assumed?: boolean
+          courier_fee_distance_assumed?: boolean | null
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
           courier_fee_surcharge_mdl?: number | null
@@ -1889,7 +1889,7 @@ export type Database = {
         Update: {
           cancellation_reason?: string | null
           courier_arrived_restaurant_at?: string | null
-          courier_fee_distance_assumed?: boolean
+          courier_fee_distance_assumed?: boolean | null
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
           courier_fee_surcharge_mdl?: number | null
@@ -3584,6 +3584,10 @@ export type Database = {
       attach_delivery_proof: {
         Args: { p_order_id: string; p_path: string }
         Returns: undefined
+      }
+      backfill_courier_fee_distance_assumed: {
+        Args: { p_delivered_before: string }
+        Returns: number
       }
       cancel_order: {
         Args: { p_order_id: string; p_reason: string }

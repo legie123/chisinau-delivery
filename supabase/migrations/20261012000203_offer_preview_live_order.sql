@@ -40,3 +40,6 @@ $function$;
 
 comment on column public.orders.courier_fee_distance_assumed is
   'True when, at delivery, courier_fee_mdl was computed with the 6.0 km fallback because a pin was missing. The quote stamped at ready_for_pickup is a floor and can decide the paid amount, so if a pin changed after ready the flag can disagree with the quote (admin edit of the restaurant pin). Review flagged orders AND delivered orders with a missing pin.';
+
+-- ROLLBACK (after 20261012000204's): re-run lines 19-44 of 20261012000201_offer_preview.sql (offer_preview
+-- without the order-status check) and the column comment at lines 25-26 of 20261012000202_courier_fee_distance_assumed.sql.
