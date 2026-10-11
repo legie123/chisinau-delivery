@@ -3,6 +3,7 @@
 > Generat 2026-10-11 din sesiunea CLIENT (paritate Bolt Food, chisinau-delivery). Repo: `~/code/chisinau-delivery`, branch `main`, ultimul commit la scriere: vezi `git log -1`. Lucrezi DOAR pe suprafața ta; restul e al celorlalte 3 sesiuni.
 
 ## 0. Citește întâi (în ordinea asta)
+0. **`docs/handoff/PLAN-CONSTRUCTIE.md`** — etapele sectorului tău și punctele de sincronizare cu celelalte terminale.
 1. `CLAUDE.md` din repo (regulile dure 1–9, „If you touch X”) + `AGENTS.md` (Next 16 ≠ ce știi).
 2. `replica/plan-paritate.md` (planul W1–W7, decis prin dezbatere + red-team) și `replica/gap-map.csv` (157 funcții Bolt vs cod, cu dovezi).
 3. `.bucla/progress.md` secțiunea „2026-10-11 — Paritate Bolt Food”.
