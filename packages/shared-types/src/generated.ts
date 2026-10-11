@@ -1378,6 +1378,7 @@ export type Database = {
           photo_url: string | null
           price_mdl: number
           restaurant_id: string
+          sold_out_until: string | null
           sort_order: number
           updated_at: string
         }
@@ -1393,6 +1394,7 @@ export type Database = {
           photo_url?: string | null
           price_mdl: number
           restaurant_id: string
+          sold_out_until?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -1408,6 +1410,7 @@ export type Database = {
           photo_url?: string | null
           price_mdl?: number
           restaurant_id?: string
+          sold_out_until?: string | null
           sort_order?: number
           updated_at?: string
         }
@@ -1618,6 +1621,88 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      order_complaints: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          note: string
+          order_id: string
+          resolution: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind: string
+          note: string
+          order_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          note?: string
+          order_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_complaints_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "order_complaints_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_complaints_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_complaints_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_complaints_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_complaints_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_items: {
         Row: {
@@ -3307,6 +3392,10 @@ export type Database = {
         Args: { p_payout_id: string }
         Returns: undefined
       }
+      admin_open_complaint: {
+        Args: { p_kind: string; p_note: string; p_order_id: string }
+        Returns: string
+      }
       admin_pilot_go_no_go: {
         Args: never
         Returns: {
@@ -3319,6 +3408,10 @@ export type Database = {
       admin_pilot_go_no_go_surge_pct: { Args: never; Returns: number }
       admin_reassign_courier: {
         Args: { p_new_courier_id: string; p_order_id: string }
+        Returns: undefined
+      }
+      admin_resolve_complaint: {
+        Args: { p_complaint_id: string; p_resolution: string }
         Returns: undefined
       }
       admin_scaling_triggers: {
@@ -3827,6 +3920,10 @@ export type Database = {
           p_note?: string
         }
         Returns: string
+      }
+      set_menu_item_sold_out: {
+        Args: { p_item_id: string; p_mode: string }
+        Returns: undefined
       }
       set_order_tip: {
         Args: { p_order_id: string; p_tip_mdl: number }
