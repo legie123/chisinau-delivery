@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { subscribeTable } from "@/lib/realtime/subscribeTable";
 import { ReconnectNotice } from "@/components/shared/ReconnectNotice";
 import { kitchenAlertAudio } from "@/lib/kitchen/alertAudio";
+import { duePending, newArrivals, type PendingOrder } from "@/lib/kitchen/queueAlarm";
 import type { Order } from "@/lib/types/domain";
 
 const ALERT_TITLE = "🔴 Comandă nouă!";
@@ -21,15 +22,19 @@ const ALERT_FAVICON =
 // A new pending_restaurant row also starts an out-of-band alert (#8): the
 // 7-minute accept SLA means a silent list update is easy to miss if the
 // partner isn't staring at the screen. The alert (beep + flashing title +
-// flashing favicon + best-effort Notification) stays active until the
-// partner interacts with the page or the last pending order is resolved.
-// pendingCount is optional — this component is also mounted on the catering
-// page (out of scope here) purely for its live-refresh behavior, which never
-// deals in pending_restaurant orders and so never raises the alert anyway.
-// When omitted, the alert (once started) only clears on interaction.
+// flashing favicon + best-effort Notification) stays active while an order is
+// due (accept clock running) — a tap does not silence it, Accept/Reject does.
+// `pending` is optional — this component is also mounted on the catering page
+// purely for its live-refresh behavior; without it there is no alarm.
+// G2 (2026-10-12, measured with a real socket cut): the alarm used to start only on a
+// realtime INSERT and stop on any tap, and the degraded-mode poll called router.refresh()
+// offline — Next then hard-navigated, the service worker swapped the queue for its offline
+// screen, and after reconnect the reloaded page had sound locked: the order arrived silently.
+// Now the alarm is derived from the queue (due orders ring until Accept/Reject), every
+// refresh first probes the network, and the page stays alive through the outage.
 export function OrderQueueLive({
   restaurantId,
-  pendingCount,
+  pending,
   // Pastila de conexiune, redată INLINE acolo unde stă componenta. Pagina de
   // comenzi avea o pastilă „● Live" scrisă de mână lângă titlu, iar componenta
   // asta — care ȘTIE când conexiunea a căzut — arăta în același timp banda
@@ -39,16 +44,20 @@ export function OrderQueueLive({
   showConnection = false,
 }: {
   restaurantId: string;
-  pendingCount?: number;
+  /** The queue's pending_restaurant orders (orders page only; catering omits it). */
+  pending?: PendingOrder[];
   showConnection?: boolean;
 }) {
   const router = useRouter();
-  // Raw "a new order arrived and hasn't been acknowledged yet" signal. The
-  // effective alert also requires pendingCount > 0 (derived below) so it
-  // self-clears once the order is resolved (accepted/rejected/auto-cancelled)
-  // without needing a setState call inside an effect body for that case.
-  const [newOrderSignal, setNewOrderSignal] = useState(false);
-  const alerting = newOrderSignal && (pendingCount === undefined || pendingCount > 0);
+  // Two alarm sources: due orders (ring until acted on) and a not-yet-acknowledged new
+  // arrival (e.g. a scheduled order: rings until the first tap).
+  const [arrivalSignal, setArrivalSignal] = useState(false);
+  const [now, setNow] = useState(Date.now);
+  const dueCount = pending ? duePending(pending, now).length : 0;
+  const alerting = dueCount > 0 || (arrivalSignal && (pending?.length ?? 0) > 0);
+  const [netDown, setNetDown] = useState(false);
+  const [epoch, setEpoch] = useState(0); // bumped on "online" → fresh realtime subscription
+  const seenRef = useRef<Set<string> | null>(null);
   // Realtime degradation: if the websocket drops (CHANNEL_ERROR/TIMED_OUT), the
   // queue would silently freeze on stale data — a restaurant would MISS orders.
   // We surface a banner + fall back to polling so new orders keep arriving.
@@ -91,35 +100,92 @@ export function OrderQueueLive({
     };
   }, [showConnection]);
 
+  // Refresh only after a same-origin probe succeeds: router.refresh() while offline makes
+  // Next fall back to a full navigation, which loses the page and its unlocked sound.
+  const safeRefresh = useCallback(async () => {
+    try {
+      const r = await fetch("/manifest.webmanifest", { method: "HEAD", cache: "no-store" });
+      if (r.status >= 500) throw new Error(String(r.status));
+    } catch {
+      setNetDown(true);
+      return;
+    }
+    setNetDown(false);
+    router.refresh();
+  }, [router]);
+
   useEffect(() => {
     const supabase = createClient();
+    let wasDegraded = false;
     return subscribeTable<Order>(
       supabase,
       "restaurant-queue",
       "orders",
       `restaurant_id=eq.${restaurantId}`,
-      (payload) => {
-        if (payload.eventType === "INSERT" && payload.new.status === "pending_restaurant") {
-          setNewOrderSignal(true);
-        }
-        router.refresh();
+      () => void safeRefresh(),
+      () => {
+        wasDegraded = true;
+        setConnection("degraded");
       },
-      () => setConnection("degraded"), // onDegraded
-      () => setConnection("live"), // onHealthy (SUBSCRIBED / recuperat)
+      () => {
+        setConnection("live");
+        // Catch-up: events missed while the socket was down are not replayed.
+        if (wasDegraded) void safeRefresh();
+        wasDegraded = false;
+      },
     );
-  }, [restaurantId, router]);
+  }, [restaurantId, safeRefresh, epoch]);
 
-  // Polling fallback while degraded — keeps the queue fresh without realtime.
+  // Back online: resubscribe now (don't wait for the socket's backoff) and catch up.
   useEffect(() => {
-    if (!degraded) return;
-    const id = setInterval(() => router.refresh(), 10000);
+    const onOnline = () => {
+      setEpoch((e) => e + 1);
+      void safeRefresh();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [safeRefresh]);
+
+  // Polling fallback whenever realtime isn't confirmed live (or the network probe failed).
+  useEffect(() => {
+    if (connection === "live" && !netDown) return;
+    const id = setInterval(() => void safeRefresh(), 10000);
     return () => clearInterval(id);
-  }, [degraded, router]);
+  }, [connection, netDown, safeRefresh]);
 
-  // Any interaction with the dashboard counts as "the partner has seen this".
+  // Clock for "due": a scheduled order starts ringing 60 min before its window.
   useEffect(() => {
-    if (!alerting) return;
-    const acknowledge = () => setNewOrderSignal(false);
+    if (!pending?.length) return;
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, [pending?.length]);
+
+  // New arrivals (by id, so polling and reloads count too — not only realtime INSERTs).
+  const pendingKey = (pending ?? []).map((o) => o.id).join(",");
+  useEffect(() => {
+    if (!pending) return;
+    const fresh = newArrivals(pending, seenRef.current);
+    seenRef.current = new Set(pending.map((o) => o.id));
+    if (fresh.length === 0) return;
+    setArrivalSignal(true);
+    if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+      try {
+        new Notification("Comandă nouă!", {
+          body: "O comandă nouă așteaptă confirmare — SLA de acceptare în curs.",
+          tag: "new-order-alert",
+        });
+      } catch {
+        // Notification constructor can throw in some contexts (e.g. no OS support) — non-fatal.
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the id list
+  }, [pendingKey]);
+
+  // A tap acknowledges a NEW ARRIVAL that isn't due yet (a scheduled order). It never
+  // silences a due order: that rings until Accept/Reject removes it from the queue.
+  useEffect(() => {
+    if (!arrivalSignal) return;
+    const acknowledge = () => setArrivalSignal(false);
     document.addEventListener("click", acknowledge, { once: true });
     document.addEventListener("keydown", acknowledge, { once: true });
     window.addEventListener("focus", acknowledge, { once: true });
@@ -128,7 +194,7 @@ export function OrderQueueLive({
       document.removeEventListener("keydown", acknowledge);
       window.removeEventListener("focus", acknowledge);
     };
-  }, [alerting]);
+  }, [arrivalSignal]);
 
   // Audible ping, repeated — a muted tab or a partner not looking at the
   // screen still needs a chance to notice within the SLA window. A beep that
@@ -175,23 +241,10 @@ export function OrderQueueLive({
     };
   }, [alerting]);
 
-  // Best-effort native Notification — only if the partner already granted
-  // permission (never asks mid-alert; that would need a user gesture anyway).
+  // Ask once for notification permission while ringing (needs no gesture to *ask* on most browsers).
   useEffect(() => {
-    if (!alerting) return;
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission === "granted") {
-      try {
-        new Notification("Comandă nouă!", {
-          body: "O comandă nouă așteaptă confirmare — SLA de acceptare în curs.",
-          tag: "new-order-alert",
-        });
-      } catch {
-        // Notification constructor can throw in some contexts (e.g. no OS support) — non-fatal.
-      }
-    } else if (Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
-    }
+    if (!alerting || typeof Notification === "undefined") return;
+    if (Notification.permission === "default") Notification.requestPermission().catch(() => {});
   }, [alerting]);
 
   const pill = showConnection ? (
@@ -213,6 +266,30 @@ export function OrderQueueLive({
       </span>
     )
   ) : null;
+
+  // Sound is locked (e.g. the page was reloaded) while an order is ringing: the beep
+  // can't play, so the whole screen asks for the one tap that restores it.
+  const soundLockedOverlay =
+    showConnection && alerting && !soundOn ? (
+      <button
+        type="button"
+        onClick={() => {
+          void kitchenAlertAudio.unlock().then(() => setSoundOn(kitchenAlertAudio.running()));
+        }}
+        className="fixed inset-0 z-50 flex animate-pulse flex-col items-center justify-center gap-3 bg-primary/90 text-center text-white"
+      >
+        <span className="text-5xl" aria-hidden>🔔</span>
+        <span className="font-serif text-3xl font-bold">Comandă nouă</span>
+        <span className="text-base">Atinge ecranul ca să pornești sunetul</span>
+      </button>
+    ) : null;
+
+  const netBanner =
+    showConnection && netDown ? (
+      <div role="status" className="w-full rounded-xl bg-amber-500/15 px-3 py-2 text-sm text-amber-100 ring-1 ring-amber-400/30">
+        Fără internet — nu închide aplicația. Comenzile noi apar și sună singure când revine semnalul.
+      </div>
+    ) : null;
 
   const kitchenControls = showConnection ? (
     <span className="inline-flex flex-wrap items-center gap-2">
@@ -240,6 +317,8 @@ export function OrderQueueLive({
       <>
         {pill}
         {kitchenControls}
+        {netBanner}
+        {soundLockedOverlay}
       </>
     );
   // A treia plasare a acestei benzi, și de data asta măsurată, nu aleasă.
@@ -264,6 +343,8 @@ export function OrderQueueLive({
   return (
     <>
       {kitchenControls}
+      {netBanner}
+      {soundLockedOverlay}
       <div className="w-full">
         <ReconnectNotice detail="coada se reîmprospătează automat" placement="flow" />
       </div>

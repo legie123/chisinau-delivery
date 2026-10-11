@@ -75,7 +75,6 @@ export default async function RestaurantOrdersPage() {
     rawOrders.map((o) => [o.id, (o.order_items ?? []) as OrderItem[]]),
   );
   const orderList = rawOrders as unknown as Order[];
-  const pendingCount = orderList.filter((o) => o.status === "pending_restaurant").length;
 
   // Pickup coordination: a courier assigned to one of our orders is heading here.
   // Name + phone come from restaurant_courier_contact: partners have no read on
@@ -138,7 +137,13 @@ export default async function RestaurantOrdersPage() {
               „Reconectare la actualizări live…". Acum o desenează componenta
               care ține conexiunea — un singur adevăr, în locul a două. */}
           {staffRow && (
-            <OrderQueueLive restaurantId={staffRow.restaurant_id} pendingCount={pendingCount} showConnection />
+            <OrderQueueLive
+              restaurantId={staffRow.restaurant_id}
+              pending={orderList
+                .filter((o) => o.status === "pending_restaurant")
+                .map((o) => ({ id: o.id, created_at: o.created_at, requested_for: o.requested_for }))}
+              showConnection
+            />
           )}
         </div>
         {prepEstimate && (
