@@ -100,3 +100,12 @@ Re-verifică fiecare rând în cod înainte să-l construiești — gap-map-ul e
 ```
 Citește integral ~/code/chisinau-delivery/docs/handoff/HANDOFF-RESTAURANT.md și lucrează pe suprafața RESTAURANT după regulile de acolo. /bucla
 ```
+
+## 10. Stare RESTAURANT (BOOT nucleu, 2026-10-12)
+**Ramuri.** UI-ul sectorului: ramura `sector/restaurant`, worktree `~/code/chisinau-delivery-restaurant` (checkout-ul comun nu se poate muta de pe `main` fără să rupă celelalte 3 sesiuni). Contractul comun (migrații, sim-uri, rollback-uri, tipuri, docs/handoff) intră pe `main`, separat de UI. `:3003` rulează din worktree. Baza `main` a ramurii: 22f5f3b.
+**Baseline (worktree, 2026-10-12):** `tsc --noEmit` 0 erori · vitest 38 fișiere / 313 teste verzi · `npm run test:rpc` „RPC SUITE: all green” (103 fișiere) · `apps/restaurant` `next build` OK, 13 rute restaurant.
+**Dovedit (commit + sim/browser):** busy mode 1297569+b4a23e7 (sim 200 B1–B11; red-team F1–F5 reparate) · card curier cu telefon f8631ef (sim 201) · istoric 30 zile + bon 58 mm 99d51f4 (sim 202, control cu politica deschisă = roșu) · „Epuizat” e278517 (sim 203) · IBAN 7c36a71 · CSV săptămânal e368a0c (unit + DB = CSV: 34 comenzi / 29 920,00) · import meniu 624d049 (unit + browser) · verificare tabletă 49cde5e (browser).
+**Doar declarat (nedovedit încă):** comportamentul pe tabletă reală (nu există dispozitiv/adb/simulator pe Mac) · reconectarea realtime sub tăiere de rețea · testul de sistem cap-coadă (E2E comite date, cere OK).
+**Datorie găsită la BOOT:** sim-urile 200/201/203 testează refuzurile cu `exception when others` → trec și dacă funcția lipsește (fals-verde) — de reparat la primul gate; migrațiile 000301–000304 n-au rollback scris (regula nouă) — de adăugat.
+**Instrumente:** skill-ul de replică și `/debug` NU sunt instalate; matricea se face din `replica/` (recon public-only, verificat: 0 mențiuni de decompilare) + cod. Agenți: `t-verify`, `t-redteam`, `t-scan`. Ruflo: fără tool-uri în sesiune (carantină globală). Browserul Playwright MCP e ocupat de altă sesiune → Chromium headless izolat din script.
+**BLOCKED:** G5 dispozitiv real (hardware) · testul de sistem `npm run test:e2e` (comite date `E2E-*`, cere OK de la user).
