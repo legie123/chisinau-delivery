@@ -72,16 +72,25 @@ export default async function RestaurantOrdersPage() {
   const pendingCount = orderList.filter((o) => o.status === "pending_restaurant").length;
 
   // Pickup coordination: a courier assigned to one of our orders is heading here.
+  // Name + phone come from restaurant_courier_contact: partners have no read on
+  // `couriers` under RLS (the old direct select always returned null).
   const assigned = orderList.find((o) => o.status === "courier_assigned" && o.courier_id);
-  let pickupCourier: { id: string; name: string | null; pos: { lat: number; lng: number } | null } | null = null;
-  if (assigned?.courier_id && restaurantPoint) {
-    const [{ data: cl }, { data: c }] = await Promise.all([
+  let pickupCourier: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    pos: { lat: number; lng: number } | null;
+  } | null = null;
+  if (assigned?.courier_id) {
+    const [{ data: cl }, { data: contact }] = await Promise.all([
       supabase.from("courier_locations").select("lat, lng").eq("courier_id", assigned.courier_id).maybeSingle(),
-      supabase.from("couriers").select("full_name").eq("id", assigned.courier_id).maybeSingle(),
+      supabase.rpc("restaurant_courier_contact", { p_order_id: assigned.id }),
     ]);
+    const c = contact?.[0];
     pickupCourier = {
       id: assigned.courier_id,
-      name: (c as { full_name: string } | null)?.full_name ?? null,
+      name: c?.first_name || null,
+      phone: c?.phone || null,
       pos: cl?.lat != null && cl?.lng != null ? { lat: cl.lat, lng: cl.lng } : null,
     };
   }
@@ -165,8 +174,24 @@ export default async function RestaurantOrdersPage() {
         </ul>
       )}
 
+      {pickupCourier && (
+        <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 text-sm ring-1 ring-white/10">
+          <span className="text-white/80">
+            🛵 Curier: <span className="font-semibold text-white">{pickupCourier.name ?? "atribuit"}</span>
+            {assigned && <span className="text-white/45"> · {assigned.order_number}</span>}
+          </span>
+          {pickupCourier.phone && (
+            <a
+              href={`tel:${pickupCourier.phone}`}
+              className="ml-auto inline-flex min-h-11 items-center rounded-full bg-white/10 px-4 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
+            >
+              📞 Sună curierul · {pickupCourier.phone}
+            </a>
+          )}
+        </div>
+      )}
       {restaurantPoint && pickupCourier && (
-        <div className="mt-6">
+        <div className="mt-3">
           <RestaurantPickupMap
             key={pickupCourier.id}
             restaurant={restaurantPoint}

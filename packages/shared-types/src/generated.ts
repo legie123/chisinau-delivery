@@ -3746,6 +3746,13 @@ export type Database = {
         Args: { p_order_id: string; p_reason: string }
         Returns: undefined
       }
+      restaurant_courier_contact: {
+        Args: { p_order_id: string }
+        Returns: {
+          first_name: string
+          phone: string
+        }[]
+      }
       restaurant_has_active_order_with_courier: {
         Args: { target_courier: string }
         Returns: boolean
