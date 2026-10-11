@@ -13,7 +13,10 @@ export type Db = SupabaseClient<Database>;
 const WRAP = { HOME: process.env.HOME ?? "", PATH: "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin" } as unknown as NodeJS.ProcessEnv;
 
 function stackEnv(): Record<string, string> {
-  const out = execFileSync("supabase", ["status", "-o", "env"], { env: WRAP, encoding: "utf8" });
+  // Through scripts/supabase-status.sh: it loads the rotated JWT secret that config.toml reads via
+  // env(); plain `supabase status` derives the keys from the unresolved literal (79dc0ee).
+  const script = path.resolve(process.cwd(), "scripts/supabase-status.sh");
+  const out = execFileSync("bash", [script], { env: WRAP, encoding: "utf8" });
   const env: Record<string, string> = {};
   for (const m of out.matchAll(/^([A-Z_]+)="(.*)"$/gm)) env[m[1]] = m[2];
   if (!env.API_URL || !env.ANON_KEY) throw new Error("Local Supabase is not running (bash scripts/supabase-up.sh).");

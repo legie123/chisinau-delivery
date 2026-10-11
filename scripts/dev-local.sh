@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."
 WRAP=(env -i HOME="$HOME" PATH="/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin")
 
 # Local Supabase URL / anon / service-role keys from the running local stack.
-eval "$(bash scripts/supabase-status.sh 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY')"
+eval "$(bash scripts/supabase-status.sh 2>/dev/null | grep -E '^API_URL|^ANON_KEY|^SERVICE_ROLE_KEY|^JWT_SECRET')"
 if [ -z "${API_URL:-}" ]; then
   echo "✗ Local Supabase isn't running. Start it first:  supabase start" >&2
   exit 1
@@ -51,6 +51,7 @@ NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 SUPABASE_SERVICE_ROLE_KEY="${SERVICE_ROLE_KEY:-}" \
 PUSH_DRAIN_SECRET="${PUSH_DRAIN_SECRET:-}" \
+SUPABASE_JWT_SECRET="${JWT_SECRET:-}" \
 ENABLE_MASTER_DOORWAY="true" \
 MASTER_DOORWAY_USER="$MASTER_DOORWAY_USER" \
 MASTER_DOORWAY_PASS="${MASTER_DOORWAY_PASS:-}" \
