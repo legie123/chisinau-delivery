@@ -1709,6 +1709,7 @@ export type Database = {
         Row: {
           cancellation_reason: string | null
           courier_arrived_restaurant_at: string | null
+          courier_fee_distance_assumed: boolean
           courier_fee_mdl: number | null
           courier_fee_quoted_mdl: number | null
           courier_fee_surcharge_mdl: number | null
@@ -1739,6 +1740,7 @@ export type Database = {
         Insert: {
           cancellation_reason?: string | null
           courier_arrived_restaurant_at?: string | null
+          courier_fee_distance_assumed?: boolean
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
           courier_fee_surcharge_mdl?: number | null
@@ -1769,6 +1771,7 @@ export type Database = {
         Update: {
           cancellation_reason?: string | null
           courier_arrived_restaurant_at?: string | null
+          courier_fee_distance_assumed?: boolean
           courier_fee_mdl?: number | null
           courier_fee_quoted_mdl?: number | null
           courier_fee_surcharge_mdl?: number | null
