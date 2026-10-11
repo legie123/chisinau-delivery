@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPrepEstimates } from "@chisinau/shared-api";
 import { OrderQueueRow } from "@/components/admin/OrderQueueRow";
@@ -118,6 +119,9 @@ export default async function RestaurantOrdersPage() {
             strivi titlul în loc să coboare sub el. */}
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className="pg-gold-text font-serif text-2xl font-bold">Comenzi</h1>
+          <Link href="/restaurant/orders/history" className="text-xs text-white/50 transition hover:text-gold hover:underline">
+            Istoric 30 zile →
+          </Link>
           {/* Pastila „Live" era scrisă aici de mână, deci rămânea aprinsă și
               atunci când `OrderQueueLive` afișa în josul ACELEIAȘI pagini banda
               „Reconectare la actualizări live…". Acum o desenează componenta

@@ -438,3 +438,30 @@
   }
   .pg-shimmer { background-position: 50% 0; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Kitchen ticket (bon) — printed from /restaurant/orders/[id] on a 58 mm
+   thermal printer (Sunmi-style tablets print through the system dialog).
+   Scoped with :has() because this sheet is also loaded on customer pages:
+   only a page that renders a .kitchen-ticket hides everything else.
+   ───────────────────────────────────────────────────────────────────── */
+.kitchen-ticket { display: none; }
+@media print {
+  @page { size: 58mm auto; margin: 0; }
+  html:has(.kitchen-ticket), body:has(.kitchen-ticket) { background: #fff !important; }
+  body:has(.kitchen-ticket) * { visibility: hidden; background: transparent !important; }
+  body:has(.kitchen-ticket) .kitchen-ticket,
+  body:has(.kitchen-ticket) .kitchen-ticket * { visibility: visible; }
+  .kitchen-ticket {
+    display: block;
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 58mm;
+    padding: 2mm;
+    box-sizing: border-box;
+    color: #000;
+    background: #fff;
+    font: 11px/1.35 ui-monospace, Menlo, monospace;
+  }
+  .kitchen-ticket hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+}

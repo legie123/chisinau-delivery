@@ -11,6 +11,7 @@ import {
 } from "@/lib/types/domain";
 import { formatScheduledFor } from "@/lib/orders/scheduled";
 import { RestaurantCancelControl } from "@/components/admin/RestaurantCancelControl";
+import { KitchenTicket } from "@/components/admin/KitchenTicket";
 
 const ACTOR_LABEL: Record<string, string> = {
   customer: "Client",
@@ -77,6 +78,15 @@ export default async function RestaurantOrderDetailPage({ params }: { params: Pr
             Catering
           </span>
         )}
+      </div>
+
+      <div className="mb-5">
+        <KitchenTicket
+          order={o}
+          items={orderItems}
+          paymentLabel={PAYMENT_METHOD_LABEL[o.payment_method]}
+          scheduledLabel={o.requested_for ? formatScheduledFor(o.requested_for) : null}
+        />
       </div>
 
       {["accepted", "ready_for_pickup"].includes(o.status) && (
