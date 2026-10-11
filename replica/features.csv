@@ -1,158 +1,158 @@
 feature,area,priority,original,clone,notes
-Set delivery address with map pin and address search,customer,must,yes,no,src: support "place an order"; pin accuracy stressed
-Exact entrance and apartment/floor details at checkout,customer,must,yes,no,must be set before confirming; later change = call courier
-Saved addresses,customer,should,unconfirmed,no,not in any public page; assumed
-Home venue list for the chosen address,customer,must,yes,no,
-Recommended section of popular venues,customer,should,yes,no,bolt.eu/en/food FAQ
-Venue categories or cuisine shortcuts on home,customer,should,unconfirmed,no,layout not public
-Filter by cuisine / price range / discounts / rating,customer,should,yes,no,only filters found; no sort found
-Sort venues,customer,could,unconfirmed,no,no public page mentions sorting
-Search venues by name,customer,must,yes,no,main search is name only; dish and cuisine not searchable
+Set delivery address with map pin and address search,customer,must,yes,partial,"src: support ""place an order""; pin accuracy stressed"
+Exact entrance and apartment/floor details at checkout,customer,must,yes,partial,must be set before confirming; later change = call courier
+Saved addresses,customer,should,unconfirmed,yes,not in any public page; assumed
+Home venue list for the chosen address,customer,must,yes,partial,
+Recommended section of popular venues,customer,should,yes,yes,bolt.eu/en/food FAQ
+Venue categories or cuisine shortcuts on home,customer,should,unconfirmed,partial,layout not public
+Filter by cuisine / price range / discounts / rating,customer,should,yes,partial,only filters found; no sort found
+Sort venues,customer,could,unconfirmed,yes,no public page mentions sorting
+Search venues by name,customer,must,yes,yes,main search is name only; dish and cuisine not searchable
 Search inside a venue menu,customer,should,yes,no,magnifier in venue page
-Venue card shows rating and fees and ETA,customer,must,unconfirmed,no,"rating before ordering confirmed; fee/ETA on card not confirmed"
-Venue page with categories items photos prices,customer,must,yes,no,
-Item options single choice,customer,must,yes,no,exactly one; at least one option free
-Item options multi choice with max,customer,must,yes,no,optional; Max Item limit
-Item quantity stepper and kitchen note,customer,must,yes,no,
-Order from a closed venue by scheduling,customer,should,yes,no,
-Sold out and hidden items handling,customer,must,yes,no,venue-controlled availability states
-Single-venue basket,customer,must,yes,no,second venue = separate order
-Several simultaneous orders from different venues,customer,should,yes,no,
-View basket sticky banner,customer,must,yes,no,
-Edit item in basket (pencil / swipe / bin),customer,must,yes,no,
-Minimum order and small order fee shown in basket,customer,must,yes,no,
-Delivery fee by geography,customer,must,yes,no,formula not public
+Venue card shows rating and fees and ETA,customer,must,unconfirmed,yes,rating before ordering confirmed; fee/ETA on card not confirmed
+Venue page with categories items photos prices,customer,must,yes,yes,
+Item options single choice,customer,must,yes,yes,exactly one; at least one option free
+Item options multi choice with max,customer,must,yes,yes,optional; Max Item limit
+Item quantity stepper and kitchen note,customer,must,yes,partial,
+Order from a closed venue by scheduling,customer,should,yes,partial,
+Sold out and hidden items handling,customer,must,yes,partial,venue-controlled availability states
+Single-venue basket,customer,must,yes,yes,second venue = separate order
+Several simultaneous orders from different venues,customer,should,yes,yes,
+View basket sticky banner,customer,must,yes,yes,
+Edit item in basket (pencil / swipe / bin),customer,must,yes,partial,
+Minimum order and small order fee shown in basket,customer,must,yes,partial,
+Delivery fee by geography,customer,must,yes,partial,formula not public
 Service fee line,customer,should,yes,no,excluded from promo codes unless stated
 Delivery vs pickup choice,customer,must,yes,no,pickup only at selected venues
 Pickup status with estimated collection time,customer,should,yes,no,collect within 90 min rule
-Scheduled order with slot picker,customer,should,yes,no,Basket > Schedule > slot > Confirm; cancel via Support
-Pay by card,customer,must,yes,no,charged after delivery; hold at order
-Pay by cash on delivery,customer,must,yes,no,"some markets; cash handling + failed-payment debt"
+Scheduled order with slot picker,customer,should,yes,yes,Basket > Schedule > slot > Confirm; cancel via Support
+Pay by card,customer,must,yes,partial,charged after delivery; hold at order
+Pay by cash on delivery,customer,must,yes,yes,some markets; cash handling + failed-payment debt
 Apple Pay and Google Pay,customer,should,yes,no,store listing
 Bolt Balance wallet,customer,should,yes,no,refunds credit it; negative balance after failed cash
 Save and remove card,customer,must,yes,no,validation hold up to 14 days
-Tip courier at checkout,customer,should,yes,no,card or balance only; shown on invoice
-Revoke tip via support to balance,customer,could,yes,no,
+Tip courier at checkout,customer,should,yes,yes,card or balance only; shown on invoice
+Revoke tip via support to balance,customer,could,yes,partial,
 Auto-applied promotions (BOGO / % / item % / free delivery),customer,should,yes,no,no stacking of item discounts
 Promo code entry,customer,should,yes,no,one per order; excludes service fee
 Utensils and condiments toggle,customer,could,unconfirmed,no,article title exists; content not readable
-Order notes,customer,should,yes,no,
-Place order confirmation (no cancel or amend after),customer,must,yes,no,
-Order status stages (4),customer,must,yes,no,waiting / preparing / ready / with courier
-ETA shown after venue confirms,customer,must,yes,no,
-Live courier map after pickup,customer,must,yes,no,not before pickup
-Call courier in app,customer,must,yes,no,available after pickup
+Order notes,customer,should,yes,partial,
+Place order confirmation (no cancel or amend after),customer,must,yes,yes,
+Order status stages (4),customer,must,yes,yes,waiting / preparing / ready / with courier
+ETA shown after venue confirms,customer,must,yes,yes,
+Live courier map after pickup,customer,must,yes,yes,not before pickup
+Call courier in app,customer,must,yes,yes,available after pickup
 Courier-has-another-order notice,customer,could,yes,no,batching signal
 PIN code delivery confirmation,customer,should,yes,no,no contactless for PIN orders
 Age-restricted item ID check,customer,should,yes,no,alcohol; courier verifies ID
-Push notifications for order events,customer,must,yes,no,
-Rate order (courier thumb + food emoji + comment),customer,must,yes,no,no edit after submit
-Order history (Activity),customer,must,yes,no,
-Reorder past order,customer,must,yes,no,adds items to basket
-Order detail with help entry,customer,must,yes,no,
+Push notifications for order events,customer,must,yes,yes,
+Rate order (courier thumb + food emoji + comment),customer,must,yes,yes,no edit after submit
+Order history (Activity),customer,must,yes,yes,
+Reorder past order,customer,must,yes,yes,adds items to basket
+Order detail with help entry,customer,must,yes,partial,
 In-app support callback or chat per order,customer,must,yes,no,one open case per order
 Refund or compensation to wallet,customer,should,yes,no,rules not public
 Help center articles,customer,could,yes,no,
 Profile: edit info / language / delete account / data access,customer,must,yes,no,
 Multi-language UI,customer,should,yes,no,20+ languages in the store listing
-Favourites / saved venues,customer,could,unconfirmed,no,not found in public sources
+Favourites / saved venues,customer,could,unconfirmed,partial,not found in public sources
 Group order,customer,could,unconfirmed,no,not found in public sources
 Referral (invite a friend),customer,could,yes,no,mentioned on promo page
 Bolt Plus: free delivery over minimum capped per order,customer,could,yes,no,Food-only part of Plus; trial 1 month
-Bolt Plus: ride cashback and priority,customer,could,yes,no,needs rides business - see skip in recon.md
-DineOut: free tables + discount + pay in app,customer,could,yes,no,summary only
-Web ordering site,customer,could,unconfirmed,no,food.bolt.eu content not readable
+Bolt Plus: ride cashback and priority,customer,could,yes,skip,needs rides business - see skip in recon.md
+DineOut: free tables + discount + pay in app,customer,could,yes,partial,summary only
+Web ordering site,customer,could,unconfirmed,yes,food.bolt.eu content not readable
 Allergen and food-safety info page,customer,could,yes,no,static content
-Courier registration (name city phone),courier,must,yes,no,
-Courier document upload and verification,courier,must,yes,no,approval takes days
-Vehicle type selection,courier,must,yes,no,car / bike / scooter / motorbike
+Courier registration (name city phone),courier,must,yes,partial,
+Courier document upload and verification,courier,must,yes,partial,approval takes days
+Vehicle type selection,courier,must,yes,partial,car / bike / scooter / motorbike
 Delivery kit instructions,courier,could,yes,no,
-Go online / offline,courier,must,yes,no,
-Waiting-for-orders map with peak-area hints,courier,could,yes,no,
-Order offer with pickup pin ETA and earnings,courier,must,yes,no,shows earnings before accept
-Offer timer 1 minute accept/decline,courier,must,yes,no,
-Offer radius by vehicle,courier,should,yes,no,values not public
-Navigation to venue and customer,courier,must,yes,no,
+Go online / offline,courier,must,yes,yes,
+Waiting-for-orders map with peak-area hints,courier,could,yes,partial,
+Order offer with pickup pin ETA and earnings,courier,must,yes,partial,shows earnings before accept
+Offer timer 1 minute accept/decline,courier,must,yes,yes,
+Offer radius by vehicle,courier,should,yes,partial,values not public
+Navigation to venue and customer,courier,must,yes,partial,
 Running late / cannot find venue / cannot find customer flows,courier,should,yes,no,
-Pickup status steps,courier,must,yes,no,
-Delivery instructions view,courier,must,yes,no,
-Handover completion (cash collect / checkboxes / rate / Delivered),courier,must,yes,no,
+Pickup status steps,courier,must,yes,yes,
+Delivery instructions view,courier,must,yes,partial,
+Handover completion (cash collect / checkboxes / rate / Delivered),courier,must,yes,partial,
 Age verification block,courier,should,yes,no,
-PIN entry at handover,courier,should,unconfirmed,no,inferred from customer PIN article
+PIN entry at handover,courier,should,unconfirmed,skip,inferred from customer PIN article
 Customer unreachable 5-minute rule,courier,should,yes,no,courier may cancel; customer charged
 Multi-drop batching with trip planner,courier,could,yes,no,
-Unassign or decline with limit,courier,should,yes,no,
+Unassign or decline with limit,courier,should,yes,partial,
 Report issue / hazard button,courier,should,yes,no,
-Earnings view before and after,courier,must,yes,no,
-Weekly payout Mon-Sun,courier,must,yes,no,
+Earnings view before and after,courier,must,yes,yes,
+Weekly payout Mon-Sun,courier,must,yes,partial,
 Early cashout,courier,could,yes,no,up to 2 business days
-Tips shown after delivery (100% to courier),courier,should,yes,no,
-Peak / zonal multipliers and surge,courier,could,yes,no,
+Tips shown after delivery (100% to courier),courier,should,yes,partial,
+Peak / zonal multipliers and surge,courier,could,yes,partial,
 Waiting-time compensation,courier,could,yes,no,
-Delivery history,courier,should,yes,no,
+Delivery history,courier,should,yes,yes,
 Delivery preferences (cash / ID-check orders),courier,should,yes,no,
-Negative balance payment,courier,should,yes,no,
+Negative balance payment,courier,should,yes,partial,
 Bank details and tax info,courier,should,yes,no,
-Merchant registration and Bolt review,merchant,must,yes,no,about a week; partly manual ops
-Merchant tablet app sign-in,merchant,must,yes,no,
-New order sound and full-screen alert,merchant,must,yes,no,
-Accept order,merchant,must,yes,no,
-Reject order with reasons,merchant,must,yes,no,too many orders / device issue / closed / out of stock
-Change cooking time before accept,merchant,should,yes,no,
-Order auto-fail when not accepted in time,merchant,must,yes,no,max_acceptance_ts in API
-Ready for pickup button,merchant,must,yes,no,
-Courier details shown once assigned,merchant,should,yes,no,
-Go online / offline (venue),merchant,must,yes,no,
+Merchant registration and Bolt review,merchant,must,yes,yes,about a week; partly manual ops
+Merchant tablet app sign-in,merchant,must,yes,partial,
+New order sound and full-screen alert,merchant,must,yes,yes,
+Accept order,merchant,must,yes,yes,
+Reject order with reasons,merchant,must,yes,partial,too many orders / device issue / closed / out of stock
+Change cooking time before accept,merchant,should,yes,yes,
+Order auto-fail when not accepted in time,merchant,must,yes,yes,max_acceptance_ts in API
+Ready for pickup button,merchant,must,yes,yes,
+Courier details shown once assigned,merchant,should,yes,partial,
+Go online / offline (venue),merchant,must,yes,yes,
 Busy mode (+15/30/45 min),merchant,should,yes,no,notifies customers
-Scheduled order start-preparation prompt,merchant,should,yes,no,
+Scheduled order start-preparation prompt,merchant,should,yes,partial,
 Print order (Sunmi),merchant,should,yes,no,
 Call customer from app,merchant,could,yes,no,
-Mark items available / unavailable on tablet,merchant,must,yes,no,auto-hide after 14 days sold out
+Mark items available / unavailable on tablet,merchant,must,yes,partial,auto-hide after 14 days sold out
 Order history 30 days on tablet,merchant,should,yes,no,
 Own delivery mode (Ready / Picked up / Delivered),merchant,could,yes,no,
-Portal login and password activation,merchant,must,yes,no,
-Menu editor: categories with translations,merchant,must,yes,no,
-Menu editor: items (name desc price image age flag tags),merchant,must,yes,no,image 1280x640
-Menu editor: modifier groups single and multi,merchant,must,yes,no,
+Portal login and password activation,merchant,must,yes,partial,
+Menu editor: categories with translations,merchant,must,yes,partial,
+Menu editor: items (name desc price image age flag tags),merchant,must,yes,partial,image 1280x640
+Menu editor: modifier groups single and multi,merchant,must,yes,yes,
 Menu editor: bulk price edit,merchant,could,yes,no,
-Menu editor: item availability states (4),merchant,should,yes,no,
+Menu editor: item availability states (4),merchant,should,yes,partial,
 Menu editor: timetables,merchant,should,yes,no,
 Menu draft and publish with schedule,merchant,should,yes,no,multi-venue publish
 Menu history and deposits,merchant,could,yes,no,
-Opening hours and holiday mode,merchant,must,yes,no,
+Opening hours and holiday mode,merchant,must,yes,partial,
 Multi-venue switcher,merchant,could,yes,no,
-Home KPIs (sales promo spend orders rating),merchant,should,yes,no,
-Performance: sales and operations tabs,merchant,could,yes,no,
+Home KPIs (sales promo spend orders rating),merchant,should,yes,partial,
+Performance: sales and operations tabs,merchant,could,yes,partial,
 Ratings and feedback with dispute,merchant,should,yes,no,
 Refunds list with deduction dispute,merchant,should,yes,no,
 Reports and invoices export (CSV and weekly),merchant,must,yes,no,
 Promotions: automatic campaigns (menu % / free delivery),merchant,should,yes,no,
 Promotions: manual campaigns (>=3 items 1 week-30 days),merchant,could,yes,no,
-Smart promotions with cost-share and sponsored listings,merchant,could,yes,no,commercial model - see skip in recon.md
+Smart promotions with cost-share and sponsored listings,merchant,could,yes,skip,commercial model - see skip in recon.md
 POS integration via public API,merchant,could,yes,no,order_state enum + order_type; scheduled opt-in
-Order state machine (CREATED ACCEPTED PREPARING REJECTED FAILED WAITING_PICKUP),platform,must,yes,no,from public API enum; delivered/cancelled states inferred
+Order state machine (CREATED ACCEPTED PREPARING REJECTED FAILED WAITING_PICKUP),platform,must,yes,yes,from public API enum; delivered/cancelled states inferred
 Order types delivery / pickup / own_delivery,platform,must,yes,no,
-Dispatch type regular / scheduled,platform,should,yes,no,
+Dispatch type regular / scheduled,platform,should,yes,yes,
 Courier dispatch and offer assignment,platform,must,yes,no,algorithm not public
-Fee engine (delivery by geo / small order / service),platform,must,yes,no,
-Payments: card auth + capture after delivery,platform,must,yes,no,PSP needed
+Fee engine (delivery by geo / small order / service),platform,must,yes,partial,
+Payments: card auth + capture after delivery,platform,must,yes,partial,PSP needed
 Wallet ledger (Bolt Balance),platform,should,yes,no,
-Commission model (agency fee + marketplace fee),platform,must,yes,no,calc not public
-Courier and venue payout engine (weekly),platform,must,yes,no,
+Commission model (agency fee + marketplace fee),platform,must,yes,yes,calc not public
+Courier and venue payout engine (weekly),platform,must,yes,partial,
 Invoicing with VAT,platform,must,yes,no,local rules
-Ratings aggregation with dispute exclusion,platform,should,yes,no,
+Ratings aggregation with dispute exclusion,platform,should,yes,partial,
 Support case system (one open case per order),platform,must,yes,no,internal console not public
-Push and SMS notification service,platform,must,yes,no,
+Push and SMS notification service,platform,must,yes,partial,
 City / zone and service-area management,platform,must,yes,no,
-Account and data deletion / export,platform,should,yes,no,
+Account and data deletion / export,platform,should,yes,partial,
 Localization and translations of menus,platform,should,yes,no,
-Authentication (phone + OTP),platform,must,unconfirmed,no,method not public
-Fraud and abuse controls,platform,should,unconfirmed,no,not public
-Market: store selection by address,market,could,yes,no,
-Market: product catalogue with SKU and category tree,market,could,yes,no,3500+ products
-Market: product search,market,could,unconfirmed,no,
-Market: instant (~30 min) and same-day with cutoff,market,could,yes,no,
-Market: picking-to-delivery status,market,could,yes,no,
-Market: substitutions,market,could,unconfirmed,no,not stated
-Market: age-restricted items,market,could,unconfirmed,no,not stated on Market page
-Market: stores API for catalogue sync,market,could,yes,no,developer.bolt.eu/stores
+Authentication (phone + OTP),platform,must,unconfirmed,partial,method not public
+Fraud and abuse controls,platform,should,unconfirmed,partial,not public
+Market: store selection by address,market,could,yes,skip,
+Market: product catalogue with SKU and category tree,market,could,yes,skip,3500+ products
+Market: product search,market,could,unconfirmed,skip,
+Market: instant (~30 min) and same-day with cutoff,market,could,yes,skip,
+Market: picking-to-delivery status,market,could,yes,skip,
+Market: substitutions,market,could,unconfirmed,skip,not stated
+Market: age-restricted items,market,could,unconfirmed,skip,not stated on Market page
+Market: stores API for catalogue sync,market,could,yes,skip,developer.bolt.eu/stores
