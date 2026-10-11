@@ -46,6 +46,21 @@ begin
   select count(*) into v_n from public.restaurant_courier_contact(v_own);
   if v_n <> 1 then raise exception 'R3b: picked_up should return contact'; end if;
 
+  -- R3c (red-team F5): cancelled and ready_for_pickup are outside the window too
+  reset role;
+  update public.orders set status = 'cancelled' where id = v_own;
+  set local role authenticated;
+  select count(*) into v_n from public.restaurant_courier_contact(v_own);
+  if v_n <> 0 then raise exception 'R3c: cancelled order still returns contact'; end if;
+  reset role;
+  update public.orders set status = 'ready_for_pickup' where id = v_own;
+  set local role authenticated;
+  select count(*) into v_n from public.restaurant_courier_contact(v_own);
+  if v_n <> 0 then raise exception 'R3d: ready_for_pickup returns contact'; end if;
+  reset role;
+  update public.orders set status = 'picked_up' where id = v_own;
+  set local role authenticated;
+
   -- R4: the customer of the order gets nothing through this RPC
   perform set_config('request.jwt.claims', json_build_object('sub', c_cust, 'role', 'authenticated')::text, true);
   select count(*) into v_n from public.restaurant_courier_contact(v_own);

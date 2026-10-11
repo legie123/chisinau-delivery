@@ -8,7 +8,7 @@ declare
   c_cust uuid := 'a0000000-0000-0000-0000-000000000001';
   c_rest uuid := '11111111-1111-1111-1111-111111111111';    -- Sakura Sushi
   c_foreign uuid := 'd0000000-0000-0000-0000-000000000003'; -- Nobu, not staffed by c_partner
-  v_base int; v_prep int; v_order uuid; v_ready timestamptz; v_until timestamptz; v_extra int;
+  v_base int; v_prep int; v_p90 numeric; v_p90_busy numeric; v_order uuid; v_ready timestamptz; v_until timestamptz; v_extra int;
 begin
   select prep_minutes into v_base from public.get_prep_estimates(array[c_rest]);
 
@@ -80,5 +80,25 @@ begin
   if has_function_privilege('anon', 'public.set_restaurant_busy(uuid,int)', 'execute') then
     raise exception 'B9: anon can execute set_restaurant_busy'; end if;
 
-  raise notice 'busy mode sims B1-B9 OK';
+  -- B10 (red-team F1): a direct partner UPDATE cannot set busy mode — only the RPC
+  -- (with its 0/15/30/45 + one-hour rule) may; the column guard reverts the write.
+  perform set_config('request.jwt.claims', json_build_object('sub', c_partner, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  update public.restaurants set busy_extra_minutes = 45, busy_until = '2099-12-31' where id = c_rest;
+  reset role;
+  select busy_extra_minutes, busy_until into v_extra, v_until from public.restaurants where id = c_rest;
+  if v_until > now() + interval '2 hours' then raise exception 'B10: direct write set busy_until=%', v_until; end if;
+
+  -- B11 (red-team F3): the p90 moves with the extra minutes, so the customer's
+  -- range stays measured instead of falling back to a fixed spread.
+  insert into public.restaurant_prep_stats (restaurant_id, hour_of_day, avg_prep_minutes, sample_count, p90_prep_minutes)
+  values (c_rest, date_part('hour', now() at time zone 'Europe/Chisinau')::int, 20, 50, 32)
+  on conflict (restaurant_id, hour_of_day) do update set avg_prep_minutes = 20, sample_count = 50, p90_prep_minutes = 32;
+  update public.restaurants set busy_extra_minutes = 0, busy_until = null where id = c_rest;
+  select p90_prep_minutes into v_p90 from public.get_prep_estimates(array[c_rest]);
+  update public.restaurants set busy_extra_minutes = 30, busy_until = now() + interval '1 hour' where id = c_rest;
+  select p90_prep_minutes into v_p90_busy from public.get_prep_estimates(array[c_rest]);
+  if v_p90_busy is distinct from v_p90 + 30 then raise exception 'B11: p90 % busy % (want +30)', v_p90, v_p90_busy; end if;
+
+  raise notice 'busy mode sims B1-B11 OK';
 end $$;

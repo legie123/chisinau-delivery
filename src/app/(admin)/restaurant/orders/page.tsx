@@ -11,6 +11,11 @@ import type { Order, OrderItem, PrepEstimate, RestaurantWaitKpiRow } from "@/lib
 
 const QUEUE_STATUSES = ["pending_restaurant", "accepted", "ready_for_pickup", "courier_assigned", "picked_up", "en_route"];
 
+// The prep chip's number already includes busy minutes (get_prep_estimates); say so.
+function busyNow(r: { busy_extra_minutes: number; busy_until: string | null } | null) {
+  return !!r && r.busy_extra_minutes > 0 && !!r.busy_until && new Date(r.busy_until).getTime() > Date.now();
+}
+
 export default async function RestaurantOrdersPage() {
   const supabase = await createClient();
   const {
@@ -152,7 +157,9 @@ export default async function RestaurantOrdersPage() {
             ⏱ Timp de pregătire estimat:{" "}
             <span className="pg-gold-text whitespace-nowrap font-semibold">~{prepEstimate.prep_minutes} min</span>
             <span className="text-white/40">
-              {prepEstimate.source === "static"
+              {busyNow(rest)
+                ? `(include +${rest!.busy_extra_minutes} min, mod aglomerat)`
+                : prepEstimate.source === "static"
                 ? "(valoare implicită)"
                 : prepEstimate.source === "hourly"
                   ? "(medie pentru ora curentă)"

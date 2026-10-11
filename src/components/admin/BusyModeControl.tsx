@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { setRestaurantBusy } from "@/app/(admin)/restaurant/orders/actions";
 
 const OPTIONS = [15, 30, 45] as const;
@@ -10,8 +10,16 @@ const OPTIONS = [15, 30, 45] as const;
 export function BusyModeControl({ extraMinutes, until }: { extraMinutes: number; until: string | null }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [now] = useState(Date.now);
-  const active = extraMinutes > 0 && until != null && new Date(until).getTime() > now;
+  const [now, setNow] = useState(Date.now);
+  const untilMs = until ? new Date(until).getTime() : null;
+  const active = extraMinutes > 0 && untilMs != null && untilMs > now;
+  // router.refresh() keeps this state, so without a timer the tablet kept saying
+  // "Aglomerat" after the window lapsed server-side (red-team F2).
+  useEffect(() => {
+    if (untilMs == null) return;
+    const t = setTimeout(() => setNow(Date.now()), Math.max(0, untilMs - Date.now()) + 1000);
+    return () => clearTimeout(t);
+  }, [untilMs]);
   const untilLabel = active
     ? new Date(until!).toLocaleTimeString("ro-MD", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Chisinau" })
     : null;
