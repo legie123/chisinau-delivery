@@ -105,12 +105,17 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 
 | gate | stare | dovadă / blocaj |
 |---|---|---|
-| 1 verificare adversarială | în lucru | verif-curier re-rulează pe `83ee8a7` (prima rundă: NEVALIDAT, 5 defecte reparate în `80b9efa`) |
-| 2 defecte rămase | DONE | `83ee8a7`: flag pe 3 stări + backfill (local 28 true / 61 necunoscut, suma 2060,33 neschimbată; sim 152 pe 5 mutații; rollback executat); lockfile reconstruit, `scripts/lock-justify.mjs`: 333 mutate / 333 justificate SDK / 0 derivă (control: 13 derivă pe lock-ul vechi) |
+| 1 verificare adversarială | runda 3 de cerut | rundele 1–2: NEVALIDAT (nu PERICULOS); toate defectele reparate în `80b9efa`, `83ee8a7`, `56489a6`, `d9e1902`; mutanții verificatorilor care treceau verde sunt acum roșii (SQL: toți în afară de „fără FOR UPDATE”, concurență; app: 18/18) |
+| 2 defecte rămase | DONE | flag pe 3 stări + backfill (adresele șterse = necunoscut); lockfile JUSTIFIED: `scripts/lock-justify.mjs` = 303 mutări forțate de SDK + 32 flotări neforțate, toate unelte de build/dev, listate pachet cu pachet, 0 derivă |
 | 3 matrice | DONE | tabelul de mai jos |
-| 4 construcție | în lucru | ordinea de mai jos |
-| 5 build nativ | BLOCKED (owner) | EAS dev client = minute de build + cod urcat pe Expo; telefon Android; backend accesibil de pe telefon (tunel CLIENT sau staging) |
-| 6 release | BLOCKED parțial | FĂCUT: dezvăluirea vizibilă pentru locația în fundal (cerință Google Play) înainte de promptul OS (`lib/locationDisclosure.ts`). Rămân: crash reporting = SDK nou (aprobare), formularul Play pentru locația în fundal + video, `SYSTEM_ALERT_WINDOW` din șablon de verificat în release, semnare/store = owner |
+| 4 construcție | DONE pe ce nu depinde de owner | raportare probleme, foto la livrare, IBAN, meniu fără rânduri moarte, bacșiș + notă de tarif, cod de ridicare, plată de bază fără pin (decizia owner-ului) |
+| 5 build nativ | BLOCKED (owner) | owner: build EAS după verdictul verificatorilor; backend = proiect Supabase de staging nou (de creat pe contul lui, cost de confirmat) |
+| 6 release | parțial | FĂCUT: dezvăluirea pentru locația în fundal; READ/WRITE_EXTERNAL_STORAGE și RECORD_AUDIO blocate. Rămân: crash reporting (SDK nou, aprobare), formularul Play + video pentru locația în fundal, `SYSTEM_ALERT_WINDOW` din șablon, EXIF GPS la recompresie pe Android (LOW), semnare/store = owner |
+| I1 matrice interacțiune | DONE | rândurile CURIER în `MATRICE-INTERACTIUNE.md` (`a398089`) |
+| I2 teste încrucișate | parțial | consumator: `mobile/driver/tests/pickupCode.test.ts` pe regula RESTAURANT; predări primite: 2, ambele făcute |
+| I3 scenarii de sistem | parțial | E2E 171/171 (scenariile 1, 2, 6 + decontare); 3 și 9 de scris (sim 154/156); 5 LIPSĂ (nu există RPC de renunțare) |
+| I4 mediu | DONE | DB local, nimic pe live |
+| I5 merge | n/a | sectorul lucrează pe `main` comun, commit din index temporar; nimic push-uit |
 
 ### Matrice de paritate — aplicația curierului (verificat în cod, 2026-10-11)
 | Flux | Stare | Fișierul care dovedește | Blochează o comandă reală? |

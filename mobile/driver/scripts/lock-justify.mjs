@@ -1,8 +1,13 @@
 // Justifies every package that moved between two package-lock.json files (lockfile v3).
 // A moved package is JUSTIFIED when a direct dependency whose spec changed in package.json
 // (the SDK bump) reaches it; it is DRIFT when only unchanged direct deps reach it.
+// Reachability over-justifies (verif-curier, round 2), so every SDK-reached package that existed before is
+// also tested for FORCED: would its OLD version still satisfy the range of every package that requires it
+// in the new lock? If yes, the move was a float (npm picked a newer version it did not need).
 // usage: node scripts/lock-justify.mjs <old-lock.json> <new-lock.json> [--table]
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+const semver = createRequire(import.meta.url)("semver");
 
 const [oldPath, newPath, flag] = process.argv.slice(2);
 const oldLock = JSON.parse(readFileSync(oldPath, "utf8"));
@@ -74,7 +79,25 @@ for (const n of names) {
   const sdk = [...rs].filter((r) => sdkRoots.has(r));
   rows.push({ n, a: a || "-", b: b || "-", verdict: sdk.length ? "SDK" : rs.size ? "DRIFT" : "ORPHAN", via: (sdk.length ? sdk : [...rs]).slice(0, 3).join(" ") });
 }
+// requirers of a name in the new lock: every entry whose deps / optional / peer list it, with the range
+const requirers = new Map();
+for (const [p, e] of Object.entries(newLock.packages)) {
+  for (const [d, range] of Object.entries({ ...e.dependencies, ...e.optionalDependencies, ...e.peerDependencies })) {
+    if (!requirers.has(d)) requirers.set(d, []);
+    requirers.get(d).push({ by: p || "(root)", range });
+  }
+}
+for (const r of rows) {
+  if (r.verdict !== "SDK" || r.a === "-" || r.b === "-") continue;
+  const olds = r.a.split(",");
+  const reqs = requirers.get(r.n) ?? [];
+  const oldStillOk = olds.some((v) => reqs.every((q) => semver.satisfies(v, q.range, { includePrerelease: true })));
+  if (oldStillOk) {
+    r.verdict = "SDK-UNFORCED";
+    r.via = reqs.slice(0, 2).map((q) => `${q.by.replace(/^.*node_modules\//, "")} ${q.range}`).join("; ");
+  }
+}
 const count = (v) => rows.filter((r) => r.verdict === v).length;
 console.log(`direct deps changed by the bump (${sdkRoots.size}): ${[...sdkRoots].sort().join(" ")}`);
-console.log(`moved packages: ${rows.length}  SDK-justified: ${count("SDK")}  DRIFT: ${count("DRIFT")}  ORPHAN: ${count("ORPHAN")}`);
+console.log(`moved packages: ${rows.length}  SDK-forced: ${count("SDK")}  SDK-unforced (float): ${count("SDK-UNFORCED")}  DRIFT: ${count("DRIFT")}  ORPHAN: ${count("ORPHAN")}`);
 for (const r of rows) if (flag === "--table" || r.verdict !== "SDK") console.log(`${r.verdict}\t${r.n}\t${r.a} -> ${r.b}\tvia ${r.via}`);
