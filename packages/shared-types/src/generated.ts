@@ -4072,7 +4072,7 @@ export type Database = {
       }
       close_stale_courier_shifts: { Args: never; Returns: number }
       confirm_catering_quote: {
-        Args: { p_order_id: string }
+        Args: { p_expected_total?: number; p_order_id: string }
         Returns: undefined
       }
       confirm_online_payment: {
