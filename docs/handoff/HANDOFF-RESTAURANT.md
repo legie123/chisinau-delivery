@@ -118,3 +118,10 @@ Măsurat pe baza locală (q-urile în `.bucla/progress.md` RESTAURANT):
 - Gol real: `restaurants.lat/lng` sunt nullable și nimic nu leagă activarea de pin — dovedit în tranzacție anulată: `update restaurants set lat=null, lng=null, is_active=true` → reușește. Restaurantele din înscrierea proprie intră cu NULL (`platform/restaurants/actions.ts`); pinul îl pune doar adminul (Nominatim sau manual, `RestaurantLocationControl`).
 **Regula propusă (decide owner-ul):** A *(recomandat)* activarea cere pin în raza de serviciu + confirmarea partenerului pe hartă („aici e ușa de ridicare”); B activarea cere doar pin pus de admin (geocodare); C status quo. A costă un pas în onboarding; B lasă pinul de geocodare (centrul clădirii, nu ușa); C lasă activarea fără pin posibilă.
 **Pentru alte sectoare (în CROSS-REQUESTS):** catering fără pin (CLIENT/CURIER), comenzi standard fără adresă (CLIENT, `place_order` cu pin obligatoriu din W2).
+### Interconectare I1–I5 (2026-10-12)
+- **I1 DONE** — 13 rânduri RESTAURANT în `MATRICE-INTERACTIUNE.md` (9567a9c) + dezacord la rândul pinului (31f36f8).
+- **I2 DONE** — teste încrucișate ca consumator: 210 (CLIENT, X1–X4), 211 (CURIER, H1–H5); fiecare roșu prin mutație în codul furnizorului. Roșii acum: 0.
+- **I3** — scenariul 2 (restaurantul refuză) verde pe 4 aplicații + ledger (09693ef). Defect găsit: comanda online plătită și refuzată rămâne `paid` → CROSS-REQUESTS (toate sectoarele + decizie owner).
+- **I4** — totul pe baza locală (Docker), nimic pe live.
+- **I5** — ramura `sector/restaurant` (cu `main` adus prin merge, fără rescriere de istoric) e verde: tsc 0, vitest 320/320, `test:rpc` all green, build restaurant OK. Merge în `main` AȘTEAPTĂ: verificatorul independent pe f9e5340/e0ac16c/795773d (rulează) și OK-ul userului pentru `npm run test:e2e`.
+- Predări: primite #6 #11 (închise), trimise: cod ridicare → CURIER (făcut a2b8724), defectul de rambursare → toți.
