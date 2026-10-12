@@ -51,10 +51,13 @@ export function OrderQueueLive({
   const router = useRouter();
   // Two alarm sources: due orders (ring until acted on) and a not-yet-acknowledged new
   // arrival (e.g. a scheduled order: rings until the first tap).
-  const [arrivalSignal, setArrivalSignal] = useState(false);
+  // Ids of new arrivals not yet acknowledged — per order, so an order accepted elsewhere stops
+  // ringing here even while other orders are pending (verifier F2).
+  const [arrivedIds, setArrivedIds] = useState<ReadonlySet<string>>(new Set());
   const [now, setNow] = useState(Date.now);
   const dueCount = pending ? duePending(pending, now).length : 0;
-  const alerting = dueCount > 0 || (arrivalSignal && (pending?.length ?? 0) > 0);
+  const arrivalSignal = (pending ?? []).some((o) => arrivedIds.has(o.id));
+  const alerting = dueCount > 0 || arrivalSignal;
   const [netDown, setNetDown] = useState(false);
   const [epoch, setEpoch] = useState(0); // bumped on "online" → fresh realtime subscription
   const seenRef = useRef<Set<string> | null>(null);
@@ -104,8 +107,11 @@ export function OrderQueueLive({
   // Next fall back to a full navigation, which loses the page and its unlocked sound.
   const safeRefresh = useCallback(async () => {
     try {
-      const r = await fetch("/manifest.webmanifest", { method: "HEAD", cache: "no-store" });
-      if (r.status >= 500) throw new Error(String(r.status));
+      // Probe with the very request router.refresh() makes (RSC render of this page: Next
+      // server + Supabase). A static asset or a separate ping passed while the render 503'd,
+      // and Next then hard-navigated, losing the unlocked sound (verifier F3).
+      const r = await fetch(window.location.pathname, { headers: { RSC: "1" }, cache: "no-store" });
+      if (!r.ok) throw new Error(String(r.status));
     } catch {
       setNetDown(true);
       return;
@@ -146,10 +152,12 @@ export function OrderQueueLive({
     return () => window.removeEventListener("online", onOnline);
   }, [safeRefresh]);
 
-  // Polling fallback whenever realtime isn't confirmed live (or the network probe failed).
+  // Polling: every 10 s while realtime isn't confirmed live (or the probe failed), and a 20 s
+  // safety net even while "Live" — a lost postgres_changes frame (seen right after a stack
+  // restart) otherwise never reaches the screen (verifier F4).
   useEffect(() => {
-    if (connection === "live" && !netDown) return;
-    const id = setInterval(() => void safeRefresh(), 10000);
+    const ms = connection === "live" && !netDown ? 20000 : 10000;
+    const id = setInterval(() => void safeRefresh(), ms);
     return () => clearInterval(id);
   }, [connection, netDown, safeRefresh]);
 
@@ -167,7 +175,7 @@ export function OrderQueueLive({
     const fresh = newArrivals(pending, seenRef.current);
     seenRef.current = new Set(pending.map((o) => o.id));
     if (fresh.length === 0) return;
-    setArrivalSignal(true);
+    setArrivedIds((prev) => new Set([...prev, ...fresh]));
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
         new Notification("Comandă nouă!", {
@@ -185,7 +193,7 @@ export function OrderQueueLive({
   // silences a due order: that rings until Accept/Reject removes it from the queue.
   useEffect(() => {
     if (!arrivalSignal) return;
-    const acknowledge = () => setArrivalSignal(false);
+    const acknowledge = () => setArrivedIds(new Set());
     document.addEventListener("click", acknowledge, { once: true });
     document.addEventListener("keydown", acknowledge, { once: true });
     window.addEventListener("focus", acknowledge, { once: true });

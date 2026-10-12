@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { setRestaurantBusy } from "@/app/(admin)/restaurant/orders/actions";
+import { offlineSafe } from "@/lib/kitchen/offlineSafe";
 
 const OPTIONS = [15, 30, 45] as const;
 
@@ -26,7 +27,7 @@ export function BusyModeControl({ extraMinutes, until }: { extraMinutes: number;
 
   function set(minutes: 0 | 15 | 30 | 45) {
     startTransition(async () => {
-      const result = await setRestaurantBusy(minutes);
+      const result = await offlineSafe(() => setRestaurantBusy(minutes));
       setError(result.error);
     });
   }

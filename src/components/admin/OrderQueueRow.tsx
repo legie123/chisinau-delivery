@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { acceptOrder, extendPrepTime, markReadyForPickup, rejectOrder, setPrepTimeEstimate } from "@/app/(admin)/restaurant/orders/actions";
 import { pickupCode } from "@/lib/kitchen/pickupCode";
+import { offlineSafe } from "@/lib/kitchen/offlineSafe";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
 import { ORDER_STATUS_LABEL, type Order, type OrderItem } from "@/lib/types/domain";
@@ -39,7 +40,7 @@ export function OrderQueueRow({
 
   function handleAccept() {
     startTransition(async () => {
-      const result = await acceptOrder(order.id);
+      const result = await offlineSafe(() => acceptOrder(order.id));
       setError(result.error);
     });
   }
@@ -54,7 +55,7 @@ export function OrderQueueRow({
     const minutes = Number(prepMinutes);
     if (!Number.isFinite(minutes) || minutes <= 0) return;
     startTransition(async () => {
-      const result = await setPrepTimeEstimate(order.id, Math.round(minutes));
+      const result = await offlineSafe(() => setPrepTimeEstimate(order.id, Math.round(minutes)));
       setError(result.error);
     });
   }
@@ -62,7 +63,7 @@ export function OrderQueueRow({
   function handleReject() {
     if (!rejectReason.trim()) return;
     startTransition(async () => {
-      const result = await rejectOrder(order.id, rejectReason.trim());
+      const result = await offlineSafe(() => rejectOrder(order.id, rejectReason.trim()));
       setError(result.error);
       if (!result.error) setRejecting(false);
     });
@@ -70,14 +71,14 @@ export function OrderQueueRow({
 
   function handleExtend(minutes: 5 | 10 | 15) {
     startTransition(async () => {
-      const result = await extendPrepTime(order.id, minutes);
+      const result = await offlineSafe(() => extendPrepTime(order.id, minutes));
       setError(result.error);
     });
   }
 
   function handleReady() {
     startTransition(async () => {
-      const result = await markReadyForPickup(order.id);
+      const result = await offlineSafe(() => markReadyForPickup(order.id));
       setError(result.error);
     });
   }

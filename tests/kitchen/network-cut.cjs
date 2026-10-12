@@ -45,6 +45,9 @@ const asPartner = (q) =>
   await p.getByText("Live", { exact: true }).waitFor({ timeout: 15000 });
   const beeps = () => p.evaluate(() => window.__beeps);
 
+  // An order already on screen before the cut — the one someone taps Accept on while offline.
+  const pre = sql(`insert into public.orders (order_type, customer_id, restaurant_id, status, payment_method, payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl, notes) values ('standard','a0000000-0000-0000-0000-000000000001','11111111-1111-1111-1111-111111111111','pending_restaurant','cash','unpaid',200,30,230,'${tag}-pre') returning order_number`).split("\n")[0];
+  await p.getByText(pre).first().waitFor({ timeout: 30000 });
   const mark = await p.evaluate(() => (window.__alive = Math.random()));
   cut = true;
   for (const ws of sockets.splice(0)) await ws.close({ code: 4000, reason: "network cut" }).catch(() => {});
@@ -55,8 +58,19 @@ const asPartner = (q) =>
   await p.waitForTimeout(Number(process.env.OFFLINE_MS ?? 45000)); // a real Wi-Fi drop, longer than the realtime heartbeat
   const pillOffline = (await p.locator("main h1").locator("..").innerText()).replace(/\n/g, " ");
   console.log(`while offline: beeps +${(await beeps()) - offBeeps0}, header: ${pillOffline}`);
-  if ((await beeps()) - offBeeps0 > 0) fail("beeped while offline — the realtime socket was not actually cut");
+  // (Beeps while offline are expected now: the "-pre" order is due and keeps ringing. The proof
+  // that the cut is real is that the new order does not reach the page — checked next.)
   if (await p.getByText(number).count()) fail("order reached the page while offline — the cut is not real");
+  // Someone presses a button while offline (verifier F1): the queue must stay, with a message.
+  {
+    await p.locator("li", { hasText: pre }).getByRole("button", { name: "Acceptă" }).click();
+    await p.waitForTimeout(2000);
+    const msg = await p.getByText(/Fără internet — nu s-a trimis/).count();
+    const queueStill = await p.locator("main h1", { hasText: "Comenzi" }).count();
+    console.log(`Acceptă pressed offline → inline message: ${msg > 0}, queue still mounted: ${queueStill > 0}`);
+    if (!queueStill) fail("pressing Acceptă offline replaced the queue (error boundary) — alarm and reconnect are gone");
+    if (!msg) fail("pressing Acceptă offline gave no message");
+  }
   const before = await beeps();
 
   cut = false;
@@ -79,6 +93,8 @@ const asPartner = (q) =>
 
   const row = p.locator("li", { hasText: number });
   if (await row.count()) await row.getByRole("button", { name: "Acceptă" }).click();
+  const preRow = p.locator("li", { hasText: pre });
+  if (await preRow.count()) await preRow.getByRole("button", { name: "Acceptă" }).click();
   await p.waitForTimeout(4000);
   const afterAccept = await beeps();
   await p.waitForTimeout(5000);
@@ -88,7 +104,7 @@ const asPartner = (q) =>
     fail("still beeping after the last pending order was accepted");
   try { await p.getByText("Live", { exact: true }).waitFor({ timeout: 30000 }); console.log("pill back to Live"); }
   catch { fail("connection pill never returned to Live"); }
-  console.log(sql(`select status from orders where notes='${tag}'`) === "accepted" ? "order accepted" : "order NOT accepted");
+  console.log(sql(`select string_agg(status, ',') from orders where notes like '${tag}%'`));
   const survived = await p.evaluate((m) => window.__alive === m, mark);
   console.log(`same page survived the cut (no reload, sound context kept): ${survived}`);
   if (!survived) fail("the queue page was reloaded during/after the cut — its unlocked sound is lost");
