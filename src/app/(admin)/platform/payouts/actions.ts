@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePlatformAdmin } from "@/lib/auth/require";
-import { adminGeneratePayouts, adminMarkPayoutPaid, RpcError } from "@chisinau/shared-api";
+import { adminGeneratePayouts, mapPgError, RpcError } from "@chisinau/shared-api";
 
 // Payout settlement actions — thin wrappers over the admin-only RPCs
 // (admin_generate_payouts / admin_mark_payout_paid). The RPCs enforce
@@ -34,22 +34,24 @@ export async function generatePayouts(startISO: string, endISO: string): Promise
   }
 }
 
-export async function markPaid(payoutId: string): Promise<MarkPaidResult> {
+// A payee is paid its NET pending balance (payouts minus pending clawbacks) — the same number the
+// bank CSV exported; admin_settle_payee refuses if it moved since (20261012000409).
+export async function settlePayee(
+  recipientType: "courier" | "restaurant",
+  recipientId: string,
+  expectedNetMdl: number,
+): Promise<MarkPaidResult> {
   try {
     const { supabase } = await requirePlatformAdmin();
-
-    await adminMarkPayoutPaid(supabase, payoutId);
-
+    const { error } = await supabase.rpc("admin_settle_payee", {
+      p_recipient_type: recipientType,
+      p_recipient_id: recipientId,
+      p_expected_net: expectedNetMdl,
+    });
+    if (error) return { error: mapPgError(error) };
     revalidatePath("/platform/payouts");
     return { error: null };
   } catch (err) {
-    return {
-      error:
-        err instanceof RpcError
-          ? err.userMessage
-          : err instanceof Error
-            ? err.message
-            : "A apărut o eroare.",
-    };
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
   }
 }

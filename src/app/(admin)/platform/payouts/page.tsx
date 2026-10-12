@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Payout } from "@/lib/types/domain";
 import { GeneratePayoutsForm } from "@/components/admin/GeneratePayoutsForm";
-import { PayoutMarkPaidButton } from "@/components/admin/PayoutMarkPaidButton";
+import { SettlePayeeButton } from "@/components/admin/SettlePayeeButton";
 import { buildPayoutBankCsv } from "@/lib/payouts/bankCsv";
 import { loadPendingBankRows } from "@/lib/payouts/pendingBankRows";
 
@@ -112,6 +112,21 @@ export default async function PlatformPayoutsPage() {
           {bank.exported} transferuri în așteptare · {round2(bank.totalMdl)} MDL
           {bank.skippedNonPositive > 0 && ` · ${bank.skippedNonPositive} recuperări excluse`}
         </p>
+        {bank.payees.filter((p) => p.net > 0).length > 0 && (
+          <ul className="w-full divide-y divide-white/5">
+            {bank.payees
+              .filter((p) => p.net > 0)
+              .map((p) => (
+                <li key={`${p.recipient_type}:${p.recipient_id}`} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="text-white">
+                    {p.name} <span className="text-white/40">· {RECIPIENT_LABEL[p.recipient_type]} · {p.rows} plăți</span>
+                    {!p.hasIban && <span className="ml-2 text-gold">fără IBAN</span>}
+                  </span>
+                  <SettlePayeeButton recipientType={p.recipient_type} recipientId={p.recipient_id} netMdl={p.net} />
+                </li>
+              ))}
+          </ul>
+        )}
         {bank.missingIban.length > 0 && (
           <p className="w-full text-sm text-gold/90">
             Fără IBAN (nu intră în fișier): {bank.missingIban.join(", ")}
@@ -170,7 +185,7 @@ export default async function PlatformPayoutsPage() {
                       </td>
                       <td className="py-3 text-right">
                         {r.status === "pending" ? (
-                          <PayoutMarkPaidButton payoutId={r.id} clawback={isClawback} />
+                          <span className="text-xs text-white/40">pe beneficiar ↑</span>
                         ) : (
                           <span className="text-white/30">—</span>
                         )}

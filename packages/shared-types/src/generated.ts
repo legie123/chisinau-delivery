@@ -761,6 +761,7 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          leg: string
           order_id: string
           order_status: string
         }
@@ -769,6 +770,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind: string
+          leg: string
           order_id: string
           order_status: string
         }
@@ -777,6 +779,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          leg?: string
           order_id?: string
           order_status?: string
         }
@@ -3711,6 +3714,14 @@ export type Database = {
           threshold_text: string
           trigger_name: string
         }[]
+      }
+      admin_settle_payee: {
+        Args: {
+          p_expected_net: number
+          p_recipient_id: string
+          p_recipient_type: string
+        }
+        Returns: number
       }
       admin_update_payment_status: {
         Args: { p_new_status: string; p_note?: string; p_order_id: string }
