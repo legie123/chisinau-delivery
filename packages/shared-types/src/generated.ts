@@ -4154,6 +4154,7 @@ export type Database = {
         Args: { p_booking_id: string; p_reason: string }
         Returns: undefined
       }
+      delete_my_account: { Args: never; Returns: undefined }
       dispatch_order: { Args: { p_order_id: string }; Returns: string }
       effective_cash_cap: { Args: { p_courier_id: string }; Returns: number }
       end_view_as: { Args: { p_session: string }; Returns: undefined }
