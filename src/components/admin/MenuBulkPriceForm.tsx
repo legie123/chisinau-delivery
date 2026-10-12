@@ -1,35 +1,35 @@
 "use client";
 
-import { startTransition, useActionState, useState, type FormEvent } from "react";
-import { bulkPriceAction, type BulkState } from "@/app/(admin)/restaurant/menu/prices/actions";
+import { useState, useTransition, type FormEvent } from "react";
+import { applyBulkPrices, previewBulkPrices, type BulkState } from "@/app/(admin)/restaurant/menu/prices/actions";
+import { offlineSafe } from "@/lib/kitchen/offlineSafe";
 
-const initial: BulkState = { error: null };
-
+// Plain state + direct action calls (no <form action>): fields never reset, a network error
+// becomes a message instead of the route error page, and Apply sends the previewed rows.
 export function MenuBulkPriceForm({ categories }: { categories: { id: string; name: string }[] }) {
-  const [state, action, pending] = useActionState(bulkPriceAction, initial);
-  // Controlled so a preview/refusal does not wipe the inputs (form actions reset them).
+  const [state, setState] = useState<BulkState>({ error: null });
+  const [pending, startTransition] = useTransition();
   const [category, setCategory] = useState("all");
-  const [mode, setMode] = useState("percent");
+  const [mode, setMode] = useState<"percent" | "amount">("percent");
   const [value, setValue] = useState("");
-  // Submit by hand: <form action> resets the fields after every run, and a controlled
-  // <select> then showed (and sent) "Tot meniul" while React state still said the category.
-  function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
-    if (submitter?.name) fd.set(submitter.name, submitter.value);
-    if (fd.get("intent") === "apply" && state.params) {
-      fd.set("category", state.params.category);
-      fd.set("mode", state.params.mode);
-      fd.set("value", String(state.params.value));
-    }
-    startTransition(() => action(fd));
-  }
-  const categoryName = (id: string) => (id === "all" ? "tot meniul" : categories.find((c) => c.id === id)?.name ?? "categoria aleasă");
   const field = "rounded-xl bg-white/5 px-3 py-2.5 text-sm text-white ring-1 ring-white/10 outline-none focus:ring-gold/60";
+  const categoryName = (id: string) => (id === "all" ? "tot meniul" : categories.find((c) => c.id === id)?.name ?? "categoria aleasă");
+
+  function preview(e: FormEvent) {
+    e.preventDefault();
+    startTransition(async () => setState(await offlineSafe(() => previewBulkPrices(category, mode, value))));
+  }
+  function apply() {
+    const { params, changes } = state;
+    if (!params || !changes || pending) return;
+    setState({ error: null }); // the preview is consumed: a second click has nothing to send
+    startTransition(async () =>
+      setState(await offlineSafe(() => applyBulkPrices(params, changes.map((c) => ({ id: c.id, from: c.from }))))),
+    );
+  }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-4">
+    <form onSubmit={preview} className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs text-white/55">
           Categorie
@@ -42,7 +42,7 @@ export function MenuBulkPriceForm({ categories }: { categories: { id: string; na
         </label>
         <label className="flex flex-col gap-1 text-xs text-white/55">
           Tip
-          <select name="mode" value={mode} onChange={(e) => setMode(e.target.value)} className={field}>
+          <select name="mode" value={mode} onChange={(e) => setMode(e.target.value as "percent" | "amount")} className={field}>
             <option value="percent">Procent (%)</option>
             <option value="amount">Sumă fixă (MDL)</option>
           </select>
@@ -51,13 +51,18 @@ export function MenuBulkPriceForm({ categories }: { categories: { id: string; na
           Modificare (ex. 10 sau -5)
           <input name="value" value={value} onChange={(e) => setValue(e.target.value)} inputMode="decimal" required className={`${field} w-32`} />
         </label>
-        <button name="intent" value="preview" disabled={pending} className="min-h-11 rounded-full bg-white/10 px-4 text-sm text-white ring-1 ring-white/15 disabled:opacity-50">
+        <button type="submit" disabled={pending} className="min-h-11 rounded-full bg-white/10 px-4 text-sm text-white ring-1 ring-white/15 disabled:opacity-50">
           Previzualizează
         </button>
       </div>
       {state.error && <p className="text-sm text-primary">{state.error}</p>}
-      {state.applied !== undefined && <p className="text-sm text-emerald-300">Am actualizat {state.applied} prețuri.</p>}
-      {state.changes && state.applied === undefined && (
+      {state.applied !== undefined && (
+        <p className="text-sm text-emerald-300">
+          Am actualizat {state.applied} prețuri.
+          {state.stale ? ` ${state.stale} se schimbaseră între timp și au rămas neatinse — previzualizează din nou.` : ""}
+        </p>
+      )}
+      {state.changes && state.params && (
         state.changes.length === 0 ? (
           <p className="text-sm text-white/60">Niciun preț nu se schimbă.</p>
         ) : (
@@ -72,8 +77,8 @@ export function MenuBulkPriceForm({ categories }: { categories: { id: string; na
                 </li>
               ))}
             </ul>
-            <button name="intent" value="apply" disabled={pending} className="pg-cta min-h-11 w-fit rounded-full px-5 text-sm disabled:opacity-50">
-              Aplică {state.changes.length} prețuri noi în „{categoryName(state.params?.category ?? "all")}”
+            <button type="button" onClick={apply} disabled={pending} className="pg-cta min-h-11 w-fit rounded-full px-5 text-sm disabled:opacity-50">
+              Aplică {state.changes.length} prețuri noi în „{categoryName(state.params.category)}”
             </button>
           </div>
         )

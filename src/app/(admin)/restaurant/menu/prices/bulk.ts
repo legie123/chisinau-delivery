@@ -18,3 +18,9 @@ export function bulkPrices(items: PriceItem[], mode: BulkMode, value: number): {
   }
   return { changes, error: null };
 }
+
+/** Strict number parse: "10", "-5", "7,5" — not "0x10" or "1e2" (Number() accepts those). */
+export function parseChange(raw: string): number | null {
+  const t = raw.trim().replace(",", ".");
+  return /^-?\d+(\.\d+)?$/.test(t) ? Number(t) : null;
+}

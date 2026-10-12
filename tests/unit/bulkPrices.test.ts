@@ -23,3 +23,15 @@ describe("bulkPrices", () => {
     expect(bulkPrices(items, "amount", 30).error).toMatch(/Supă.*peste 50 %/);
   });
 });
+
+import { parseChange } from "@/app/(admin)/restaurant/menu/prices/bulk";
+describe("parseChange", () => {
+  it("reads plain decimals only", () => {
+    expect(parseChange("10")).toBe(10);
+    expect(parseChange(" -5 ")).toBe(-5);
+    expect(parseChange("7,5")).toBe(7.5);
+    expect(parseChange("0x10")).toBeNull();
+    expect(parseChange("1e2")).toBeNull();
+    expect(parseChange("abc")).toBeNull();
+  });
+});
