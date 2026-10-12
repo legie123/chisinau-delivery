@@ -17,7 +17,8 @@ const asPartner = (q) =>
 
 (async () => {
   // Leftovers of an earlier failed run would ring from the first second: reject them via the RPC.
-  asPartner(`select public.reject_order(id, 'test bucătărie (RESTAURANT)') from public.orders where notes like 'KITCHEN-NET-%' and status = 'pending_restaurant'`);
+  // Only runs older than 10 min: a concurrent run's orders are not ours to touch (verifier F5).
+  asPartner(`select public.reject_order(id, 'test bucătărie (RESTAURANT)') from public.orders where notes like 'KITCHEN-NET-%' and status = 'pending_restaurant' and created_at < now() - interval '10 minutes'`);
   const b = await chromium.launch({ executablePath: process.env.EXE });
   const ctx = await b.newContext({ viewport: { width: 1024, height: 768 } });
   await ctx.addInitScript(() => {
@@ -100,7 +101,11 @@ const asPartner = (q) =>
   await p.waitForTimeout(5000);
   const quiet = (await beeps()) - afterAccept;
   console.log(`beeps in 5 s after Accept: ${quiet}`);
-  if (quiet > 0 && sql(`select count(*) from orders where restaurant_id='11111111-1111-1111-1111-111111111111' and status='pending_restaurant'`) === "0")
+  // Silence is required unless another DUE order (not ours, not a far-off scheduled one) is pending —
+  // the old condition skipped the check whenever ANY pending order existed (verifier F5).
+  const otherDue = sql(`select count(*) from orders where restaurant_id='11111111-1111-1111-1111-111111111111' and status='pending_restaurant' and order_type='standard' and coalesce(notes,'') not like '${tag}%' and (requested_for is null or requested_for - interval '60 minutes' <= now())`);
+  console.log(`other due pending orders at Sakura: ${otherDue}`);
+  if (quiet > 0 && otherDue === "0")
     fail("still beeping after the last pending order was accepted");
   try { await p.getByText("Live", { exact: true }).waitFor({ timeout: 30000 }); console.log("pill back to Live"); }
   catch { fail("connection pill never returned to Live"); }

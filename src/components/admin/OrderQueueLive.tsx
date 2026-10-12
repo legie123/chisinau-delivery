@@ -123,23 +123,36 @@ export function OrderQueueLive({
   useEffect(() => {
     const supabase = createClient();
     let wasDegraded = false;
-    return subscribeTable<Order>(
-      supabase,
-      "restaurant-queue",
-      "orders",
-      `restaurant_id=eq.${restaurantId}`,
-      () => void safeRefresh(),
-      () => {
-        wasDegraded = true;
-        setConnection("degraded");
-      },
-      () => {
-        setConnection("live");
-        // Catch-up: events missed while the socket was down are not replayed.
-        if (wasDegraded) void safeRefresh();
-        wasDegraded = false;
-      },
-    );
+    let disposed = false;
+    let unsubscribe: (() => void) | undefined;
+    // Join with the user's JWT, never anonymously: on a fresh load the join could leave before
+    // the session was read, and RLS then delivered no INSERT while the pill said Live
+    // (verifier F8, 10/10 cold loads after a stack restart).
+    void supabase.auth.getSession().then(({ data }) => {
+      if (disposed) return;
+      if (data.session) supabase.realtime.setAuth(data.session.access_token);
+      unsubscribe = subscribeTable<Order>(
+        supabase,
+        "restaurant-queue",
+        "orders",
+        `restaurant_id=eq.${restaurantId}`,
+        () => void safeRefresh(),
+        () => {
+          wasDegraded = true;
+          setConnection("degraded");
+        },
+        () => {
+          setConnection("live");
+          // Catch-up: events missed while the socket was down are not replayed.
+          if (wasDegraded) void safeRefresh();
+          wasDegraded = false;
+        },
+      );
+    });
+    return () => {
+      disposed = true;
+      unsubscribe?.();
+    };
   }, [restaurantId, safeRefresh, epoch]);
 
   // Back online: resubscribe now (don't wait for the socket's backoff) and catch up.
