@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { claimNotificationOutbox } from "@chisinau/shared-api";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSystemClient } from "@/lib/supabase/admin";
 import { sendPushToUser } from "@/lib/push/send";
 import { sendExpoPushToUser } from "@/lib/push/expo";
 
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
   let admin;
   try {
-    admin = createAdminClient();
+    admin = createSystemClient();
   } catch {
     return NextResponse.json({ error: "service role unavailable" }, { status: 503 });
   }

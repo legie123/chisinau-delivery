@@ -36,7 +36,7 @@ function fakeAdmin() {
 
 const claimed = vi.fn();
 vi.mock("@chisinau/shared-api", () => ({ claimNotificationOutbox: (...a: unknown[]) => claimed(...a) }));
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => fakeAdmin() }));
+vi.mock("@/lib/supabase/admin", () => ({ createSystemClient: () => fakeAdmin() }));
 const webPush = vi.fn(async () => {});
 vi.mock("@/lib/push/send", () => ({ sendPushToUser: (...a: unknown[]) => webPush(...(a as [])) }));
 

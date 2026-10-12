@@ -89,18 +89,44 @@ begin
   end if;
   raise notice 'PASS 290.AU5: service_role Server Action attributed to admin %', v_row.actor;
 
-  -- ===== AU6: service_role WITHOUT a named admin (payment webhook, push) is a system job -> no row =====
-  select count(*) into v_n from public.admin_audit_log where id > v_before;
+  -- ===== AU6: service_role WITHOUT a named admin (webhook, push) is still recorded, as 'system' =====
   perform set_config('request.headers', '{}', true);
   set local role service_role;
-  update public.orders set payment_status = payment_status where id = v_oid;      -- no-op shape of a webhook write
-  update public.restaurants set accepting_orders = accepting_orders where id = v_rest;
   update public.restaurants set delivery_fee_mdl = delivery_fee_mdl + 1 where id = v_rest;
   reset role;
-  if (select count(*) from public.admin_audit_log where id > v_before) <> v_n then
-    raise exception 'FAIL 290.AU6: a service_role write with no named admin was audited as an intervention';
+  select * into v_row from public.admin_audit_log where id > v_before and table_name = 'restaurants' order by id desc limit 1;
+  if v_row.actor_role is distinct from 'system' or v_row.actor is not null then
+    raise exception 'FAIL 290.AU6: unnamed service_role write not recorded as system (%)', row_to_json(v_row);
   end if;
-  raise notice 'PASS 290.AU6: webhook-like service_role writes leave no row';
+  raise notice 'PASS 290.AU6: unnamed service_role write recorded as system (fail-closed)';
+
+  -- ===== AU10: a header naming a non-admin is not trusted -> 'system', no actor =====
+  perform set_config('request.headers', json_build_object('x-audit-actor', c_cust)::text, true);
+  set local role service_role;
+  update public.restaurants set delivery_fee_mdl = delivery_fee_mdl - 1 where id = v_rest;
+  reset role;
+  select * into v_row from public.admin_audit_log where id > v_before and table_name = 'restaurants' order by id desc limit 1;
+  if v_row.actor_role is distinct from 'system' or v_row.actor is not null then
+    raise exception 'FAIL 290.AU10: header naming a customer was trusted (%)', row_to_json(v_row);
+  end if;
+  raise notice 'PASS 290.AU10: header naming a non-admin recorded as system, actor null';
+
+  -- ===== AU11: no coordinates through geo, no GPS through fraud_flags.detail =====
+  perform set_config('request.headers', json_build_object('x-audit-actor', v_admin)::text, true);
+  set local role service_role;
+  insert into public.fraud_flags (courier_id, kind, detail)
+  select id, 'gps_teleport', jsonb_build_object('from', jsonb_build_object('lat', 47.0123, 'lng', 28.8612), 'to', jsonb_build_object('lat', 46.9988, 'lng', 28.9011))
+    from public.couriers order by id limit 1;
+  insert into public.addresses (customer_id, street_address, lat, lng) values (c_cust, 'Str. Geo 290', 47.031122, 28.844455);
+  reset role;
+  if exists (select 1 from public.admin_audit_log where id > v_before
+             and (coalesce(old_values::text,'') || coalesce(new_values::text,'')) ~ '0101000020|47\.0123|46\.9988|47\.031122') then
+    raise exception 'FAIL 290.AU11: coordinates copied into the audit log (geo or fraud detail)';
+  end if;
+  if not exists (select 1 from public.admin_audit_log where id > v_before and table_name = 'fraud_flags' and new_values->>'detail' = '***') then
+    raise exception 'FAIL 290.AU11: fraud flag insert not recorded (masked)';
+  end if;
+  raise notice 'PASS 290.AU11: geo never copied, fraud detail masked';
 
   -- ===== AU7: service_role cannot forge, delete or truncate the log =====
   v_err := null;

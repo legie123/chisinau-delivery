@@ -1,5 +1,5 @@
 import "server-only";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSystemClient } from "@/lib/supabase/admin";
 import { sendPushToUser, type PushPayload } from "./send";
 
 // Domain notify helpers. They resolve the recipient with the service-role client
@@ -8,7 +8,7 @@ import { sendPushToUser, type PushPayload } from "./send";
 
 export async function notifyOrderCustomer(orderId: string, payload: PushPayload): Promise<void> {
   try {
-    const admin = createAdminClient();
+    const admin = createSystemClient();
     const { data } = await admin.from("orders").select("customer_id").eq("id", orderId).maybeSingle();
     if (data?.customer_id) await sendPushToUser(data.customer_id, payload);
   } catch {
@@ -18,7 +18,7 @@ export async function notifyOrderCustomer(orderId: string, payload: PushPayload)
 
 export async function notifyDispatchedCourier(orderId: string, payload: PushPayload): Promise<void> {
   try {
-    const admin = createAdminClient();
+    const admin = createSystemClient();
     const { data: offer } = await admin
       .from("dispatch_offers")
       .select("courier_id")

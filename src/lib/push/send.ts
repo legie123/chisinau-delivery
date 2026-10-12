@@ -1,6 +1,6 @@
 import "server-only";
 import webpush from "web-push";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createSystemClient } from "@/lib/supabase/admin";
 
 export type PushPayload = { title: string; body: string; url?: string; tag?: string };
 export type PushSendOptions = { urgency?: "very-low" | "low" | "normal" | "high"; TTL?: number };
@@ -25,7 +25,7 @@ function configure(): boolean {
 export async function sendPushToUser(userId: string, payload: PushPayload, options?: PushSendOptions): Promise<void> {
   try {
     if (!userId || !configure()) return;
-    const admin = createAdminClient();
+    const admin = createSystemClient();
     const { data: subs } = await admin.from("push_subscriptions").select("*").eq("user_id", userId);
     if (!subs?.length) return;
 

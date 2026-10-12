@@ -1,10 +1,12 @@
 -- Admin audit trail: every intervention by a platform_admin (or a service_role server path) on an
 -- operational table leaves one append-only row — who, which table/row, when, old and new values.
 -- UPDATE rows keep only the changed keys. Customers, couriers and partners acting on their own
--- data, system jobs (cron, migrations: no JWT) and service_role calls WITHOUT a named admin
--- (payment webhook, push drain) are not logged. A Server Action that uses the service-role client
--- on an admin's behalf names that admin in the `x-audit-actor` request header
--- (src/lib/supabase/admin.ts createAdminClient(actorId)); only the service key can set it.
+-- data and system jobs without a JWT (cron, migrations) are not logged. EVERY write made with the
+-- service key is logged (fail-closed): a Server Action acting for an admin names that admin in the
+-- `x-audit-actor` header (src/lib/supabase/admin.ts createAdminClient(actorId), mandatory) and is
+-- attributed to them; without the header, or naming someone who is not a platform_admin, the row is
+-- attributed to 'system' (payment webhook, push: createSystemClient()). Nothing with the service key
+-- escapes the trail.
 -- Not covered (no trigger possible here): storage.objects and auth.users (invites go through the
 -- GoTrue admin API; the couriers / restaurant_staff rows they create ARE logged, with the actor).
 -- Personal data is masked, not copied: an erasure (erase_customer_pii) must not survive in its
@@ -16,13 +18,16 @@ create table if not exists public.admin_audit_log (
   id          bigserial primary key,
   at          timestamptz not null default now(),
   actor       uuid,                         -- auth.uid(); null on a service_role path without sub
-  actor_role  text not null check (actor_role in ('platform_admin', 'service_role')),
+  actor_role  text not null check (actor_role in ('platform_admin', 'service_role', 'system')),
   action      text not null check (action in ('INSERT', 'UPDATE', 'DELETE')),
   table_name  text not null,
   row_id      text,
   old_values  jsonb,
   new_values  jsonb
 );
+alter table public.admin_audit_log drop constraint if exists admin_audit_log_actor_role_check;
+alter table public.admin_audit_log add constraint admin_audit_log_actor_role_check
+  check (actor_role in ('platform_admin', 'service_role', 'system'));
 create index if not exists admin_audit_log_row_idx on public.admin_audit_log (table_name, row_id, at desc);
 create index if not exists admin_audit_log_at_idx on public.admin_audit_log (at desc);
 create index if not exists admin_audit_log_actor_idx on public.admin_audit_log (actor, at desc);
@@ -74,17 +79,22 @@ begin
     -- Only a Server Action acting for a named admin is an intervention; webhooks/push are system.
     v_actor := null;
     k := nullif(current_setting('request.headers', true), '')::jsonb->>'x-audit-actor';
-    if k ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then v_actor := k::uuid; end if;
-    if v_actor is null then return null; end if;
-    v_kind := 'service_role';
+    if k ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+       and exists (select 1 from public.profiles where id = k::uuid and role = 'platform_admin') then
+      v_actor := k::uuid;
+      v_kind := 'service_role';                      -- server path acting for a verified admin
+    else
+      v_kind := 'system';                            -- webhook / push / unnamed: still recorded
+    end if;
   elsif v_actor is not null and public.has_role('platform_admin') then
     v_kind := 'platform_admin';
   else
     return null;                                     -- not an admin intervention
   end if;
 
-  if tg_op in ('UPDATE', 'DELETE') then v_old := to_jsonb(old); end if;
-  if tg_op in ('UPDATE', 'INSERT') then v_new := to_jsonb(new); end if;
+  -- geo = generated PostGIS copy of lat/lng: never copied (it would bypass the lat/lng masks).
+  if tg_op in ('UPDATE', 'DELETE') then v_old := to_jsonb(old) - 'geo'; end if;
+  if tg_op in ('UPDATE', 'INSERT') then v_new := to_jsonb(new) - 'geo'; end if;
 
   if tg_op = 'UPDATE' then                           -- keep only what changed
     select jsonb_object_agg(key, v_old->key), jsonb_object_agg(key, v_new->key)
@@ -140,7 +150,7 @@ begin
       ('catering_details',        'mask:event_address_text,contact_person,contact_phone,restaurant_notes'),
       ('venue_bookings',          'mask:purpose,notes,contact_person,contact_phone,decline_reason'),
       ('addresses',               'mask:label,street_address,sector,building,apartment,entrance,floor,intercom_code,notes,lat,lng,contact_phone'),
-      ('fraud_flags',             ''),
+      ('fraud_flags',             'mask:detail'),
       ('onboarding_applications', 'mask:full_name,phone,email,details,review_note'),
       ('kyc_documents',           ''),
       ('payouts',                 ''),
