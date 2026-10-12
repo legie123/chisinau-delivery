@@ -232,6 +232,26 @@ export async function fetchCouriersAvailable(): Promise<boolean | null> {
   return error || typeof data !== "boolean" ? null : data;
 }
 
+/** Parity row 12: report a problem after acceptance (customer_report_problem, sim 112). */
+export async function reportProblem(orderId: string, kind: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc("customer_report_problem", { p_order_id: orderId, p_kind: kind, p_note: note });
+  if (error) throw new Error(error.message);
+}
+
+export type MyComplaint = { status: "open" | "resolved"; resolution: string | null };
+
+/** The latest complaint on this order (RLS: the customer reads only their own orders'). */
+export async function fetchMyComplaint(orderId: string): Promise<MyComplaint | null> {
+  const { data, error } = await supabase
+    .from("order_complaints")
+    .select("status, resolution")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return (data?.[0] as MyComplaint | undefined) ?? null;
+}
+
 /** In-app account deletion (App Store 5.1.1(v)): delete_my_account() scrubs the personal data,
  *  removes every session server-side and anonymizes the login; orders stay anonymous (fiscal).
  *  Then the local session is dropped. Throws the server's Romanian refusal (order in flight, …). */

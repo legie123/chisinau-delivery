@@ -7,10 +7,12 @@ import { COLORS } from '../theme';
 import { supabase } from '../lib/supabase';
 import { errorText } from '../lib/api';
 import { fetchCourierSeed, fetchOrderDetail, mergeOrderRow, type OrderDetail } from '../lib/orderDetail';
+import ReportProblem from '../components/tracking/ReportProblem';
 import { subscribeCourierLocation, subscribeOrderChildren, subscribeOrderRow, type LatLng } from '../lib/realtime';
 import {
   PROGRESS_STEPS,
   customerCanCancel,
+  customerCanReport,
   customerCanTip,
   isTerminal,
   progressIndex,
@@ -261,6 +263,7 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
             <Text style={styles.cancelText}>Anulează comanda</Text>
           </TouchableOpacity>
         )}
+        {customerCanReport(order.status) && <ReportProblem orderId={orderId} />}
         <SupportLinks orderNumber={order.orderNumber} />
         <View style={{ height: 40 }} />
       </ScrollView>

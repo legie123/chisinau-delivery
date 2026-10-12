@@ -23,6 +23,21 @@ export function customerCanCancel(status: string): boolean {
   return status === "pending_restaurant";
 }
 
+/** customer_report_problem (sim 112): any state after the restaurant accepted — before that, cancel. */
+export function customerCanReport(status: string): boolean {
+  return isOrderStatus(status) && status !== "pending_restaurant";
+}
+
+/** The kinds order_complaints accepts, as the app shows them. */
+export const PROBLEM_KINDS = [
+  { key: "missing_item", label: "Lipsește un produs" },
+  { key: "wrong_item", label: "Produs greșit" },
+  { key: "late", label: "Întârziere" },
+  { key: "quality", label: "Calitate" },
+  { key: "courier", label: "Curierul" },
+  { key: "other", label: "Altceva" },
+] as const;
+
 /** set_order_tip refuses delivered / cancelled / rejected. */
 export function customerCanTip(status: string): boolean {
   return isOrderStatus(status) && !isTerminal(status);
