@@ -17,7 +17,7 @@ function r(id: string, over: Partial<Restaurant> = {}): Restaurant {
     id, slug: id, name: id, cuisine: "sushi", venueType: "restaurant", category: "Sushi · Japonez", address: "",
     lat: null, lng: null, logoUrl: null, coverUrl: null, ratingAvg: null, ratingCount: 0, prepLabel: "25–40 min",
     deliveryFee: 0, minOrder: 0, acceptingOrders: true, openNow: true, nextOpening: null, distanceM: null,
-    acceptsCatering: false, cateringMin: null, ...over,
+    acceptsCatering: false, cateringMin: null, deliversHere: null, ...over,
   };
 }
 

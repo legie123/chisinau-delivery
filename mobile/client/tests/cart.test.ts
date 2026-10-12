@@ -107,7 +107,7 @@ describe("place_order payload — what the phone sends", () => {
       { menu_item_id: "m1", quantity: 2, option_ids: ["o-spicy"] },
       { menu_item_id: "m2", quantity: 1, option_ids: [] },
     ]);
-    const input = buildOrderInput(cart, { deliveryAddressId: "addr-1", paymentMethod: "cash", idempotencyKey: "k-1", notes: "  " });
+    const input = buildOrderInput(cart, { deliveryAddressId: "addr-1", paymentMethod: "cash", idempotencyKey: "k-1", deliveryFeeMdl: 25, notes: "  " });
     expect(input).toEqual({
       restaurantId: "r1",
       orderType: "standard",
@@ -116,11 +116,12 @@ describe("place_order payload — what the phone sends", () => {
       deliveryAddressId: "addr-1",
       notes: undefined,
       idempotencyKey: "k-1",
+      expectedTotalMdl: cartSubtotal(cart.lines) + 25,
     });
   });
 
   it("an empty cart never reaches place_order", () => {
-    expect(() => buildOrderInput(EMPTY_CART, { deliveryAddressId: "a", paymentMethod: "cash", idempotencyKey: "k" })).toThrow();
+    expect(() => buildOrderInput(EMPTY_CART, { deliveryAddressId: "a", paymentMethod: "cash", idempotencyKey: "k", deliveryFeeMdl: 0 })).toThrow();
   });
 
   it("idempotency keys differ per attempt; tips round like the web checkout", () => {

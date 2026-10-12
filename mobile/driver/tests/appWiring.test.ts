@@ -30,7 +30,7 @@ describe("GPS privacy wiring (MED)", () => {
     const s = src("src/screens/MapScreen.tsx");
     expect(s).not.toMatch(/beginTracking/);
     expect(s).toMatch(/const activeOrderId = activeDelivery\?\.order\.id \?\? null;/);
-    expect(s).toMatch(/startDeliveryTracking\(activeOrderId, courierId\)/);
+    expect(s).toMatch(/startDeliveryTracking\(activeOrderId, courierId, askBackgroundDisclosure\)/);
     expect(s).toMatch(/resumeDeliveryTracking\(\)/); // LOW: Android background start retried on foreground
   });
 

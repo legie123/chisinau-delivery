@@ -30,7 +30,7 @@ if (!env.url || !env.anonKey) throw new Error("smoke: no Supabase URL / anon key
 
 const outfile = path.join(mkdtempSync(path.join(tmpdir(), "client-smoke-")), "smoke.mjs");
 await build({
-  entryPoints: [path.join(here, "place-order-smoke.ts")],
+  entryPoints: [path.join(here, process.argv[2] ?? "place-order-smoke.ts")],
   bundle: true,
   platform: "node",
   format: "esm",

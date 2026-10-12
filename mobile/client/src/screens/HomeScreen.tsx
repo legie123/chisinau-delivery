@@ -264,6 +264,7 @@ export default function HomeScreen({ navigation }: Props) {
         )}
         {filteredRestaurants.map(restaurant => {
           const closed = !restaurant.openNow || !restaurant.acceptingOrders;
+          const outOfZone = restaurant.deliversHere === false;
           const distance = distanceText(restaurant.distanceM);
           return (
             <View key={restaurant.id}>
@@ -272,7 +273,7 @@ export default function HomeScreen({ navigation }: Props) {
                   colors={CARD_TINTS[restaurant.cuisine] ?? CARD_TINTS.other}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={[styles.luxCard, closed && { opacity: 0.6 }]}
+                  style={[styles.luxCard, (closed || outOfZone) && { opacity: 0.6 }]}
                 >
                   <View style={styles.cardContent}>
                     <View style={styles.cardTextArea}>
@@ -283,7 +284,11 @@ export default function HomeScreen({ navigation }: Props) {
                         <Text style={styles.metaSeparator}>·</Text>
                         <Text style={styles.deliveryTime}>{restaurant.prepLabel}</Text>
                       </View>
-                      {closed ? (
+                      {outOfZone ? (
+                        <View style={styles.feePill}>
+                          <Text style={styles.feePillText}>NU LIVREAZĂ LA ADRESA TA</Text>
+                        </View>
+                      ) : closed ? (
                         <View style={styles.feePill}>
                           <Text style={styles.feePillText}>
                             {!restaurant.acceptingOrders

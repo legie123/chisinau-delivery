@@ -1,9 +1,11 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator, RefreshControl, Linking } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, userMessage, CourierProfile, CourierStatus } from '../lib/api';
+import PayoutAccountForm from '../components/PayoutAccountForm';
+import { readSupportPhone } from '../lib/config';
 
 const VEHICLE_LABEL: Record<string, string> = {
   bike: '🚲 Bicicletă',
@@ -31,16 +33,17 @@ function initials(fullName: string): string {
   return parts.slice(0, 2).map((p) => p[0]!.toUpperCase()).join('');
 }
 
-const MENU_ITEMS = [
-  { icon: 'person-outline', label: 'Editează profilul', color: COLORS.primary },
-  { icon: 'car-outline', label: 'Vehiculul meu', color: COLORS.gold },
-  { icon: 'document-text-outline', label: 'Documente', color: '#60a5fa' },
-  { icon: 'card-outline', label: 'Cont bancar', color: COLORS.success },
-  { icon: 'time-outline', label: 'Program de lucru', color: '#a78bfa' },
-  { icon: 'help-circle-outline', label: 'Ajutor & Suport', color: '#60a5fa' },
-  { icon: 'settings-outline', label: 'Setări', color: COLORS.textSecondary },
-  { icon: 'log-out-outline', label: 'Deconectare', color: COLORS.primary },
+// Only rows that do something. "Editează profilul", "Vehiculul meu", "Documente", "Program de lucru" and
+// "Setări" were dead taps with a chevron (nothing behind them); they come back when they have a backend.
+type MenuAction = 'payout' | 'support' | 'signout';
+const MENU_ITEMS: { icon: string; label: string; color: string; action: MenuAction }[] = [
+  { icon: 'card-outline', label: 'Cont bancar', color: COLORS.success, action: 'payout' },
+  { icon: 'help-circle-outline', label: 'Ajutor & Suport', color: '#60a5fa', action: 'support' },
+  { icon: 'log-out-outline', label: 'Deconectare', color: COLORS.primary, action: 'signout' },
 ];
+
+// Metro only inlines `process.env.EXPO_PUBLIC_X` written out literally. Unset -> the support row is hidden.
+const SUPPORT = readSupportPhone(process.env.EXPO_PUBLIC_SUPPORT_PHONE);
 
 // Real courier profile (fixes mock name/vehicle/stats, finding #22 driver
 // half) + a working online/offline toggle through set_courier_online_status,
@@ -54,6 +57,7 @@ export default function ProfileScreen() {
   const [toggling, setToggling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [reloads, setReloads] = useState(0); // pull-to-refresh re-runs the focus load
+  const [payoutOpen, setPayoutOpen] = useState(false);
 
   // Every focus (bottom tabs stay mounted): status and counts follow the shift.
   useFocusEffect(
@@ -180,12 +184,25 @@ export default function ProfileScreen() {
 
         {/* Menu */}
         <View style={styles.menuSection}>
-          {MENU_ITEMS.map((item, i) => (
+          {payoutOpen && profile && <PayoutAccountForm courierId={profile.id} onClose={() => setPayoutOpen(false)} />}
+          {MENU_ITEMS.filter((item) => item.action !== 'support' || SUPPORT).map((item) => (
             <TouchableOpacity
-              key={i}
+              key={item.action}
               style={styles.menuItem}
               activeOpacity={0.7}
-              onPress={item.label === 'Deconectare' ? () => void handleSignOut() : undefined}
+              onPress={() => {
+                switch (item.action) {
+                  case 'payout':
+                    if (profile) setPayoutOpen((o) => !o);
+                    break;
+                  case 'support':
+                    if (SUPPORT) Linking.openURL(SUPPORT.tel).catch(() => Alert.alert('Nu s-a putut suna', SUPPORT.label));
+                    break;
+                  case 'signout':
+                    void handleSignOut();
+                    break;
+                }
+              }}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
                 <Ionicons name={item.icon as any} size={20} color={item.color} />

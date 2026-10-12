@@ -15,10 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
-import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, userMessage, type DriverOrder } from '../lib/api';
-import { navUrl, telUrl } from '../lib/orderView';
+import * as ImagePicker from 'expo-image-picker';
+import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, uploadDeliveryProof, userMessage, type DriverOrder } from '../lib/api';
+import { ISSUE_LABELS, issueKindsFor, issueReportedText, type IssueKind } from '../lib/issues';
+import { navUrl, pickupCode, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
+import { askBackgroundDisclosure } from '../lib/locationDisclosure';
 import { useDevicePosition } from '../hooks/useDevicePosition';
 
 const { width } = Dimensions.get('window');
@@ -79,7 +82,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   // until the server confirms en_route, see lib/gpsGate).
   const startGps = () => {
     getMyCourierId()
-      .then((courierId) => (courierId ? startDeliveryTracking(order.id, courierId) : null))
+      .then((courierId) => (courierId ? startDeliveryTracking(order.id, courierId, askBackgroundDisclosure) : null))
       .then(setGpsWarning)
       .catch((e: unknown) => setGpsWarning(userMessage(e, 'GPS-ul în fundal nu a putut porni.')));
   };
@@ -98,6 +101,42 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       return;
     }
     setArrived(true);
+  };
+
+  // Proof-of-delivery photo (soft signal, never a gate): camera only, uploaded to the private bucket.
+  const [proofSending, setProofSending] = useState(false);
+  const [proofSaved, setProofSaved] = useState(false);
+  const handleProofPhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Camera nu e permisă', 'Permite accesul la cameră din setările telefonului ca să faci poza la livrare.');
+      return;
+    }
+    const shot = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.4, allowsEditing: false, exif: false });
+    if (shot.canceled || shot.assets.length === 0) return;
+    setProofSending(true);
+    const err = await uploadDeliveryProof(order.id, shot.assets[0].uri);
+    setProofSending(false);
+    if (err) {
+      Alert.alert('Poza nu s-a salvat', err);
+      return;
+    }
+    setProofSaved(true);
+  };
+
+  // Problem report: one tap per kind; the server ignores a repeat (returns false) instead of stacking.
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueSending, setIssueSending] = useState(false);
+  const handleReport = async (kind: IssueKind) => {
+    setIssueSending(true);
+    const { error, isNew } = await reportIssue(order.id, kind);
+    setIssueSending(false);
+    if (error) {
+      Alert.alert('Nu s-a putut trimite', error);
+      return;
+    }
+    setIssueOpen(false);
+    Alert.alert(ISSUE_LABELS[kind], issueReportedText(isNew));
   };
 
   const panResponder = PanResponder.create({
@@ -284,6 +323,15 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
             </View>
           )}
 
+          {/* Handover code the kitchen asks for (RESTAURANT's rule): big, before "Am ridicat". */}
+          {status === 'pickup' && pickupCode(order.orderNumber) && (
+            <View style={[styles.gpsBanner, { justifyContent: 'center', paddingVertical: 14 }]}>
+              <Text style={[styles.gpsBannerText, { fontSize: 22, fontWeight: '800', letterSpacing: 2 }]}>
+                Cod ridicare: {pickupCode(order.orderNumber)}
+              </Text>
+            </View>
+          )}
+
           {status === 'pickup' && (
             <TouchableOpacity style={styles.gpsBanner} onPress={handleArrived} disabled={arrived}>
               <Ionicons name={arrived ? 'checkmark-circle' : 'storefront'} size={16} color={COLORS.white} />
@@ -307,6 +355,40 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
               )}
             </View>
           )}
+
+          {/* Proof of delivery — only on the delivery leg (attach_delivery_proof accepts en_route). */}
+          {status === 'delivering' && (
+            <TouchableOpacity
+              style={[styles.gpsBanner, { opacity: proofSending ? 0.5 : 1 }]}
+              onPress={() => void handleProofPhoto()}
+              disabled={proofSending}
+            >
+              <Ionicons name={proofSaved ? 'checkmark-circle' : 'camera'} size={16} color={COLORS.white} />
+              <Text style={styles.gpsBannerText}>
+                {proofSending ? 'Se încarcă poza…' : proofSaved ? 'Poza de livrare e salvată (poți face alta)' : 'Fă o poză la livrare'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Problem report — kinds follow the leg (same rule as courier_report_issue). */}
+          {status !== 'delivered' && (
+            <TouchableOpacity style={styles.gpsBanner} onPress={() => setIssueOpen((o) => !o)} disabled={issueSending}>
+              <Ionicons name="alert-circle" size={16} color={COLORS.white} />
+              <Text style={styles.gpsBannerText}>Raportează o problemă</Text>
+            </TouchableOpacity>
+          )}
+          {issueOpen &&
+            issueKindsFor(status).map((kind) => (
+              <TouchableOpacity
+                key={kind}
+                style={[styles.gpsBanner, { opacity: issueSending ? 0.5 : 1 }]}
+                onPress={() => void handleReport(kind)}
+                disabled={issueSending}
+              >
+                <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
+                <Text style={styles.gpsBannerText}>{ISSUE_LABELS[kind]}</Text>
+              </TouchableOpacity>
+            ))}
 
           {/* Customer Info Card */}
           <View style={styles.customerCard}>

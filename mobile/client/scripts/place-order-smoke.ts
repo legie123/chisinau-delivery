@@ -28,11 +28,11 @@ export async function main(env: { url: string; anonKey: string; email: string; p
   // An open, ordering restaurant — prefer an item WITH a required option group.
   const { data: restaurants } = await db
     .from("restaurants")
-    .select("id, name, min_order_amount_mdl")
+    .select("id, name, min_order_amount_mdl, delivery_fee_mdl, lat, lng")
     .eq("is_active", true)
     .eq("accepting_orders", true)
     .in("venue_type", ["restaurant", "sushi_bar"]);
-  let picked: { r: { id: string; name: string; min_order_amount_mdl: number }; item: { id: string; name: string; price_mdl: number }; groups: OptionGroupLike[] } | null = null;
+  let picked: { r: { id: string; name: string; min_order_amount_mdl: number; delivery_fee_mdl: number; lat: number | null; lng: number | null }; item: { id: string; name: string; price_mdl: number }; groups: OptionGroupLike[] } | null = null;
   for (const r of restaurants ?? []) {
     const { data: open } = await db.rpc("restaurant_open_at", { p_restaurant_id: r.id, p_at: new Date().toISOString() });
     if (open === false) continue;
@@ -68,13 +68,14 @@ export async function main(env: { url: string; anonKey: string; email: string; p
 
   const { data: address, error: addrError } = await db
     .from("addresses")
-    .insert({ customer_id: userId, street_address: "Smoke test, str. Ștefan cel Mare 1", contact_phone: "+37360000000" })
+    // place_order needs a pin inside the delivery radius (C1): pin the address next to the restaurant.
+    .insert({ customer_id: userId, street_address: "Smoke test, str. Ștefan cel Mare 1", contact_phone: "+37360000000", lat: Number(r.lat) + 0.001, lng: Number(r.lng) })
     .select("id")
     .single();
   if (addrError) throw new Error(`address insert failed: ${addrError.message}`);
 
   const key = newIdempotencyKey();
-  const input = buildOrderInput(cart, { deliveryAddressId: address.id, paymentMethod: "cash", idempotencyKey: key });
+  const input = buildOrderInput(cart, { deliveryAddressId: address.id, paymentMethod: "cash", idempotencyKey: key, deliveryFeeMdl: Number(r.delivery_fee_mdl) });
   const orderId = await placeOrder(db, input);
   const retryId = await placeOrder(db, input); // same key -> same order, no duplicate
 

@@ -69,6 +69,8 @@ export type PlaceOrderInput = {
   notes?: string;
   catering?: Record<string, unknown>;
   idempotencyKey?: string;
+  /** Subtotal + delivery fee as DISPLAYED; place_order refuses if its re-priced total differs. */
+  expectedTotalMdl?: number;
 };
 
 /**
@@ -88,6 +90,7 @@ export async function placeOrder(db: Db, input: PlaceOrderInput): Promise<OrderI
     p_notes: input.notes,
     p_catering: (input.catering ?? undefined) as unknown as Json,
     p_idempotency_key: input.idempotencyKey,
+    p_expected_total: input.expectedTotalMdl,
   });
   if (error) throw new RpcError(error);
   return data as OrderId;

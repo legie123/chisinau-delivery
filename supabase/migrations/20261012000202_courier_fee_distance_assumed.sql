@@ -113,3 +113,7 @@ begin
   values (p_order_id, p_new_status, case when has_role('courier') then 'courier' else 'platform_admin' end, auth.uid());
 end;
 $function$;
+
+-- ROLLBACK (after 20261012000204's and 20261012000203's): re-run lines 100-182 of
+-- 20260731000200_weather_surcharge.sql (the previous advance_delivery_status), then
+--   alter table public.orders drop column courier_fee_distance_assumed;

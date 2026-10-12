@@ -34,6 +34,8 @@ let lastUpsertAt = 0;
 let lastKnown: { orderId: string; status: string | null } | null = null;
 // Bumped by every stop: a tick that was awaiting across one must not send.
 let stops = 0;
+// The order we last showed the background-location disclosure for (asked at most once per delivery).
+let disclosureAskedFor: string | null = null;
 
 // A send before the channel has joined makes realtime-js fall back to a REST
 // broadcast that does not wait for setAuth(); the private channel rejects it and
@@ -132,14 +134,24 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(LOCATION_TASK, 
  * (./gpsGate decides what each fix feeds). Returns a Romanian warning when
  * tracking is degraded (no "Always" permission) or null.
  */
-export async function startDeliveryTracking(orderId: string, courierId: string): Promise<string | null> {
+export async function startDeliveryTracking(
+  orderId: string,
+  courierId: string,
+  // Google Play: the in-app disclosure (./locationDisclosure) must come BEFORE the OS prompt. Without
+  // one (a caller with no UI) the background prompt is never shown; foreground tracking still runs.
+  disclose: () => Promise<boolean> = async () => false,
+): Promise<string | null> {
   await AsyncStorage.setItem(TRACKING_KEY, JSON.stringify({ orderId, courierId } satisfies Tracking));
 
   const fg = await Location.requestForegroundPermissionsAsync();
   if (fg.status !== "granted") {
     return "Permisiunea de localizare a fost refuzată — clientul nu îți vede poziția live.";
   }
-  const bg = await Location.requestBackgroundPermissionsAsync();
+  let bg = await Location.getBackgroundPermissionsAsync();
+  if (bg.status !== "granted" && disclosureAskedFor !== orderId) {
+    disclosureAskedFor = orderId; // once per delivery: both screens re-run start for the same order
+    if (await disclose()) bg = await Location.requestBackgroundPermissionsAsync();
+  }
 
   if (!(await Location.hasStartedLocationUpdatesAsync(LOCATION_TASK))) {
     await Location.startLocationUpdatesAsync(LOCATION_TASK, {

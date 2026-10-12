@@ -1,12 +1,15 @@
 import {
   RpcError,
   acceptDispatchOffer as rpcAcceptDispatchOffer,
+  attachDeliveryProof,
   claimOrderAsCourier,
   courierArrivedAtRestaurant,
   declineDispatchOffer as rpcDeclineDispatchOffer,
   getCourierCashStatus,
   getOfferPreview,
+  reportDeliveryIssue,
   setCourierOnlineStatus,
+  storageErrorText,
   type CourierCashStatus,
 } from "@chisinau/shared-api";
 import {
@@ -24,13 +27,17 @@ import {
   fetchPricingHistory,
   fetchTodayEarnings,
   fetchWeekEarnings,
+  historyFeeNote,
   historyNet,
+  historyTipLabel,
   offerNetLabel,
 } from "./earnings";
 import { stopDeliveryTracking } from "./backgroundLocation";
 import { registerForPush, unregisterPush } from "./push";
 import { addressLines, toPoint, type LatLng } from "./orderView";
 import { toOfferPreview, type OfferPreview } from "./offerPreview";
+import type { IssueKind } from "./issues";
+import { proofPath } from "./deliveryProof";
 
 // Every status change goes through @chisinau/shared-api (the same typed RPC
 // wrappers the web uses); reads stay plain RLS-scoped selects. Money goes
@@ -56,6 +63,7 @@ async function attempt(fn: () => Promise<unknown>): Promise<string | null> {
 export interface DriverOrder {
   id: string;
   status: string;
+  orderNumber: string;
   restaurant: string;
   pickupAddress: string;
   deliveryAddress: string;
@@ -282,6 +290,7 @@ async function mapOrders(rows: OrderRow[]): Promise<DriverOrder[]> {
       deliveryAddress: cateringVenue ?? lines?.street ?? "Adresa se afișează după acceptare",
       distance: "",
       earnings: offerNetLabel(r, pct),
+      orderNumber: r.order_number,
       items: `Comandă ${r.order_number} · total ${r.total_mdl} MDL`,
       customerName: r.order_type === "catering" ? "Eveniment catering" : "Client",
       pickup: toPoint(restaurant?.lat, restaurant?.lng),
@@ -330,6 +339,63 @@ export function markArrivedAtRestaurant(orderId: string): Promise<string | null>
   return attempt(() => courierArrivedAtRestaurant(supabase, orderId as OrderId));
 }
 
+/**
+ * Proof-of-delivery photo: upload the camera JPEG into the private bucket under the order's folder,
+ * then attach that path (attach_delivery_proof: assigned courier, en_route or <= 1 h after delivery).
+ * A soft signal, never a gate on the delivery. Romanian error or null.
+ */
+export async function uploadDeliveryProof(orderId: string, uri: string): Promise<string | null> {
+  try {
+    const path = proofPath(orderId, Date.now(), Math.random().toString(36).slice(2));
+    const body = await (await fetch(uri)).arrayBuffer();
+    const { error } = await supabase.storage.from("delivery-proof").upload(path, body, { contentType: "image/jpeg" });
+    if (error) return storageErrorText(error);
+    await attachDeliveryProof(supabase, orderId as OrderId, path);
+    return null;
+  } catch (err) {
+    return userMessage(err);
+  }
+}
+
+// ---------- Payout account (IBAN for the weekly payout) ----------
+
+export interface PayoutAccount {
+  iban: string;
+  holderName: string;
+}
+
+/** The courier's own payout account (RLS: own row only), null when none is saved yet. */
+export async function fetchMyPayoutAccount(courierId: string): Promise<PayoutAccount | null> {
+  const { data, error } = await supabase
+    .from("payout_accounts")
+    .select("iban, holder_name")
+    .eq("recipient_type", "courier")
+    .eq("recipient_id", courierId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? { iban: data.iban, holderName: data.holder_name } : null;
+}
+
+/** Save (insert or replace) the courier's IBAN via set_payout_account (self or admin only). */
+export async function savePayoutAccount(courierId: string, iban: string, holder: string): Promise<string | null> {
+  const { error } = await supabase.rpc("set_payout_account", {
+    p_recipient_type: "courier",
+    p_recipient_id: courierId,
+    p_iban: iban,
+    p_holder_name: holder,
+  });
+  return error ? userMessage(new RpcError(error)) : null;
+}
+
+/** Report a problem on the active delivery. Romanian error, or which text to show on success. */
+export async function reportIssue(orderId: string, kind: IssueKind): Promise<{ error: string | null; isNew: boolean }> {
+  try {
+    return { error: null, isNew: await reportDeliveryIssue(supabase, orderId as OrderId, kind) };
+  } catch (err) {
+    return { error: userMessage(err), isNew: false };
+  }
+}
+
 /** Last-known position while online and idle (see ./heartbeat). Romanian error or null. */
 export async function upsertMyLocation(courierId: string, point: LatLng): Promise<string | null> {
   const { error } = await supabase
@@ -363,6 +429,8 @@ export interface DeliveredRow {
   restaurant: string;
   time: string;
   netMdl: number | null; // null = livrată dar neîncasată (not settled → never summed)
+  tipLabel: string | null; // part of netMdl, shown so the courier sees what the tip was
+  feeNote: string | null; // the fee used the 6.0 km assumption (a pin was missing)
 }
 
 export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; today: MoneySummary }> {
@@ -373,7 +441,7 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
   const [{ data, error }, today] = await Promise.all([
     supabase
       .from("orders")
-      .select("id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, restaurants(name)")
+      .select("id, order_number, delivered_at, updated_at, delivery_fee_mdl, courier_fee_mdl, tip_mdl, payment_status, courier_fee_distance_assumed, restaurants(name)")
       .eq("status", "delivered")
       .eq("courier_id", courierId)
       .order("delivered_at", { ascending: false, nullsFirst: false })
@@ -390,6 +458,8 @@ export async function fetchDeliveryHistory(): Promise<{ rows: DeliveredRow[]; to
       restaurant: (o.restaurants as unknown as { name: string } | null)?.name ?? "Restaurant",
       time: d.toLocaleString("ro-RO", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }),
       netMdl: historyNet(o, commission),
+      tipLabel: historyTipLabel(o.tip_mdl),
+      feeNote: historyFeeNote(o.courier_fee_distance_assumed),
     };
   });
   return { rows, today };

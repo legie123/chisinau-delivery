@@ -1,5 +1,5 @@
 import type { PlaceOrderInput } from "@chisinau/shared-api";
-import { isOpenNow, placeOrderItems, type CartState, type HoursRow } from "@chisinau/shared-domain";
+import { cartSubtotal, isOpenNow, placeOrderItems, type CartState, type HoursRow } from "@chisinau/shared-domain";
 
 // The place_order payload, built in ONE place — CartScreen and the smoke script
 // (scripts/place-order-smoke.ts) both call this, so what is proven against the DB is
@@ -138,9 +138,28 @@ export function newIdempotencyKey(now = Date.now(), rand = Math.random): string 
   return `${now.toString(36)}-${rand().toString(36).slice(2)}-${rand().toString(36).slice(2)}`;
 }
 
+/** The checkout's money, in ONE place: what CartScreen shows and what place_order is told to
+ *  expect. Bani-rounded like numeric(10,2). expectedTotal excludes the tip (set_order_tip adds
+ *  it afterwards, capped); total includes it. */
+export function checkoutTotals(lines: CartState["lines"], deliveryFeeMdl: number, tipMdl: number) {
+  const bani = (n: number) => Math.round(n * 100) / 100;
+  const subtotal = bani(cartSubtotal(lines));
+  const deliveryFee = bani(deliveryFeeMdl);
+  const tip = bani(tipMdl);
+  return { subtotal, deliveryFee, tip, expectedTotal: bani(subtotal + deliveryFee), total: bani(subtotal + deliveryFee + tip) };
+}
+
 export function buildOrderInput(
   cart: CartState,
-  opts: { deliveryAddressId: string; paymentMethod: PaymentChoice; idempotencyKey: string; notes?: string; requestedFor?: string },
+  opts: {
+    deliveryAddressId: string;
+    paymentMethod: PaymentChoice;
+    idempotencyKey: string;
+    /** The delivery fee the checkout DISPLAYED — the server refuses if its own differs. */
+    deliveryFeeMdl: number;
+    notes?: string;
+    requestedFor?: string;
+  },
 ): PlaceOrderInput {
   if (!cart.restaurantId || cart.lines.length === 0) throw new Error("Coșul este gol.");
   return {
@@ -152,6 +171,7 @@ export function buildOrderInput(
     notes: opts.notes?.trim() || undefined,
     requestedFor: opts.requestedFor,
     idempotencyKey: opts.idempotencyKey,
+    expectedTotalMdl: checkoutTotals(cart.lines, opts.deliveryFeeMdl, 0).expectedTotal,
   };
 }
 
@@ -178,7 +198,26 @@ export function reusableAddressId(created: CreatedAddress | null, draft: Address
 export function addressDraftProblem(d: AddressDraft): string | null {
   if (!d.street.trim()) return "Adresa este obligatorie.";
   if (d.phone.replace(/\D/g, "").length < 6) return "Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.";
+  // place_order refuses a pinless address (C1, sim 102): the courier needs the exact door.
+  if (!d.pin) return "Fixează pinul pe hartă — trage-l exact la intrarea în bloc.";
   return null;
+}
+
+/** The map opens here when an address has no pin yet (central Chișinău). */
+export const CHISINAU_CENTER = { lat: 47.0245, lng: 28.8322 };
+
+const samePin = (a: { lat: number; lng: number } | null, b: { lat: number; lng: number } | null) =>
+  a != null && b != null && Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lng - b.lng) < 1e-7;
+
+/** Editing a saved address: a new street with the OLD pin left where it was would send the
+ *  courier to the old door — the customer has to move the pin. */
+export function addressSaveProblem(
+  before: { street_address: string; lat: number | null; lng: number | null },
+  d: AddressDraft,
+): string | null {
+  const moved = before.street_address.trim() !== d.street.trim();
+  const oldPin = before.lat != null && before.lng != null ? { lat: Number(before.lat), lng: Number(before.lng) } : null;
+  return moved && samePin(oldPin, d.pin) ? "Ai schimbat strada — mută pinul pe noua adresă." : null;
 }
 
 /** The addresses row for a draft. Empty optional fields are NULL, not ""; lat/lng only with a pin. */
@@ -206,11 +245,10 @@ export function addressEditPlan(
   d: AddressDraft,
   usedByOrder: boolean,
 ) {
-  const moved = before.street_address.trim() !== d.street.trim();
-  const oldPin = before.lat != null && before.lng != null ? { lat: Number(before.lat), lng: Number(before.lng) } : null;
-  if (usedByOrder) return { kind: "insert" as const, row: addressRow({ ...d, pin: moved ? null : oldPin }), makeDefault: before.is_default };
-  // A new street makes the old GPS pin a lie the courier would navigate to: drop it.
-  return { kind: "update" as const, patch: { ...addressRow({ ...d, pin: null }), ...(moved ? { lat: null, lng: null } : {}) } };
+  // The pin is the one on the map (required by addressDraftProblem; addressSaveProblem makes a
+  // street change come with a moved pin), so both paths save it as shown.
+  if (usedByOrder) return { kind: "insert" as const, row: addressRow(d), makeDefault: before.is_default };
+  return { kind: "update" as const, patch: addressRow(d) };
 }
 export const ADDRESS_SAVED_AS_NEW =
   "Adresa apare în comenzi anterioare, așa că am salvat modificarea ca adresă nouă. Cea veche rămâne neschimbată în istoricul comenzilor.";

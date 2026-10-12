@@ -46,3 +46,5 @@ $$;
 -- A new function is executable by PUBLIC (and so by anon) until revoked.
 revoke all on function public.offer_preview(uuid) from public, anon;
 grant execute on function public.offer_preview(uuid) to authenticated;
+
+-- ROLLBACK (after 20261012000203's): drop function public.offer_preview(uuid);

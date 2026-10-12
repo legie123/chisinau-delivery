@@ -88,3 +88,22 @@ Re-verifică fiecare rând în cod înainte să-l construiești — gap-map-ul e
 ```
 Citește integral ~/code/chisinau-delivery/docs/handoff/HANDOFF-ADMIN.md și lucrează pe suprafața ADMIN după regulile de acolo. /bucla
 ```
+
+## 10. Stare la predare — 2026-10-12 (terminalul ADMIN trece pe CLIENT, la cererea userului)
+Commit-uri (toate cu sim care pică fără fix, `test:rpc` complet verde la ultimul):
+| commit | ce | dovedit cu |
+|---|---|---|
+| 93e51df | payouts din pg_cron fără JWT, săptămâna Europe/Chisinau (DST) | sim 250 + control (rol păstrat → pică) |
+| 9c2e8db | `payout_accounts` (IBAN, `is_valid_iban` în CHECK, `set_payout_account`), purge bloc 6 | sim 251 + control purge vechi |
+| fac9997 | CSV pentru bancă `/platform/payouts/export` (format generic) | vitest + :3004 40,70 MDL = sum(net) |
+| 9e9da14 | `is_valid_iban` revocat de la anon (sim 73/80 picau pentru toți) | test:rpc verde |
+| 7479c44 | jurnal reclamații (1 deschisă/comandă), purge bloc 7, UI în detaliul comenzii | sim 252 + smoke headless izolat |
+| f9ae87f | cut-off comandă fără curier = 30 min configurabil (decizia ownerului), push la client | sim 253 |
+| 22f5f3b | ajustări caz cu caz din reclamație → următorul payout (decizia ownerului) | sim 254 + smoke |
+| 6fded59 | alerte ops (neacceptat 3 min, dispatch_errors, push blocat) + webhook pg_net | sim 255 + mutație |
+
+Doar declarat / nedovedit: verificatorul adversarial pe 93e51df…9e9da14 rula la predare (rezultatul → `.bucla/progress.md`).
+Rămas (ordine): UI pentru alerte în panou · login pentru curierul aprobat (A5/critic #7) · A4 promo/taxe versionate · ușile de dev înainte de lansare.
+BLOCKED de owner: formatul CSV al băncii (mostră), canalul webhook (`ALTER DATABASE postgres SET app.ops_alert_webhook_url = …`).
+Atenție pentru celelalte sesiuni: `expire_stale_orders` anulează acum în baza locală comenzile gata fără curier după 30 min.
+Commit pe repo partajat: index temporar (`GIT_INDEX_FILE`), pentru că index-ul comun conține staging-ul altor sesiuni.

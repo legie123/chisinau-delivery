@@ -7,6 +7,7 @@ import {
 } from "@chisinau/shared-api";
 import { chisinauNow, formatPrepRange, isOpenNow, nextOpeningLabel, type HoursRow } from "@chisinau/shared-domain";
 import { supabase } from "./supabase";
+import { isSoldOut, liveAvailability } from "./browse";
 import type { MenuItem, OptionGroup, Restaurant } from "../types";
 import type { LiveItem, LiveOption } from "@chisinau/shared-domain";
 import type { ReorderGroup, ReorderLiveItem, ReorderSourceItem } from "./reorder";
@@ -61,9 +62,29 @@ export async function fetchRestaurants(position?: { lat: number; lng: number } |
   const distance = new Map(nearby.map((n) => [n.id, n.distance_m]));
   const { dow, time } = chisinauNow();
 
-  const list = rows.map((r) => toRestaurant(r, byId.get(r.id), r.restaurant_hours, distance.get(r.id) ?? null, dow, time));
+  const zone = await deliveryZone();
+  const list = rows.map((r) => ({
+    ...toRestaurant(r, byId.get(r.id), r.restaurant_hours, distance.get(r.id) ?? null, dow, time),
+    deliversHere: zone ? zone.has(r.id) : null,
+  }));
   if (distance.size === 0) return list;
   return list.sort((a, b) => (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity));
+}
+
+/** Restaurants that deliver to the signed-in customer's default PINNED address (the place_order
+ *  radius rule, restaurants_delivering_to). null = unknown (signed out, no pinned address, offline):
+ *  the list then stays as it was — place_order is still the one that decides. */
+async function deliveryZone(): Promise<Set<string> | null> {
+  try {
+    const book = await fetchAddressBook();
+    const home = book.find((a) => a.lat != null && a.lng != null);
+    if (!home) return null;
+    const { data, error } = await supabase.rpc("restaurants_delivering_to", { p_lat: Number(home.lat), p_lng: Number(home.lng) });
+    if (error || !data) return null;
+    return new Set(data as string[]);
+  } catch {
+    return null;
+  }
 }
 
 export function toRestaurant(
@@ -99,6 +120,7 @@ export function toRestaurant(
     distanceM,
     acceptsCatering: r.accepts_catering,
     cateringMin: r.catering_min_amount_mdl,
+    deliversHere: null,
   };
 }
 
@@ -108,7 +130,7 @@ export async function fetchMenu(
 ): Promise<{ items: MenuItem[]; categories: string[]; groups: Record<string, OptionGroup[]> }> {
   let itemsQuery = supabase
     .from("menu_items")
-    .select("id, restaurant_id, name, description, price_mdl, photo_url, category_id, catering_min_qty")
+    .select("id, restaurant_id, name, description, price_mdl, photo_url, category_id, catering_min_qty, sold_out_until")
     .eq("restaurant_id", restaurantId)
     .eq("is_available", true);
   if (!opts.catering) itemsQuery = itemsQuery.eq("is_catering_only", false);
@@ -127,6 +149,7 @@ export async function fetchMenu(
     imageUrl: i.photo_url,
     category: (i.category_id && catName.get(i.category_id)) || "Meniu",
     cateringMinQty: i.catering_min_qty,
+    soldOut: isSoldOut(i.sold_out_until),
   }));
 
   // Catering too: place_order enforces required groups on every order type.
@@ -160,13 +183,13 @@ export async function fetchMenu(
  *  null on any read error: offline keeps the cart as it is. */
 export async function fetchLiveMenu(itemIds: string[], optionIds: string[]): Promise<{ items: LiveItem[]; options: LiveOption[] } | null> {
   const [{ data: items, error }, { data: options, error: optError }] = await Promise.all([
-    supabase.from("menu_items").select("id, price_mdl, is_available").in("id", itemIds),
+    supabase.from("menu_items").select("id, price_mdl, is_available, sold_out_until").in("id", itemIds),
     optionIds.length
       ? supabase.from("menu_options").select("id, price_delta_mdl, is_available").in("id", optionIds)
       : Promise.resolve({ data: [] as LiveOption[], error: null }),
   ]);
   if (error || optError || !items) return null;
-  return { items, options: options ?? [] };
+  return { items: items.map((i) => liveAvailability(i)), options: options ?? [] };
 }
 
 export async function fetchInsights(restaurantId: string) {

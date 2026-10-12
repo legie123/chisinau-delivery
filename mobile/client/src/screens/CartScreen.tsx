@@ -8,7 +8,6 @@ import { COLORS } from '../theme';
 import { clearCart, getCart, setCart, useCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
 import { createAddress, errorText, fetchAddressBook, fetchLiveMenu, isSignedIn, type AddressBookEntry } from '../lib/api';
-import { currentPosition } from '../lib/location';
 import { reconcileLines, type ReconcileResult } from '@chisinau/shared-domain';
 import {
   addressDraftProblem,
@@ -17,6 +16,7 @@ import {
   buildOrderInput,
   CASH_CAP_HINT,
   cashCapExceeded,
+  checkoutTotals,
   chisinauWallTime,
   defaultAddressChoice,
   newIdempotencyKey,
@@ -32,6 +32,7 @@ import {
 } from '../lib/checkout';
 import { loadCheckoutPrefs, saveCheckoutPrefs } from '../lib/checkoutPrefs';
 import WhenPicker from '../components/WhenPicker';
+import PinPicker from '../components/PinPicker';
 import { AddressFieldsForm, addressLine } from './AddressesScreen';
 
 const PHONE_REQUIRED = 'Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.';
@@ -63,7 +64,8 @@ export default function CartScreen({ navigation }: Props) {
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
-  const [locating, setLocating] = useState(false);
+  // A saved address from before C1 has no pin: the customer places it once, it is saved on the address.
+  const [savedPin, setSavedPin] = useState<{ lat: number; lng: number } | null>(null);
   const [payment, setPayment] = useState<PaymentChoice>('cash');
   const [tip, setTip] = useState<TipChoice>('none');
   const [customTip, setCustomTip] = useState('');
@@ -94,21 +96,25 @@ export default function CartScreen({ navigation }: Props) {
     set(v);
   };
 
-  useEffect(() => {
-    if (!cart.restaurantId) return;
-    let stale = false;
-    supabase
-      .from('restaurants')
-      .select('delivery_fee_mdl, min_order_amount_mdl, restaurant_hours(restaurant_id, day_of_week, opens_at, closes_at, is_closed)')
-      .eq('id', cart.restaurantId)
-      .single()
-      .then(({ data }) => {
-        if (!stale && data) {
-          setSummary({ deliveryFee: Number(data.delivery_fee_mdl), minOrder: Number(data.min_order_amount_mdl), hours: (data.restaurant_hours ?? []) as HoursRow[] });
-        }
-      });
-    return () => { stale = true; };
-  }, [cart.restaurantId]);
+  // Re-read on every focus and after a "price changed" refusal (priceRetry): place_order charges
+  // the CURRENT fee and refuses a total that differs from the one shown (p_expected_total).
+  useFocusEffect(
+    useCallback(() => {
+      if (!cart.restaurantId) return;
+      let stale = false;
+      supabase
+        .from('restaurants')
+        .select('delivery_fee_mdl, min_order_amount_mdl, restaurant_hours(restaurant_id, day_of_week, opens_at, closes_at, is_closed)')
+        .eq('id', cart.restaurantId)
+        .single()
+        .then(({ data }) => {
+          if (!stale && data) {
+            setSummary({ deliveryFee: Number(data.delivery_fee_mdl), minOrder: Number(data.min_order_amount_mdl), hours: (data.restaurant_hours ?? []) as HoursRow[] });
+          }
+        });
+      return () => { stale = true; };
+    }, [cart.restaurantId, priceRetry]),
+  );
 
   // Last payment method + tip (web: localStorage), restored once.
   useEffect(() => {
@@ -159,10 +165,11 @@ export default function CartScreen({ navigation }: Props) {
     }, [signature, priceRetry]),
   );
 
-  const subtotal = cartSubtotal(cart.lines);
-  const deliveryFee = summary?.deliveryFee ?? 0;
-  const tipMdl = tipFor(subtotal, tip, customTip);
-  const total = subtotal + deliveryFee + tipMdl;
+  const { subtotal, deliveryFee, tip: tipMdl, total } = checkoutTotals(
+    cart.lines,
+    summary?.deliveryFee ?? 0,
+    tipFor(cartSubtotal(cart.lines), tip, customTip),
+  );
   const tipError = tipProblem(subtotal, tipMdl);
   const belowMinimum = summary ? subtotal < summary.minOrder : false;
   // Said before place_order would refuse it (same sum the server checks: no tip) — a
@@ -171,14 +178,6 @@ export default function CartScreen({ navigation }: Props) {
   const selected = addresses.find(a => a.id === addressId);
   const deadLines = cart.lines.filter(l => dead.has(l.lineId));
   const blocked = placing || belowMinimum || !summary || deadLines.length > 0 || prices !== 'ok' || tipError != null;
-
-  async function pinLocation() {
-    setLocating(true);
-    const p = await currentPosition();
-    setLocating(false);
-    if (p) touched(setPin)(p);
-    else setError('Nu am putut obține locația — verifică permisiunile.');
-  }
 
   // The lock is taken before the first await: a double tap places ONE order and
   // creates ONE address row (the idempotency key alone surfaced a 23505 as an error).
@@ -208,16 +207,22 @@ export default function CartScreen({ navigation }: Props) {
           if (problem) return setError(problem);
           deliveryAddressId = await createAddress(addressRow(draft));
           createdAddress.current = { id: deliveryAddressId, fingerprint: addressFingerprint(draft) };
-        } else if (selected && !selected.contact_phone) {
-          if (!hasPhone) return setError(PHONE_REQUIRED);
-          const { error: phoneError } = await supabase.from('addresses').update({ contact_phone: phone.trim() }).eq('id', selected.id);
-          if (phoneError) throw new Error(phoneError.message);
+        } else if (selected && (!selected.contact_phone || selectedNeedsPin)) {
+          if (!selected.contact_phone && !hasPhone) return setError(PHONE_REQUIRED);
+          if (selectedNeedsPin && !savedPin) return setError('Fixează pinul pe hartă — trage-l exact la intrarea în bloc.');
+          const patch = {
+            ...(!selected.contact_phone ? { contact_phone: phone.trim() } : {}),
+            ...(selectedNeedsPin && savedPin ? savedPin : {}),
+          };
+          const { error: patchError } = await supabase.from('addresses').update(patch).eq('id', selected.id);
+          if (patchError) throw new Error(patchError.message);
         }
 
         const input = buildOrderInput(cart, {
           deliveryAddressId: deliveryAddressId!,
           paymentMethod: payment,
           idempotencyKey: idempotencyKey.current,
+          deliveryFeeMdl: deliveryFee,
           notes: addressId === 'new' ? undefined : notes,
           requestedFor,
         });
@@ -237,6 +242,9 @@ export default function CartScreen({ navigation }: Props) {
         createdAddress.current = null;
         navigation.replace('OrderTracking', { orderId });
       } catch (err) {
+        // The server re-priced to a different total: reload fee + prices so the screen shows
+        // what would be charged now; the customer confirms again with the new total.
+        if (!placedId && err instanceof Error && err.message.includes('prețul s-a schimbat')) setPriceRetry(n => n + 1);
         const closed: [string, string][] = scheduled ? [['închis la ora', 'Restaurantul este închis la ora aleasă — alege altă oră.']] : [];
         setError(placedId ? 'Comanda a fost plasată.' : errorText(err, 'Nu am putut trimite comanda. Încearcă din nou.', closed));
       } finally {
@@ -259,6 +267,7 @@ export default function CartScreen({ navigation }: Props) {
   }
 
   const needsPhone = addressId === 'new' || (selected != null && !selected.contact_phone);
+  const selectedNeedsPin = addressId !== 'new' && selected != null && (selected.lat == null || selected.lng == null);
 
   return (
     <View style={styles.container}>
@@ -340,10 +349,13 @@ export default function CartScreen({ navigation }: Props) {
           {addressId === 'new' && (
             <>
               <AddressFieldsForm value={fields} onChange={(k, t) => { addressTouched.current = true; setFields(f => ({ ...f, [k]: t })); }} />
-              <TouchableOpacity style={styles.pinBtn} onPress={pinLocation} disabled={locating}>
-                <Ionicons name="location" size={16} color={COLORS.gold} />
-                <Text style={styles.pinText}>{locating ? 'Se caută locația...' : pin ? 'Locație fixată ✓' : 'Fixează locația exactă (opțional)'}</Text>
-              </TouchableOpacity>
+              <PinPicker value={pin} onChange={touched(setPin)} />
+            </>
+          )}
+          {selectedNeedsPin && (
+            <>
+              <Text style={styles.notice}>Adresa aleasă nu are pin pe hartă — fixează-l o dată, îl păstrăm pentru data viitoare.</Text>
+              <PinPicker value={savedPin} onChange={setSavedPin} />
             </>
           )}
           {needsPhone && (
@@ -475,8 +487,6 @@ const styles = StyleSheet.create({
   chipOn: { borderColor: COLORS.primary, backgroundColor: COLORS.primary + '20' },
   chipText: { color: COLORS.white, fontWeight: '600' },
   input: { backgroundColor: COLORS.card, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: COLORS.white, borderWidth: 1, borderColor: COLORS.cardBorder, marginTop: 8, textAlignVertical: 'top' },
-  pinBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
-  pinText: { color: COLORS.gold, fontWeight: '600' },
   priceLabel: { fontSize: 14, color: COLORS.textSecondary },
   priceValue: { fontSize: 14, fontWeight: '600', color: COLORS.white },
   totalRow: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 12, marginTop: 4 },

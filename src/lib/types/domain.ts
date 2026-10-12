@@ -67,6 +67,8 @@ export interface MenuItem {
   is_available: boolean;
   is_catering_only: boolean;
   catering_min_qty: number | null;
+  /** "Epuizat" until this instant ('infinity' = until switched back); see shared-domain isSoldOut. */
+  sold_out_until?: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;

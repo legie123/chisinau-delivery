@@ -18,6 +18,8 @@ const h = vi.hoisted(() => {
     queue: [] as { orderId: string; newStatus: string }[],
     channels: [] as { name: string; sends: unknown[]; onStatus: ((s: string) => void) | null; removed: boolean }[],
     upserts: [] as unknown[],
+    bgStatus: "denied" as "granted" | "denied",
+    bgRequests: 0,
   };
   return { store, state };
 });
@@ -34,7 +36,12 @@ vi.mock("expo-location", () => ({
   Accuracy: { High: 4 },
   ActivityType: { OtherNavigation: 4 },
   requestForegroundPermissionsAsync: async () => ({ status: "granted" }),
-  requestBackgroundPermissionsAsync: async () => ({ status: "granted" }),
+  getBackgroundPermissionsAsync: async () => ({ status: h.state.bgStatus }),
+  requestBackgroundPermissionsAsync: async () => {
+    h.state.bgRequests += 1;
+    h.state.bgStatus = "granted";
+    return { status: "granted" };
+  },
   hasStartedLocationUpdatesAsync: vi.fn(async () => {
     if (h.state.hasStartedThrows) throw new Error("TaskManager not ready");
     return h.state.started;
@@ -295,5 +302,69 @@ describe("stopDeliveryTracking never silently leaves GPS on (LOW c)", () => {
     await gps.stopDeliveryTracking();
     expect(Location.stopLocationUpdatesAsync).toHaveBeenCalled();
     expect(h.state.started).toBe(false);
+  });
+});
+
+// Google Play: background location needs a prominent in-app disclosure BEFORE the runtime prompt.
+describe("background location disclosure", () => {
+  beforeEach(() => {
+    h.state.bgStatus = "denied";
+    h.state.bgRequests = 0;
+    h.state.started = false;
+  });
+
+  it("not granted + courier accepts the disclosure -> the OS prompt is shown once, no warning", async () => {
+    const gps = await import("../src/lib/backgroundLocation");
+    let asked = 0;
+    const warning = await gps.startDeliveryTracking("d1", "c1", async () => (asked++, true));
+    expect(asked).toBe(1);
+    expect(h.state.bgRequests).toBe(1);
+    expect(warning).toBeNull();
+  });
+
+  it("not granted + courier declines -> NO OS prompt, foreground tracking still starts, the warning says so", async () => {
+    const gps = await import("../src/lib/backgroundLocation");
+    const warning = await gps.startDeliveryTracking("d2", "c1", async () => false);
+    expect(h.state.bgRequests).toBe(0);
+    expect(h.state.started).toBe(true);
+    expect(warning).toMatch(/Întotdeauna/);
+  });
+
+  it("no disclosure function (a caller without UI) never triggers the OS prompt", async () => {
+    const gps = await import("../src/lib/backgroundLocation");
+    await gps.startDeliveryTracking("d3", "c1");
+    expect(h.state.bgRequests).toBe(0);
+  });
+
+  it("already granted -> neither the disclosure nor the prompt", async () => {
+    h.state.bgStatus = "granted";
+    const gps = await import("../src/lib/backgroundLocation");
+    let asked = 0;
+    const warning = await gps.startDeliveryTracking("d4", "c1", async () => (asked++, true));
+    expect(asked).toBe(0);
+    expect(h.state.bgRequests).toBe(0);
+    expect(warning).toBeNull();
+  });
+
+  it("declined once for an order -> not asked again for the same order (screens re-run start)", async () => {
+    const gps = await import("../src/lib/backgroundLocation");
+    let asked = 0;
+    const no = async () => (asked++, false);
+    await gps.startDeliveryTracking("d5", "c1", no);
+    await gps.startDeliveryTracking("d5", "c1", no);
+    expect(asked).toBe(1);
+    await gps.startDeliveryTracking("d6", "c1", no);
+    expect(asked).toBe(2);
+  });
+
+  it("both screens that start tracking pass the UI disclosure, and its text says what Play requires", async () => {
+    const { readFileSync } = await import("node:fs");
+    const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
+    expect(read("src/screens/ActiveDeliveryScreen.tsx")).toMatch(/startDeliveryTracking\(order\.id, courierId, askBackgroundDisclosure\)/);
+    expect(read("src/screens/MapScreen.tsx")).toMatch(/startDeliveryTracking\(activeOrderId, courierId, askBackgroundDisclosure\)/);
+    const text = read("src/lib/locationDisclosure.ts");
+    expect(text).toMatch(/în fundal/);
+    expect(text).toMatch(/închisă sau nu o folosești/);
+    expect(text).toMatch(/doar cât ai o livrare activă/);
   });
 });

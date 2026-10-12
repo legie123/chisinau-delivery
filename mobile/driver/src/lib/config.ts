@@ -14,3 +14,13 @@ export function readSupabaseConfig(env: Record<string, string | undefined>): { u
   }
   return { url: url!, anonKey: anonKey! };
 }
+
+// Support line shown in Profile ("Ajutor & Suport"). From the build env only; unset or malformed means
+// the row is HIDDEN — never a placeholder number a courier would dial in the middle of a delivery.
+export function readSupportPhone(raw: string | undefined): { label: string; tel: string } | null {
+  const label = raw?.trim();
+  if (!label) return null;
+  const digits = label.replace(/[\s()-]/g, "");
+  if (!/^\+?[0-9]{6,15}$/.test(digits)) return null;
+  return { label, tel: `tel:${digits}` };
+}

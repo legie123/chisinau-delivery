@@ -1,3 +1,4 @@
+import { isSoldOut } from "@chisinau/shared-domain";
 import type { Restaurant } from "../types";
 
 // Pure browse rules for Home + Search — the same filter/sort/rails as the web
@@ -40,7 +41,9 @@ export function filterRestaurants(list: Restaurant[], f: BrowseFilter): Restaura
     if (q && !r.name.toLowerCase().includes(q) && !r.category.toLowerCase().includes(q)) return false;
     return true;
   });
-  return sortRestaurants(kept, f.sort);
+  const sorted = sortRestaurants(kept, f.sort);
+  // place_order refuses an address outside the radius (sim 102): those restaurants go last.
+  return [...sorted.filter((r) => r.deliversHere !== false), ...sorted.filter((r) => r.deliversHere === false)];
 }
 
 export function sortRestaurants(list: Restaurant[], sort: SortKey): Restaurant[] {
@@ -70,4 +73,20 @@ export function popularRestaurants(list: Restaurant[], max = 8): Restaurant[] {
 export const STALE_AFTER_MS = 60_000;
 export function isStale(loadedAt: number | null, now: number): boolean {
   return loadedAt == null || now - loadedAt >= STALE_AFTER_MS;
+}
+
+// ---- "Epuizat" (menu_items.sold_out_until, set from the kitchen tablet) ----
+// Same rule as place_order (20261012000102): sold out while sold_out_until is later than now.
+// PostgREST returns the "until switched back" value as the string "infinity".
+
+export { isSoldOut };
+
+/** A cart line whose dish is sold out reconciles as unavailable: the cart names it and blocks
+ *  the order button, instead of place_order refusing at the last tap. */
+export function liveAvailability<T extends { is_available: boolean; sold_out_until: string | null }>(
+  row: T,
+  now = Date.now(),
+): Omit<T, "sold_out_until"> {
+  const { sold_out_until, ...rest } = row;
+  return { ...rest, is_available: row.is_available && !isSoldOut(sold_out_until, now) };
 }

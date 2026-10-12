@@ -4,6 +4,7 @@ import { DeliveryStatusControls } from "@/components/courier/DeliveryStatusContr
 import { DeliveryProgress } from "@/components/courier/DeliveryProgress";
 import { CourierRouteMap } from "@/components/courier/CourierRouteMap";
 import { DeliveryLive } from "@/components/courier/DeliveryLive";
+import { pickupCode } from "@/components/courier/pickupCode";
 import type { Address, Order, OrderItem } from "@/lib/types/domain";
 
 export default async function DeliveryDetailPage({ params }: { params: Promise<{ deliveryId: string }> }) {
@@ -84,6 +85,11 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
             <h2 className="text-xs font-semibold uppercase tracking-wide text-white/50">Ridicare</h2>
             <p className="mt-1 font-semibold text-white">{restaurant?.name}</p>
             <p className="text-white/50">{restaurant?.address}</p>
+            {typedOrder.status === "courier_assigned" && pickupCode(typedOrder.order_number) && (
+              <p className="mt-2 text-xl font-bold tracking-widest text-white">
+                Cod ridicare: {pickupCode(typedOrder.order_number)}
+              </p>
+            )}
             {restaurant?.phone && (
               <a href={`tel:${restaurant.phone}`} className="mt-1 inline-block text-primary underline underline-offset-4">
                 {restaurant.phone}

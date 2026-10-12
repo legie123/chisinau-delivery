@@ -67,6 +67,8 @@ export default function OrdersHistoryScreen() {
                 <View style={styles.orderMeta}>
                   <Text style={styles.orderTime}>{order.time}</Text>
                 </View>
+                {order.tipLabel && <Text style={styles.orderTime}>{order.tipLabel}</Text>}
+                {order.feeNote && <Text style={styles.orderTime}>{order.feeNote}</Text>}
               </View>
             </View>
             <Text style={[styles.orderEarnings, order.netMdl === null && { color: COLORS.textMuted }]}>

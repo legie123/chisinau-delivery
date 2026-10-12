@@ -13,7 +13,8 @@ import {
   updateAddress,
   type AddressBookEntry,
 } from '../lib/api';
-import { ADDRESS_SAVED_AS_NEW, addressDraftProblem, addressEditPlan, addressRow, runExclusive, type AddressFields } from '../lib/checkout';
+import { ADDRESS_SAVED_AS_NEW, addressDraftProblem, addressEditPlan, addressRow, addressSaveProblem, runExclusive, type AddressFields } from '../lib/checkout';
+import PinPicker from '../components/PinPicker';
 
 // Profile → Adrese salvate: list, add, edit, delete, choose the default the checkout
 // preselects. Same fields the web checkout saves (sector / bloc / apartament) + label.
@@ -49,8 +50,8 @@ export function AddressFieldsForm({
   );
 }
 
-type Draft = Required<AddressFields> & { street: string; phone: string; notes: string };
-const EMPTY: Draft = { street: '', sector: '', building: '', apartment: '', label: '', phone: '', notes: '' };
+type Draft = Required<AddressFields> & { street: string; phone: string; notes: string; pin: { lat: number; lng: number } | null };
+const EMPTY: Draft = { street: '', sector: '', building: '', apartment: '', label: '', phone: '', notes: '', pin: null };
 
 function toDraft(a: AddressBookEntry): Draft {
   return {
@@ -61,6 +62,7 @@ function toDraft(a: AddressBookEntry): Draft {
     label: a.label ?? '',
     phone: a.contact_phone ?? '',
     notes: a.notes ?? '',
+    pin: a.lat != null && a.lng != null ? { lat: Number(a.lat), lng: Number(a.lng) } : null,
   };
 }
 
@@ -110,11 +112,13 @@ export default function AddressesScreen({ navigation }: { navigation: any }) {
   }
 
   function save() {
-    const d = { ...draft, pin: null };
+    const d = draft;
     const problem = addressDraftProblem(d);
     if (problem) return setError(problem);
     const target = editing;
     const before = list.find(a => a.id === target);
+    const stale = before ? addressSaveProblem(before, d) : null;
+    if (stale) return setError(stale);
     return run(async () => {
       if (target === 'new') await createAddress(addressRow(d));
       else if (target && before) {
@@ -145,7 +149,7 @@ export default function AddressesScreen({ navigation }: { navigation: any }) {
     ]);
   }
 
-  const set = (field: keyof Draft, text: string) => setDraft(d => ({ ...d, [field]: text }));
+  const set = (field: Exclude<keyof Draft, 'pin'>, text: string) => setDraft(d => ({ ...d, [field]: text }));
 
   return (
     <View style={styles.container}>
@@ -162,6 +166,7 @@ export default function AddressesScreen({ navigation }: { navigation: any }) {
         {editing ? (
           <>
             <AddressFieldsForm value={draft} onChange={set} />
+            <PinPicker value={draft.pin} onChange={pin => setDraft(d => ({ ...d, pin }))} />
             <TextInput style={styles.input} placeholder="Telefon de contact" placeholderTextColor={COLORS.textMuted} keyboardType="phone-pad" value={draft.phone} onChangeText={t => set('phone', t)} />
             <TextInput style={[styles.input, { minHeight: 60 }]} placeholder="Note pentru curier: etaj, interfon..." placeholderTextColor={COLORS.textMuted} value={draft.notes} onChangeText={t => set('notes', t)} multiline />
             {error && <Text style={styles.error}>{error}</Text>}

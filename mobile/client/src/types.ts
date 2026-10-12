@@ -24,6 +24,8 @@ export interface Restaurant {
   distanceM: number | null;
   acceptsCatering: boolean;
   cateringMin: number | null;
+  /** Delivers to the customer's pinned default address (restaurants_delivering_to); null = unknown. */
+  deliversHere: boolean | null;
 }
 
 export interface MenuItem {
@@ -35,6 +37,8 @@ export interface MenuItem {
   imageUrl: string | null;
   category: string;
   cateringMinQty: number | null;
+  /** "Epuizat" from the kitchen: shown greyed out, cannot be added (place_order refuses it). */
+  soldOut: boolean;
 }
 
 export type OptionGroup = OptionGroupLike & { menuItemId: string };

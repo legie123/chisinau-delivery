@@ -39,6 +39,9 @@ export function offerPreviewLines(p: OfferPreview | null): string[] {
     lines.push(`~${p.totalKm.toFixed(1)} km în total (${p.tripKm.toFixed(1)} km de la restaurant la client)`);
   } else if (p.tripKm != null) {
     lines.push(`~${p.tripKm.toFixed(1)} km de la restaurant la client`);
+  } else {
+    // No pin at one end (owner 2026-10-12, migration 000206): only the base fee is paid at delivery.
+    lines.push("Fără pin la livrare: se plătește tariful de bază, km se adaugă la revizuire");
   }
   return lines;
 }
