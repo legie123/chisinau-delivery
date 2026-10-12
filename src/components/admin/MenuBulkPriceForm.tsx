@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useRef, useState, useTransition, type FormEvent } from "react";
 import { applyBulkPrices, previewBulkPrices, type BulkState } from "@/app/(admin)/restaurant/menu/prices/actions";
-import { offlineSafe } from "@/lib/kitchen/offlineSafe";
+import { OFFLINE_MESSAGE, offlineSafe } from "@/lib/kitchen/offlineSafe";
 
 // Plain state + direct action calls (no <form action>): fields never reset, a network error
 // becomes a message instead of the route error page, and Apply sends the previewed rows.
@@ -19,13 +19,25 @@ export function MenuBulkPriceForm({ categories }: { categories: { id: string; na
     e.preventDefault();
     startTransition(async () => setState(await offlineSafe(() => previewBulkPrices(category, mode, value))));
   }
+  // Synchronous guard: two clicks in the same tick both saw pending=false, the second
+  // (no-op) answer then overwrote the first one's success (verifier R2 F2b).
+  const busy = useRef(false);
   function apply() {
     const { params, changes } = state;
-    if (!params || !changes || pending) return;
-    setState({ error: null }); // the preview is consumed: a second click has nothing to send
-    startTransition(async () =>
-      setState(await offlineSafe(() => applyBulkPrices(params, changes.map((c) => ({ id: c.id, from: c.from }))))),
-    );
+    if (!params || !changes || busy.current) return;
+    busy.current = true;
+    startTransition(async () => {
+      const res = await offlineSafe(() => applyBulkPrices(params, changes.map((c) => ({ id: c.id, from: c.from }))));
+      busy.current = false;
+      if (res.error === OFFLINE_MESSAGE) {
+        // The answer was lost: the server may or may not have written. Keep the preview so the
+        // SAME rows can be sent again — writes are conditional on the previewed price, so a
+        // retry cannot add the change twice (verifier R2 F3b).
+        setState({ ...state, error: "Nu știm dacă s-a salvat (fără internet). Apasă din nou Aplică — nimic nu se aplică de două ori." });
+        return;
+      }
+      setState(res);
+    });
   }
 
   return (
