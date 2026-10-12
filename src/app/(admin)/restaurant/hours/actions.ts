@@ -61,3 +61,17 @@ export async function toggleAcceptingOrders(accepting: boolean): Promise<ActionS
     return { error: err instanceof Error ? err.message : "A apărut o eroare." };
   }
 }
+
+// Pin rule A: the partner confirms the pin is the pickup door (confirm_restaurant_pin checks
+// access and that a pin exists; a moved pin clears the confirmation server-side).
+export async function confirmRestaurantPin(): Promise<ActionState> {
+  try {
+    const { supabase, restaurantId } = await requireOwnRestaurant();
+    const { error } = await supabase.rpc("confirm_restaurant_pin", { p_restaurant_id: restaurantId });
+    if (error) return { error: error.message.startsWith("Localul") ? error.message : "Confirmarea nu s-a salvat. Reîncearcă." };
+    revalidatePath("/restaurant/hours");
+    return { error: null };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "A apărut o eroare." };
+  }
+}

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { HoursForm } from "@/components/admin/HoursForm";
 import { AcceptingOrdersToggle } from "@/components/admin/AcceptingOrdersToggle";
+import { PinConfirmCard } from "@/components/admin/PinConfirmCard";
 import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { RestaurantHours } from "@/lib/types/domain";
 
@@ -34,7 +35,7 @@ export default async function RestaurantHoursPage() {
   const restaurantId = staffRow.restaurant_id as string;
 
   const [{ data: restaurant }, { data: hours }] = await Promise.all([
-    supabase.from("restaurants").select("accepting_orders").eq("id", restaurantId).single(),
+    supabase.from("restaurants").select("accepting_orders, lat, lng, pin_confirmed_at").eq("id", restaurantId).single(),
     supabase.from("restaurant_hours").select("*").eq("restaurant_id", restaurantId),
   ]);
 
@@ -43,6 +44,13 @@ export default async function RestaurantHoursPage() {
       <h1 className="mb-6 font-serif text-2xl font-semibold pg-gold-text">Program</h1>
       <PremiumReveal as="div" className="pg-card mb-6 rounded-2xl p-4">
         <AcceptingOrdersToggle initialValue={restaurant?.accepting_orders ?? true} />
+      </PremiumReveal>
+      <PremiumReveal as="div" delay={30} className="pg-card mb-6 rounded-2xl p-4">
+        <PinConfirmCard
+          lat={restaurant?.lat ?? null}
+          lng={restaurant?.lng ?? null}
+          confirmedAt={restaurant?.pin_confirmed_at ?? null}
+        />
       </PremiumReveal>
       <PremiumReveal as="div" delay={60} className="pg-card rounded-2xl p-4">
         <HoursForm hours={(hours ?? []) as RestaurantHours[]} />
