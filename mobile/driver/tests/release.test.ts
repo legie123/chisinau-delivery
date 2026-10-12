@@ -73,5 +73,15 @@ describe("wiring (the screen passes the real values through)", async () => {
     expect(s).toMatch(/\{releaseVisible\(status\) && \(/);
     expect(s).toMatch(/releaseOrderFlow\(order\.id, reason, \{\s*release: releaseOrder,\s*stopGps,/);
     expect(s).toMatch(/leave: \(\) => navigation\.goBack\(\),/);
+    // the refusal / "left today" message reaches the courier
+    expect(s).toMatch(/releaseOrderFlow\(order\.id, reason, \{\s*release: releaseOrder,\s*stopGps,\s*alert: \(title, text\) => Alert\.alert\(title, text\),\s*leave:/);
+  });
+  it("a reason only asks for confirmation; the release runs from 'Da, renunț' alone", () => {
+    expect(s).toMatch(/onPress=\{\(\) => confirmRelease\(reason\)\}/);
+    expect(s).toMatch(/text: 'Da, renunț',\s*style: 'destructive',\s*onPress: \(\) =>\s*void releaseOrderFlow\(/);
+    expect(s.match(/releaseOrderFlow\(/g)?.length).toBe(1);
+  });
+  it("the reasons list also disappears after pickup", () => {
+    expect(s).toMatch(/\{releaseOpen &&\s*releaseVisible\(status\) &&/);
   });
 });
