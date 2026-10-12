@@ -101,6 +101,20 @@ export async function setPrepTimeEstimate(orderId: string, minutes: number): Pro
   return { error: null };
 }
 
+// "Mai am nevoie de timp": +5/10/15 min on an accepted order (extend_prep_time checks
+// access, status and the 60-min cap); the customer's countdown reads estimated_ready_at live.
+export async function extendPrepTime(orderId: string, minutes: 5 | 10 | 15): Promise<ActionResult> {
+  try {
+    const { supabase } = await requireUser();
+    const { error } = await supabase.rpc("extend_prep_time", { p_order_id: orderId, p_minutes: minutes });
+    if (error) return { error: error.message.startsWith("Comanda nu poate") || error.message.startsWith("Timpul") ? error.message : "Timpul nu s-a putut prelungi. Reîncearcă." };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+  revalidatePath("/restaurant/orders");
+  return { error: null };
+}
+
 // Busy mode: +15/30/45 min on every prep estimate for one hour (0 = off). The RPC
 // validates the value and the caller's access; the customer ETA and the next
 // accepted order's estimated_ready_at both read it through get_prep_estimates.

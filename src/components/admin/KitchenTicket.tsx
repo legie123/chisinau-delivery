@@ -1,6 +1,7 @@
 "use client";
 
 import type { Order, OrderItem } from "@/lib/types/domain";
+import { pickupCode } from "@/lib/kitchen/pickupCode";
 
 const fmt = new Intl.DateTimeFormat("ro-RO", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Chisinau" });
 
@@ -29,6 +30,7 @@ export function KitchenTicket({
       <div className="kitchen-ticket" aria-hidden>
         <strong style={{ fontSize: 14 }}>{order.order_number}</strong>
         <div>{fmt.format(new Date(order.created_at))}</div>
+        {pickupCode(order.order_number) && <div>COD RIDICARE: <strong>{pickupCode(order.order_number)}</strong></div>}
         {scheduledLabel && <div>PROGRAMATĂ: {scheduledLabel}</div>}
         <hr />
         {items.map((item) => (

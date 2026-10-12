@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { acceptOrder, markReadyForPickup, rejectOrder, setPrepTimeEstimate } from "@/app/(admin)/restaurant/orders/actions";
+import { acceptOrder, extendPrepTime, markReadyForPickup, rejectOrder, setPrepTimeEstimate } from "@/app/(admin)/restaurant/orders/actions";
+import { pickupCode } from "@/lib/kitchen/pickupCode";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
 import { ORDER_STATUS_LABEL, type Order, type OrderItem } from "@/lib/types/domain";
@@ -64,6 +65,13 @@ export function OrderQueueRow({
       const result = await rejectOrder(order.id, rejectReason.trim());
       setError(result.error);
       if (!result.error) setRejecting(false);
+    });
+  }
+
+  function handleExtend(minutes: 5 | 10 | 15) {
+    startTransition(async () => {
+      const result = await extendPrepTime(order.id, minutes);
+      setError(result.error);
     });
   }
 
@@ -140,6 +148,29 @@ export function OrderQueueRow({
             <div className="mt-1.5 inline-block rounded-full ring-1 ring-[color:var(--pg-amethyst-line)] shadow-[0_0_10px_-2px_rgba(168,85,247,0.45)]">
               <ReadyTargetBadge estimatedReadyAt={order.estimated_ready_at} />
             </div>
+          )}
+          {order.status === "accepted" && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-white/45">Mai am nevoie de:</span>
+              {([5, 10, 15] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => handleExtend(m)}
+                  disabled={pending}
+                  className="min-h-11 rounded-full bg-white/5 px-3 text-xs text-white/75 ring-1 ring-white/10 transition hover:bg-white/10 disabled:opacity-50"
+                >
+                  +{m} min
+                </button>
+              ))}
+            </div>
+          )}
+          {(order.status === "ready_for_pickup" || order.status === "courier_assigned") && pickupCode(order.order_number) && (
+            <p className="mt-1.5 inline-flex items-baseline gap-2 rounded-xl bg-white/10 px-3 py-1.5 ring-1 ring-white/15">
+              <span className="text-xs text-white/60">Cod ridicare</span>
+              <span className="font-mono text-2xl font-bold tracking-widest text-white">{pickupCode(order.order_number)}</span>
+              <span className="text-xs text-white/45">cere-l curierului înainte să dai punga</span>
+            </p>
           )}
           {error && <p className="mt-1 text-xs text-primary">{error}</p>}
         </div>
