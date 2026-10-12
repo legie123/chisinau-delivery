@@ -71,6 +71,7 @@ export function MenuBulkPriceForm({ categories }: { categories: { id: string; na
       {state.applied !== undefined && (
         <p className="text-sm text-emerald-300">
           Am actualizat {state.applied} prețuri.
+          {state.already ? ` ${state.already} erau deja aplicate (încercarea de dinainte a ajuns).` : ""}
           {state.stale ? ` ${state.stale} se schimbaseră între timp și au rămas neatinse — previzualizează din nou.` : ""}
         </p>
       )}

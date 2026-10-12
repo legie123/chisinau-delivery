@@ -11,6 +11,7 @@ export type BulkState = {
   params?: BulkParams;
   applied?: number;
   stale?: number;
+  already?: number;
 };
 
 async function scope() {
@@ -45,6 +46,7 @@ export async function applyBulkPrices(params: BulkParams, rows: { id: string; fr
     const { supabase, restaurantId } = await scope();
     let applied = 0;
     let stale = 0;
+    let already = 0;
     for (const r of rows) {
       const { changes, error: rule } = bulkPrices([{ id: r.id, name: "", price_mdl: r.from }], params.mode, params.value);
       if (rule) return { error: rule };
@@ -58,10 +60,16 @@ export async function applyBulkPrices(params: BulkParams, rows: { id: string; fr
         .select("id");
       if (error) return { error: `S-a oprit după ${applied} prețuri: o scriere a eșuat. Previzualizează din nou ca să vezi starea.`, applied, stale };
       if (data && data.length === 1) applied++;
-      else stale++;
+      else {
+        // Missed the condition: either this exact change was already written (a retry after a
+        // lost answer) or someone else changed the price — tell the partner which.
+        const { data: cur } = await supabase.from("menu_items").select("price_mdl").eq("id", r.id).eq("restaurant_id", restaurantId).maybeSingle();
+        if (cur && Number(cur.price_mdl) === changes[0].to) already++;
+        else stale++;
+      }
     }
     revalidatePath("/restaurant/menu");
-    return { error: null, applied, stale };
+    return { error: null, applied, stale, already };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "A apărut o eroare." };
   }
