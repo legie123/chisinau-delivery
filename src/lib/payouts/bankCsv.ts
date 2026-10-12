@@ -107,3 +107,25 @@ export function buildPayoutBankCsv(rows: BankCsvPayout[]): BankCsvResult {
     skippedNonPositive,
   };
 }
+
+/** A frozen export batch line (payout_export_lines). */
+export interface ExportLine {
+  recipient_type: "courier" | "restaurant";
+  recipient_id: string;
+  name: string;
+  iban: string;
+  holder_name: string;
+  net_mdl: number;
+  payout_ids: string[];
+}
+
+/** The bank file rendered from a FROZEN batch (20261012000411): the amounts the bank receives are
+ *  exactly what admin_settle_export_line will mark paid — nothing is recomputed at download. */
+export function exportLinesCsv(exportId: string, lines: ExportLine[]): string {
+  const out = ["IBAN,Beneficiar,Suma,Moneda,Referinta"];
+  for (const l of lines) {
+    const ref = `Plata ${TYPE_LABEL[l.recipient_type]} lot ${exportId.slice(0, 8)} (${l.payout_ids.length} plăți)`;
+    out.push([l.iban, cell(l.holder_name || l.name), (Math.round(Number(l.net_mdl) * 100) / 100).toFixed(2), "MDL", cell(ref)].join(","));
+  }
+  return out.join("\r\n") + "\r\n";
+}

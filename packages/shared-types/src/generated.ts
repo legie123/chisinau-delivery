@@ -2496,6 +2496,77 @@ export type Database = {
           },
         ]
       }
+      payout_export_lines: {
+        Row: {
+          export_id: string
+          holder_name: string
+          iban: string
+          iban_changed: boolean
+          name: string
+          net_mdl: number
+          payout_ids: string[]
+          recipient_id: string
+          recipient_type: string
+          settled_at: string | null
+          settled_by: string | null
+        }
+        Insert: {
+          export_id: string
+          holder_name: string
+          iban: string
+          iban_changed?: boolean
+          name: string
+          net_mdl: number
+          payout_ids: string[]
+          recipient_id: string
+          recipient_type: string
+          settled_at?: string | null
+          settled_by?: string | null
+        }
+        Update: {
+          export_id?: string
+          holder_name?: string
+          iban?: string
+          iban_changed?: boolean
+          name?: string
+          net_mdl?: number
+          payout_ids?: string[]
+          recipient_id?: string
+          recipient_type?: string
+          settled_at?: string | null
+          settled_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_export_lines_export_id_fkey"
+            columns: ["export_id"]
+            isOneToOne: false
+            referencedRelation: "payout_exports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_exports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          voided_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          voided_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          voided_at?: string | null
+        }
+        Relationships: []
+      }
       payout_orders: {
         Row: {
           gross_mdl: number
@@ -3867,6 +3938,7 @@ export type Database = {
           reactivation_threshold_mdl: number
         }[]
       }
+      admin_create_payout_export: { Args: never; Returns: string }
       admin_generate_payouts: {
         Args: { p_end: string; p_start: string }
         Returns: number
@@ -3929,16 +4001,21 @@ export type Database = {
         Args: { p_email: string; p_grant: boolean; p_reason: string }
         Returns: undefined
       }
-      admin_settle_payee: {
+      admin_settle_export_line: {
         Args: {
-          p_expected_net: number
+          p_export_id: string
+          p_iban_confirmed?: boolean
           p_recipient_id: string
           p_recipient_type: string
         }
-        Returns: number
+        Returns: undefined
       }
       admin_update_payment_status: {
         Args: { p_new_status: string; p_note?: string; p_order_id: string }
+        Returns: undefined
+      }
+      admin_void_payout_export: {
+        Args: { p_export_id: string }
         Returns: undefined
       }
       advance_delivery_status: {

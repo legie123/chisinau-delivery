@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { confirmOnlinePayment, placeOrder, RpcError, setOrderTip, startOnlinePayment } from "@chisinau/shared-api";
 import { PinPickerMap } from "@/components/customer/PinPickerMap";
+import { placeOrderItems } from "@chisinau/shared-domain";
 import { createClient } from "@/lib/supabase/client";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
 import { useCartReconcile } from "@/hooks/useCartReconcile";
@@ -267,7 +268,8 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
         restaurantId: restaurantId!,
         orderType: "standard",
         paymentMethod,
-        items: lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.optionIds })),
+        // Same payload builder as the mobile cart (notes per dish included, trimmed).
+        items: placeOrderItems(lines),
         deliveryAddressId: deliveryAddressId ?? undefined,
         requestedFor: requestedForIso ?? undefined,
         idempotencyKey,

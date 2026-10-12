@@ -45,8 +45,8 @@ begin
   perform public.expire_dispatch_offers();
   select count(*) into n from public.dispatch_offers where order_id = v_o and status = 'offered';
   if n <> 0 then raise exception 'FAIL 154.N3: % live offer(s) left on the order', n; end if;
-  select count(*) into n from public.dispatch_offers where order_id = v_o and status = 'offered' and expires_at < now();
-  if n <> 0 then raise exception 'FAIL 154.N3: an expired offer is still marked offered'; end if;
+  select count(*) into n from public.dispatch_offers where order_id = v_o and status = 'expired';
+  if n <> 2 then raise exception 'FAIL 154.N3: % offers marked expired (expected both)', n; end if;
   select status, courier_id into v_st, v_courier from public.orders where id = v_o;
   if v_st <> 'ready_for_pickup' or v_courier is not null then raise exception 'FAIL 154.N3: order became % / courier %', v_st, v_courier; end if;
   select count(*) into n from public.couriers where id in (v_a, v_b) and status = 'online';
