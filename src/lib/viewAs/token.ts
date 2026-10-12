@@ -1,3 +1,4 @@
+import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 // View-as ("vezi ca") token: an HS256 JWT signed with the PROJECT JWT secret, so PostgREST

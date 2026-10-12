@@ -30,3 +30,4 @@ cd "apps/$APP"
 NEXT_PUBLIC_SUPABASE_URL="$API_URL" \
 NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" \
 node ../../node_modules/next/dist/bin/next build
+bash ../../scripts/check-bundle-secrets.sh "apps/$APP"

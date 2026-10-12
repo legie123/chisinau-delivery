@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "node ../../node_modules/next/dist/bin/next dev -H 127.0.0.1 -p 3004",
-    "build": "node ../../node_modules/next/dist/bin/next build",
+    "build": "node ../../node_modules/next/dist/bin/next build && bash ../../scripts/check-bundle-secrets.sh apps/master",
     "start": "node ../../node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3004",
     "typecheck": "node ../../node_modules/typescript/bin/tsc --noEmit -p ."
   }

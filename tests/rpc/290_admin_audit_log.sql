@@ -128,6 +128,24 @@ begin
   end if;
   raise notice 'PASS 290.AU11: geo never copied, fraud detail masked';
 
+  -- ===== AU12: the service key cannot erase an impersonation record or forge a timeline event unseen =====
+  perform set_config('request.headers', '{}', true);
+  set local role service_role;
+  insert into public.view_as_sessions (admin_id, target_user_id, target_app, expires_at, reason)
+  values (v_admin, c_cust, 'client', now() + interval '10 minutes', 'sim 290 motiv vezi-ca');
+  delete from public.view_as_sessions where reason = 'sim 290 motiv vezi-ca';
+  insert into public.delivery_status_events (order_id, status, actor_role, note) values (v_oid, 'delivered', 'system', 'sim 290 fals');
+  update public.order_items set unit_price_mdl = unit_price_mdl where false;
+  reset role;
+  if (select count(*) from public.admin_audit_log where id > v_before and table_name = 'view_as_sessions' and actor_role = 'system') < 2
+     or not exists (select 1 from public.admin_audit_log where id > v_before and table_name = 'delivery_status_events' and actor_role = 'system') then
+    raise exception 'FAIL 290.AU12: service-key impersonation record / timeline forgery left no audit row';
+  end if;
+  if exists (select 1 from public.admin_audit_log where id > v_before and (coalesce(old_values::text,'') || coalesce(new_values::text,'')) ~ 'sim 290 motiv vezi-ca|sim 290 fals') then
+    raise exception 'FAIL 290.AU12: free-text reason/note copied in clear';
+  end if;
+  raise notice 'PASS 290.AU12: impersonation insert+delete and forged timeline event recorded as system, text masked';
+
   -- ===== AU7: service_role cannot forge, delete or truncate the log =====
   v_err := null;
   set local role service_role;

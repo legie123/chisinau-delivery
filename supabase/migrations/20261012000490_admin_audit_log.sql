@@ -5,8 +5,13 @@
 -- service key is logged (fail-closed): a Server Action acting for an admin names that admin in the
 -- `x-audit-actor` header (src/lib/supabase/admin.ts createAdminClient(actorId), mandatory) and is
 -- attributed to them; without the header, or naming someone who is not a platform_admin, the row is
--- attributed to 'system' (payment webhook, push: createSystemClient()). Nothing with the service key
--- escapes the trail.
+-- attributed to 'system' (payment webhook, push: createSystemClient()).
+-- Scope, stated exactly: every table an admin or the service key can use to change money, orders,
+-- people, permissions, config or impersonation (view_as_sessions) carries the trigger. NOT audited,
+-- on purpose (high-volume telemetry, queues, per-user preferences, derived stats): courier_locations,
+-- geofence_events, courier_shifts, courier_satisfaction_surveys, delivery_issue_reports,
+-- dispatch_errors, notification_outbox, device_push_tokens, push_subscriptions, favorites,
+-- restaurant_prep_stats. A service-key write there leaves no audit row.
 -- Not covered (no trigger possible here): storage.objects and auth.users (invites go through the
 -- GoTrue admin API; the couriers / restaurant_staff rows they create ARE logged, with the actor).
 -- Personal data is masked, not copied: an erasure (erase_customer_pii) must not survive in its
@@ -169,7 +174,11 @@ begin
       ('cash_policy',             ''),
       ('dispatch_scoring_config', ''),
       ('platform_settings',       ''),
-      ('profiles',                'only:role')
+      ('profiles',                'only:role'),
+      ('view_as_sessions',        'mask:reason'),
+      ('order_items',             'mask:notes'),
+      ('delivery_status_events',  'mask:note'),
+      ('ratings',                 'mask:comment')
     ) as x(tbl, arg)
   loop
     if to_regclass('public.' || t.tbl) is null then continue; end if;
