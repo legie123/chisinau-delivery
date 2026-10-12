@@ -10,7 +10,7 @@ declare
   v_c uuid; v_cu uuid;
   v_o_pin uuid; v_o_nopin uuid;
   v_t public.courier_tariff_config;
-  v_fee numeric; v_flag boolean; v_expect numeric; v_dist numeric; n int; v_o_rest uuid; v_o_floor uuid; v_o_nofloor uuid; v_o_surch uuid;
+  v_fee numeric; v_flag boolean; v_expect numeric; v_dist numeric; n int; v_o_rest uuid; v_o_floor uuid; v_o_nofloor uuid; v_o_surch uuid; v_addr_half uuid; v_o_half uuid;
 begin
   select id, lat, lng into v_rest, v_rlat, v_rlng from public.restaurants where is_active and lat is not null order by name limit 1;
   insert into public.addresses (customer_id, street_address, lat, lng) values (c_cust, 'Str. Sim 151 pin', v_rlat + 0.0450, v_rlng) returning id into v_addr_pin;
@@ -122,4 +122,20 @@ begin
   select courier_fee_mdl into v_fee from public.orders where id = v_o_surch;
   if v_fee is distinct from round(v_t.base_mdl + 15, 2) then raise exception 'FAIL 151.F8: pinless delivery with a 15 MDL surcharge paid % (expected base + 15)', v_fee; end if;
   raise notice 'PASS 151.F8: pinless delivery keeps the stamped weather surcharge (% MDL)', v_fee;
+
+  -- ===== F9: half a pin (lat without lng) is no pin: flagged, base fee =====
+  insert into public.addresses (customer_id, street_address, lat) values (c_cust, 'Str. Sim 151 jumatate', v_rlat + 0.01) returning id into v_addr_half;
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method, payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl)
+  values ('standard', c_cust, v_rest, v_addr_half, 'ready_for_pickup', 'card_on_delivery', 'unpaid', 200, 30, 230) returning id into v_o_half;
+  update public.orders set courier_id = v_c, status = 'courier_assigned', courier_fee_quoted_mdl = null, courier_fee_surcharge_mdl = null where id = v_o_half;
+  set local role authenticated;
+  perform public.advance_delivery_status(v_o_half, 'picked_up');
+  perform public.advance_delivery_status(v_o_half, 'en_route');
+  perform public.advance_delivery_status(v_o_half, 'delivered', true);
+  reset role;
+  select courier_fee_mdl, courier_fee_distance_assumed into v_fee, v_flag from public.orders where id = v_o_half;
+  if v_flag is distinct from true or v_fee is distinct from round(v_t.base_mdl, 2) then
+    raise exception 'FAIL 151.F9: half pin -> flag=% fee=% (expected true, base)', v_flag, v_fee;
+  end if;
+  raise notice 'PASS 151.F9: lat without lng is no pin: flagged, base %', v_fee;
 end $$;

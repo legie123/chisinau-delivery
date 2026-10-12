@@ -8,7 +8,7 @@ declare
   v_rest uuid; v_rlat numeric; v_rlng numeric; v_addr uuid; v_addr_nopin uuid;
   v_a uuid; v_b uuid; v_ua uuid; v_ub uuid;
   v_o1 uuid; v_o2 uuid; v_offer uuid; v_offer2 uuid;
-  n int; r record; v_expect_trip numeric;
+  n int; r record; v_expect_trip numeric; v_o3 uuid; v_offer3 uuid;
 begin
   select id, lat, lng into v_rest, v_rlat, v_rlng from public.restaurants
   where is_active and lat is not null order by name limit 1;
@@ -119,6 +119,34 @@ begin
   reset role;
   if n <> 0 then raise exception 'FAIL 150.P9: cancelled order still previewed (% rows)', n; end if;
   raise notice 'PASS 150.P9: live offer on a cancelled order gives 0 rows';
+
+  -- ===== P10/P11: admin and partner get nothing; unknown pickup + known trip -> total null (never a partial sum) =====
+  update public.dispatch_offers set status = 'declined' where id = v_offer2;
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method,
+                             payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl)
+  values ('standard', c_cust, v_rest, v_addr, 'ready_for_pickup', 'card_on_delivery', 'unpaid', 200, 30, 230)
+  returning id into v_o3;
+  insert into public.dispatch_offers (order_id, courier_id, score, distance_km, expires_at)
+  values (v_o3, v_a, 1, null, now() + interval '30 seconds') returning id into v_offer3;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ua, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select * into r from public.offer_preview(v_offer3);
+  reset role;
+  if r.trip_km is null or r.pickup_km is not null or r.total_km is not null then
+    raise exception 'FAIL 150.P11: pickup=% trip=% total=% (expected trip known, pickup and total null)', r.pickup_km, r.trip_km, r.total_km;
+  end if;
+  raise notice 'PASS 150.P11: unknown pickup -> total null, trip % km shown', r.trip_km;
+  foreach v_ua in array array['a0000000-0000-0000-0000-000000000004'::uuid, 'a0000000-0000-0000-0000-000000000003'::uuid] loop
+    perform set_config('request.jwt.claims', json_build_object('sub', v_ua, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select count(*) into n from public.offer_preview(v_offer3);
+    reset role;
+    if n <> 0 then raise exception 'FAIL 150.P10: % got % rows', v_ua, n; end if;
+  end loop;
+  select user_id into v_ua from public.couriers where id = v_a;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ua, 'role', 'authenticated')::text, true);
+  update public.dispatch_offers set status = 'declined' where id = v_offer3;
+  raise notice 'PASS 150.P10: platform_admin and restaurant partner get 0 rows';
 
   -- ===== P7: a deactivated courier holding a live offer gets nothing =====
   update public.dispatch_offers set status = 'declined' where id = v_offer2;  -- one live offer per courier
