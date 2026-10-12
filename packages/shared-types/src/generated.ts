@@ -4221,6 +4221,10 @@ export type Database = {
         Args: { target_courier: string }
         Returns: boolean
       }
+      customer_report_problem: {
+        Args: { p_kind: string; p_note: string; p_order_id: string }
+        Returns: string
+      }
       customer_sees_courier_point: {
         Args: { point_at: string; target_courier: string }
         Returns: boolean
