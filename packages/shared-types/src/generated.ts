@@ -3849,6 +3849,7 @@ export type Database = {
         Args: { p_kind: string; p_order_id: string }
         Returns: boolean
       }
+      couriers_available: { Args: never; Returns: boolean }
       current_avoidable_wait_grace_minutes: { Args: never; Returns: number }
       current_cash_policy: {
         Args: never
