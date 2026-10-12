@@ -7,6 +7,7 @@ import {
   declineDispatchOffer as rpcDeclineDispatchOffer,
   getCourierCashStatus,
   getOfferPreview,
+  releaseOrder as rpcReleaseOrder,
   reportDeliveryIssue,
   setCourierOnlineStatus,
   storageErrorText,
@@ -37,6 +38,7 @@ import { registerForPush, unregisterPush } from "./push";
 import { addressLines, toPoint, type LatLng } from "./orderView";
 import { toOfferPreview, type OfferPreview } from "./offerPreview";
 import type { IssueKind } from "./issues";
+import type { ReleaseReason } from "./release";
 import { proofPath } from "./deliveryProof";
 
 // Every status change goes through @chisinau/shared-api (the same typed RPC
@@ -385,6 +387,15 @@ export async function savePayoutAccount(courierId: string, iban: string, holder:
     p_holder_name: holder,
   });
   return error ? userMessage(new RpcError(error)) : null;
+}
+
+/** Release an accepted order before pickup. Romanian error, or how many releases are left today. */
+export async function releaseOrder(orderId: string, reason: ReleaseReason): Promise<{ error: string | null; left: number | null }> {
+  try {
+    return { error: null, left: await rpcReleaseOrder(supabase, orderId as OrderId, reason) };
+  } catch (err) {
+    return { error: userMessage(err), left: null };
+  }
 }
 
 /** Report a problem on the active delivery. Romanian error, or which text to show on success. */
