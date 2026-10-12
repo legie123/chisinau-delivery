@@ -113,7 +113,7 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 | 6 release | parțial | FĂCUT: dezvăluirea pentru locația în fundal; READ/WRITE_EXTERNAL_STORAGE și RECORD_AUDIO blocate. Rămân: crash reporting (SDK nou, aprobare), formularul Play + video pentru locația în fundal, `SYSTEM_ALERT_WINDOW` din șablon, EXIF GPS la recompresie pe Android (LOW), semnare/store = owner |
 | I1 matrice interacțiune | DONE | rândurile CURIER în `MATRICE-INTERACTIUNE.md` (`a398089`) |
 | I2 teste încrucișate | parțial | consumator: `mobile/driver/tests/pickupCode.test.ts` pe regula RESTAURANT; predări primite: 2, ambele făcute |
-| I3 scenarii de sistem | parțial | E2E 171/171 (scenariile 1, 2, 6 + decontare); 3 și 9 de scris (sim 154/156); 5 LIPSĂ (nu există RPC de renunțare) |
+| I3 scenarii de sistem | DONE pe partea CURIER | E2E 171/171 (1, 2, 6 + decontare); sim 154 (scenariul 3), sim 155 (scenariul 5, renunțare cu plafon), sim 156 (scenariul 9) — fiecare cu mutanți roșii |
 | I4 mediu | DONE | DB local, nimic pe live |
 | I5 merge | n/a | sectorul lucrează pe `main` comun, commit din index temporar; nimic push-uit |
 

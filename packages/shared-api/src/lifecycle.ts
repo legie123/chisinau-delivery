@@ -88,6 +88,20 @@ export async function reportDeliveryIssue(
   return data === true;
 }
 
+/**
+ * The assigned courier releases an accepted order BEFORE pickup (courier_release_order, daily cap from
+ * courier_release_policy, no dispatch penalty). Returns how many releases are left today.
+ */
+export async function releaseOrder(
+  db: Db,
+  orderId: OrderId,
+  reason: "vehicle_problem" | "personal_emergency" | "restaurant_delay" | "other",
+): Promise<number> {
+  const { data, error } = await db.rpc("courier_release_order", { p_order_id: orderId, p_reason: reason });
+  if (error) throw new RpcError(error);
+  return data as number;
+}
+
 export async function attachDeliveryProof(db: Db, orderId: OrderId, path: string): Promise<void> {
   const { error } = await db.rpc("attach_delivery_proof", { p_order_id: orderId, p_path: path });
   if (error) throw new RpcError(error);

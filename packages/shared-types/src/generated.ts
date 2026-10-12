@@ -431,6 +431,135 @@ export type Database = {
           },
         ]
       }
+      courier_order_releases: {
+        Row: {
+          courier_id: string
+          created_at: string
+          id: string
+          order_id: string
+          reason: string
+        }
+        Insert: {
+          courier_id: string
+          created_at?: string
+          id?: string
+          order_id: string
+          reason: string
+        }
+        Update: {
+          courier_id?: string
+          created_at?: string
+          id?: string
+          order_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_order_releases_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["active_order_id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_order_board"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_payment_queue"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_stuck_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "admin_unpaid_delivered_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_order_releases_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      courier_release_policy: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          daily_cap: number
+          effective_from: string
+          id: string
+          note: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          daily_cap: number
+          effective_from?: string
+          id?: string
+          note?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          daily_cap?: number
+          effective_from?: string
+          id?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       courier_satisfaction_surveys: {
         Row: {
           comment: string | null
@@ -3194,6 +3323,54 @@ export type Database = {
       }
     }
     Views: {
+      admin_courier_cash_balances: {
+        Row: {
+          balance_mdl: number | null
+          collected_mdl: number | null
+          courier_id: string | null
+          last_at: string | null
+          movements: number | null
+          offloaded_mdl: number | null
+          other_mdl: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_courier_pilot_kpis"
+            referencedColumns: ["courier_id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_fleet_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referred_id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "admin_referral_progress"
+            referencedColumns: ["referrer_id"]
+          },
+          {
+            foreignKeyName: "courier_cash_movements_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       admin_courier_pilot_kpis: {
         Row: {
           avg_orders_per_shift_14d: number | null
@@ -3845,6 +4022,10 @@ export type Database = {
         Args: { target_address: string }
         Returns: boolean
       }
+      courier_release_order: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: number
+      }
       courier_report_issue: {
         Args: { p_kind: string; p_order_id: string }
         Returns: boolean
@@ -3873,6 +4054,23 @@ export type Database = {
         }
       }
       current_courier_id: { Args: never; Returns: string }
+      current_courier_release_policy: {
+        Args: never
+        Returns: {
+          created_at: string
+          created_by: string | null
+          daily_cap: number
+          effective_from: string
+          id: string
+          note: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "courier_release_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_courier_tariff: {
         Args: never
         Returns: {
@@ -4259,6 +4457,10 @@ export type Database = {
       }
       set_courier_referrer: {
         Args: { p_courier_id: string; p_referrer_code: string }
+        Returns: undefined
+      }
+      set_courier_release_policy: {
+        Args: { p_daily_cap: number; p_note?: string }
         Returns: undefined
       }
       set_courier_tariff: {

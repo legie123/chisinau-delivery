@@ -16,9 +16,10 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
 import * as ImagePicker from 'expo-image-picker';
-import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, uploadDeliveryProof, userMessage, type DriverOrder } from '../lib/api';
+import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, releaseOrder, reportIssue, uploadDeliveryProof, userMessage, type DriverOrder } from '../lib/api';
 import { ISSUE_LABELS, describeReport, issueKindsFor, type IssueKind } from '../lib/issues';
 import { proofButtonVisible, takeProofPhoto } from '../lib/deliveryProof';
+import { RELEASE_REASONS, releaseOrderFlow, releaseVisible, type ReleaseReason } from '../lib/release';
 import { navUrl, pickupCode, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
@@ -116,6 +117,24 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       setSending: setProofSending,
       setSaved: setProofSaved,
     });
+
+  // Release before pickup: reason -> confirm -> RPC; the order goes to another courier.
+  const [releaseOpen, setReleaseOpen] = useState(false);
+  const confirmRelease = (reason: ReleaseReason) =>
+    Alert.alert('Renunți la comandă?', `${RELEASE_REASONS[reason]}. Comanda merge la alt curier; renunțările pe zi sunt limitate.`, [
+      { text: 'Nu', style: 'cancel' },
+      {
+        text: 'Da, renunț',
+        style: 'destructive',
+        onPress: () =>
+          void releaseOrderFlow(order.id, reason, {
+            release: releaseOrder,
+            stopGps,
+            alert: (title, text) => Alert.alert(title, text),
+            leave: () => navigation.goBack(),
+          }),
+      },
+    ]);
 
   // Problem report: one tap per kind; the server ignores a repeat (returns false) instead of stacking.
   const [issueOpen, setIssueOpen] = useState(false);
@@ -381,6 +400,22 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
               >
                 <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
                 <Text style={styles.gpsBannerText}>{ISSUE_LABELS[kind]}</Text>
+              </TouchableOpacity>
+            ))}
+
+          {/* Release before pickup (daily cap on the server; after pickup only support can reassign). */}
+          {releaseVisible(status) && (
+            <TouchableOpacity style={styles.gpsBanner} onPress={() => setReleaseOpen((o) => !o)}>
+              <Ionicons name="close-circle" size={16} color={COLORS.white} />
+              <Text style={styles.gpsBannerText}>Renunț la comandă</Text>
+            </TouchableOpacity>
+          )}
+          {releaseOpen &&
+            releaseVisible(status) &&
+            (Object.keys(RELEASE_REASONS) as ReleaseReason[]).map((reason) => (
+              <TouchableOpacity key={reason} style={styles.gpsBanner} onPress={() => confirmRelease(reason)}>
+                <Ionicons name="chevron-forward" size={16} color={COLORS.white} />
+                <Text style={styles.gpsBannerText}>{RELEASE_REASONS[reason]}</Text>
               </TouchableOpacity>
             ))}
 
