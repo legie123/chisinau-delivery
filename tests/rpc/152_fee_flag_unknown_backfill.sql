@@ -11,7 +11,7 @@ declare
   h_nopin_addr uuid; h_nopin_rest uuid; h_pins uuid; n_measured uuid; n_true uuid; h_true_pins uuid; inflight uuid;
   v_cut timestamptz := now() - interval '1 day';
   v_fees_before numeric; v_fees_after numeric; v_ret int; v_flag boolean; v_nullable text; v_default text;
-  function_gone boolean;
+  function_gone boolean; v_half uuid; h_half uuid; v_erased uuid; h_erased uuid;
 begin
   select id, lat, lng into v_r1, v_r1lat, v_r1lng from public.restaurants where is_active and lat is not null order by name limit 1;
   select id into v_r2 from public.restaurants where is_active and lat is not null and id <> v_r1 order by name limit 1;
@@ -44,6 +44,16 @@ begin
   -- not delivered, yet carrying a delivered_at (corrupt data / an admin edit): only the status filter keeps it out
   values ('standard', c_cust, v_r1, v_nopin, 'cancelled', 'cash', 'unpaid', 200, 30, 230, v_c, false, v_cut - interval '1 day') returning id into inflight;
 
+  -- half pin (lat only) and an address erased AFTER delivery (erase_customer_pii marker)
+  insert into public.addresses (customer_id, street_address, lat) values (c_cust, 'Str. Sim 152 jumatate', v_r1lat) returning id into v_half;
+  insert into public.addresses (customer_id, street_address) values (c_cust, 'Adresă ștearsă') returning id into v_erased;
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method, payment_status,
+                             subtotal_mdl, delivery_fee_mdl, total_mdl, courier_id, courier_fee_mdl, delivered_at, courier_fee_distance_assumed)
+  values ('standard', c_cust, v_r1, v_half, 'delivered', 'cash', 'paid', 200, 30, 230, v_c, 66, v_cut - interval '1 day', false) returning id into h_half;
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method, payment_status,
+                             subtotal_mdl, delivery_fee_mdl, total_mdl, courier_id, courier_fee_mdl, delivered_at, courier_fee_distance_assumed)
+  values ('standard', c_cust, v_r1, v_erased, 'delivered', 'cash', 'paid', 200, 30, 230, v_c, 41.5, v_cut - interval '1 day', false) returning id into h_erased;
+
   select sum(courier_fee_mdl) into v_fees_before from public.orders;
   v_ret := public.backfill_courier_fee_distance_assumed(v_cut);
 
@@ -73,6 +83,15 @@ begin
   select courier_fee_distance_assumed into v_flag from public.orders where id = inflight;
   if v_flag is distinct from false then raise exception 'FAIL 152.U6: not-delivered order touched (now %)', v_flag; end if;
   raise notice 'PASS 152.U6: not-delivered order untouched';
+  -- ===== U11: half a pin (lat without lng) is no pin -> true =====
+  select courier_fee_distance_assumed into v_flag from public.orders where id = h_half;
+  if v_flag is distinct from true then raise exception 'FAIL 152.U11: half pin -> % (expected true)', v_flag; end if;
+  raise notice 'PASS 152.U11: lat without lng -> true';
+  -- ===== U12: an address erased after delivery is unknown (null), not "6 km assumed" =====
+  select courier_fee_distance_assumed into v_flag from public.orders where id = h_erased;
+  if v_flag is not null then raise exception 'FAIL 152.U12: erased address -> % (expected null)', v_flag; end if;
+  raise notice 'PASS 152.U12: address erased after delivery -> null';
+
   -- ===== U7: idempotent, and no amount moved =====
   v_ret := public.backfill_courier_fee_distance_assumed(v_cut);
   if v_ret <> 0 then raise exception 'FAIL 152.U7: second run changed % rows', v_ret; end if;

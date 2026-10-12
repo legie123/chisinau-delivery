@@ -3,7 +3,8 @@
 // "the action failed" (the server's "IBAN invalid" has no Romanian mapping). Pure, so vitest runs it.
 
 export function normalizeIban(raw: string): string {
-  return raw.replace(/\s/g, "").toUpperCase();
+  // \s plus the two the server strips that JS does not treat alike (U+0085 NEL, U+FEFF BOM), and zero-width space.
+  return raw.replace(/[\s\u0085\uFEFF\u200B]/g, "").toUpperCase();
 }
 
 // ISO 13616 mod-97: move the first 4 chars to the end, letters -> 10..35, remainder must be 1.
@@ -37,4 +38,32 @@ export function holderError(raw: string): string | null {
 export function maskIban(iban: string): string {
   const n = normalizeIban(iban);
   return `${n.slice(0, 4)} •••• ${n.slice(-4)}`;
+}
+
+/**
+ * Validate, then save the NORMALISED values (what the client validated is exactly what the server gets).
+ * invalid = never sent to the server; failed = the server refused; saved = stored as `saved`.
+ */
+export async function submitPayout(
+  courierId: string,
+  iban: string,
+  holder: string,
+  save: (courierId: string, iban: string, holder: string) => Promise<string | null>,
+): Promise<
+  | { result: "invalid"; message: string }
+  | { result: "failed"; message: string }
+  | { result: "saved"; saved: { iban: string; holderName: string } }
+> {
+  const problem = ibanError(iban) ?? holderError(holder);
+  if (problem) return { result: "invalid", message: problem };
+  const clean = { iban: normalizeIban(iban), holderName: holder.trim() };
+  const err = await save(courierId, clean.iban, clean.holderName);
+  return err ? { result: "failed", message: err } : { result: "saved", saved: clean };
+}
+
+/** The line under the form title: masked IBAN + holder, or the "no account yet" warning. */
+export function payoutSummary(current: { iban: string; holderName: string } | null): string {
+  return current
+    ? `Acum: ${maskIban(current.iban)} · ${current.holderName}`
+    : "Nu ai salvat încă un cont. Fără el nu putem plăti săptămâna.";
 }

@@ -52,6 +52,9 @@ const config: ExpoConfig = {
       "POST_NOTIFICATIONS",
     ],
     predictiveBackGestureEnabled: false,
+    // expo-image-picker's library manifest declares these (maxSdk 32); the camera-only flow never reads the
+    // photo library, so they are blocked (verif-curier-g4 finding 5).
+    blockedPermissions: ["android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE"],
     ...(mapsKey ? { config: { googleMaps: { apiKey: mapsKey } } } : {}),
   },
   web: {

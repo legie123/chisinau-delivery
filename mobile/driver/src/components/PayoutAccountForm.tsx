@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { COLORS } from '../theme';
 import { fetchMyPayoutAccount, savePayoutAccount, userMessage, type PayoutAccount } from '../lib/api';
-import { holderError, ibanError, maskIban, normalizeIban } from '../lib/iban';
+import { payoutSummary, submitPayout } from '../lib/iban';
 
 interface Props {
   courierId: string;
@@ -38,19 +38,18 @@ export default function PayoutAccountForm({ courierId, onClose }: Props) {
   }, [courierId]);
 
   const save = async () => {
-    const problem = ibanError(iban) ?? holderError(holder);
-    if (problem) {
-      Alert.alert('Verifică datele', problem);
-      return;
-    }
     setSaving(true);
-    const err = await savePayoutAccount(courierId, iban, holder);
+    const outcome = await submitPayout(courierId, iban, holder, savePayoutAccount);
     setSaving(false);
-    if (err) {
-      Alert.alert('Contul nu s-a salvat', err);
+    if (outcome.result === 'invalid') {
+      Alert.alert('Verifică datele', outcome.message);
       return;
     }
-    setCurrent({ iban: normalizeIban(iban), holderName: holder.trim() });
+    if (outcome.result === 'failed') {
+      Alert.alert('Contul nu s-a salvat', outcome.message);
+      return;
+    }
+    setCurrent(outcome.saved);
     setIban('');
     Alert.alert('Cont salvat', 'Plățile săptămânale merg în acest cont.');
   };
@@ -61,7 +60,7 @@ export default function PayoutAccountForm({ courierId, onClose }: Props) {
     <View style={styles.box}>
       <Text style={styles.title}>Contul pentru plăți</Text>
       <Text style={styles.hint}>
-        {current ? `Acum: ${maskIban(current.iban)} · ${current.holderName}` : 'Nu ai salvat încă un cont. Fără el nu putem plăti săptămâna.'}
+        {payoutSummary(current)}
       </Text>
       <TextInput
         style={styles.input}
@@ -69,6 +68,7 @@ export default function PayoutAccountForm({ courierId, onClose }: Props) {
         placeholderTextColor={COLORS.textMuted}
         autoCapitalize="characters"
         autoCorrect={false}
+        maxLength={42}
         value={iban}
         onChangeText={setIban}
       />

@@ -34,7 +34,6 @@ describe("wiring", () => {
   });
   it("the history screen renders both lines", () => {
     const s = src("src/screens/OrdersHistoryScreen.tsx");
-    expect(s).toMatch(/order\.tipLabel &&/);
-    expect(s).toMatch(/order\.feeNote &&/);
+    expect(s).toMatch(/historyExtraLines\(order\)\.map\(/);
   });
 });

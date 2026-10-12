@@ -24,3 +24,8 @@ export function issueReportedText(isNew: boolean): string {
     ? "Am anunțat echipa. Rămâi la comandă, te contactăm dacă e nevoie."
     : "Ai raportat deja asta pentru comanda de față — echipa e anunțată.";
 }
+
+/** What the screen shows after a report: the kind's label and whether it was new or a repeat. */
+export function describeReport(kind: IssueKind, isNew: boolean): { title: string; text: string } {
+  return { title: ISSUE_LABELS[kind], text: issueReportedText(isNew) };
+}

@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { fetchDeliveryHistory, userMessage, DeliveredRow } from '../lib/api';
+import { historyExtraLines } from '../lib/earnings';
 
 export default function OrdersHistoryScreen() {
   const [rows, setRows] = useState<DeliveredRow[]>([]);
@@ -67,8 +68,11 @@ export default function OrdersHistoryScreen() {
                 <View style={styles.orderMeta}>
                   <Text style={styles.orderTime}>{order.time}</Text>
                 </View>
-                {order.tipLabel && <Text style={styles.orderTime}>{order.tipLabel}</Text>}
-                {order.feeNote && <Text style={styles.orderTime}>{order.feeNote}</Text>}
+                {historyExtraLines(order).map((line) => (
+                  <Text key={line} style={styles.orderTime}>
+                    {line}
+                  </Text>
+                ))}
               </View>
             </View>
             <Text style={[styles.orderEarnings, order.netMdl === null && { color: COLORS.textMuted }]}>
