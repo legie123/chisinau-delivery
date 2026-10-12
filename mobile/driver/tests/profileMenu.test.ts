@@ -26,9 +26,8 @@ describe("Profile menu has no dead rows", () => {
     for (const r of rows) expect(r).toMatch(/action: '(payout|support|signout)'/);
   });
   it("every action is handled, and the support row needs a configured number", () => {
-    expect(s).toMatch(/case 'payout':/);
-    expect(s).toMatch(/case 'support':/);
-    expect(s).toMatch(/case 'signout':/);
+    // what each action does is tested by behaviour in tests/behaviour.test.ts (runMenuAction)
+    expect(s).toMatch(/runMenuAction\(item\.action, \{/);
     expect(s).toMatch(/readSupportPhone\(process\.env\.EXPO_PUBLIC_SUPPORT_PHONE\)/);
     expect(s).toMatch(/item\.action !== 'support' \|\| SUPPORT/);
   });

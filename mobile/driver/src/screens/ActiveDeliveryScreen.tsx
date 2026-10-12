@@ -17,7 +17,8 @@ import { COLORS } from '../theme';
 import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
 import * as ImagePicker from 'expo-image-picker';
 import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, uploadDeliveryProof, userMessage, type DriverOrder } from '../lib/api';
-import { ISSUE_LABELS, issueKindsFor, issueReportedText, type IssueKind } from '../lib/issues';
+import { ISSUE_LABELS, describeReport, issueKindsFor, type IssueKind } from '../lib/issues';
+import { CAMERA_OPTIONS, proofButtonVisible } from '../lib/deliveryProof';
 import { navUrl, pickupCode, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
@@ -112,7 +113,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       Alert.alert('Camera nu e permisă', 'Permite accesul la cameră din setările telefonului ca să faci poza la livrare.');
       return;
     }
-    const shot = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.4, allowsEditing: false, exif: false });
+    const shot = await ImagePicker.launchCameraAsync(CAMERA_OPTIONS);
     if (shot.canceled || shot.assets.length === 0) return;
     setProofSending(true);
     const err = await uploadDeliveryProof(order.id, shot.assets[0].uri);
@@ -136,7 +137,8 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
       return;
     }
     setIssueOpen(false);
-    Alert.alert(ISSUE_LABELS[kind], issueReportedText(isNew));
+    const shown = describeReport(kind, isNew);
+    Alert.alert(shown.title, shown.text);
   };
 
   const panResponder = PanResponder.create({
@@ -357,7 +359,7 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
           )}
 
           {/* Proof of delivery — only on the delivery leg (attach_delivery_proof accepts en_route). */}
-          {status === 'delivering' && (
+          {proofButtonVisible(status) && (
             <TouchableOpacity
               style={[styles.gpsBanner, { opacity: proofSending ? 0.5 : 1 }]}
               onPress={() => void handleProofPhoto()}

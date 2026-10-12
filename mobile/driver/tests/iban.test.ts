@@ -43,14 +43,14 @@ describe("wiring: Profile -> form -> RPC", () => {
   it("the 'Cont bancar' row opens the payout form (no longer a dead row)", () => {
     const s = src("src/screens/ProfileScreen.tsx");
     expect(s).toMatch(/label: 'Cont bancar'[^\n]*action: 'payout'/);
-    expect(s).toMatch(/case 'payout':\s*if \(profile\) setPayoutOpen\(\(o\) => !o\);/);
+    expect(s).toMatch(/togglePayout: \(\) => \{\s*if \(profile\) setPayoutOpen\(\(o\) => !o\);/);
     expect(s).toMatch(/<PayoutAccountForm courierId=\{profile\.id\}/);
   });
   it("the form validates before saving and saves through savePayoutAccount", () => {
     const s = src("src/components/PayoutAccountForm.tsx");
-    expect(s).toMatch(/const problem = ibanError\(iban\) \?\? holderError\(holder\);/);
-    expect(s).toMatch(/if \(problem\) \{/);
-    expect(s).toMatch(/savePayoutAccount\(courierId, iban, holder\)/);
+    // the logic (validate first, save normalised) is tested by behaviour in tests/behaviour.test.ts
+    expect(s).toMatch(/submitPayout\(courierId, iban, holder, savePayoutAccount\)/);
+    expect(s).toMatch(/\{payoutSummary\(current\)\}/);
   });
   it("api.ts calls set_payout_account for THIS courier and reads only its own row", () => {
     const s = src("src/lib/api.ts");

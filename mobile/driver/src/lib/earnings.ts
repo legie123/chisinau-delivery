@@ -98,3 +98,8 @@ export function historyTipLabel(tip: number | string | null | undefined): string
 export function historyFeeNote(assumed: boolean | null | undefined): string | null {
   return assumed === true ? "tarif de bază (lipsea un pin) — km se adaugă la revizuire" : null;
 }
+
+/** Extra lines under a history row, in display order: the tip first, then the fee note. */
+export function historyExtraLines(row: { tipLabel: string | null; feeNote: string | null }): string[] {
+  return [row.tipLabel, row.feeNote].filter((l): l is string => l !== null);
+}

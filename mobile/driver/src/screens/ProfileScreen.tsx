@@ -6,6 +6,7 @@ import { COLORS } from '../theme';
 import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, userMessage, CourierProfile, CourierStatus } from '../lib/api';
 import PayoutAccountForm from '../components/PayoutAccountForm';
 import { readSupportPhone } from '../lib/config';
+import { runMenuAction, type MenuAction } from '../lib/profileMenu';
 
 const VEHICLE_LABEL: Record<string, string> = {
   bike: '🚲 Bicicletă',
@@ -35,7 +36,6 @@ function initials(fullName: string): string {
 
 // Only rows that do something. "Editează profilul", "Vehiculul meu", "Documente", "Program de lucru" and
 // "Setări" were dead taps with a chevron (nothing behind them); they come back when they have a backend.
-type MenuAction = 'payout' | 'support' | 'signout';
 const MENU_ITEMS: { icon: string; label: string; color: string; action: MenuAction }[] = [
   { icon: 'card-outline', label: 'Cont bancar', color: COLORS.success, action: 'payout' },
   { icon: 'help-circle-outline', label: 'Ajutor & Suport', color: '#60a5fa', action: 'support' },
@@ -191,17 +191,15 @@ export default function ProfileScreen() {
               style={styles.menuItem}
               activeOpacity={0.7}
               onPress={() => {
-                switch (item.action) {
-                  case 'payout':
+                runMenuAction(item.action, {
+                  togglePayout: () => {
                     if (profile) setPayoutOpen((o) => !o);
-                    break;
-                  case 'support':
-                    if (SUPPORT) Linking.openURL(SUPPORT.tel).catch(() => Alert.alert('Nu s-a putut suna', SUPPORT.label));
-                    break;
-                  case 'signout':
-                    void handleSignOut();
-                    break;
-                }
+                  },
+                  callSupport: SUPPORT
+                    ? () => void Linking.openURL(SUPPORT.tel).catch(() => Alert.alert('Nu s-a putut suna', SUPPORT.label))
+                    : null,
+                  signOut: () => void handleSignOut(),
+                });
               }}
             >
               <View style={[styles.menuIcon, { backgroundColor: item.color + '15' }]}>
