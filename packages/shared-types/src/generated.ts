@@ -3748,6 +3748,10 @@ export type Database = {
           trigger_name: string
         }[]
       }
+      admin_set_platform_admin: {
+        Args: { p_email: string; p_grant: boolean; p_reason: string }
+        Returns: undefined
+      }
       admin_settle_payee: {
         Args: {
           p_expected_net: number

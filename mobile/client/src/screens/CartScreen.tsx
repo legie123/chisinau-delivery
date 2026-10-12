@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Status
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { placeOrder, setOrderTip } from '@chisinau/shared-api';
-import { cartSubtotal, setLineQuantity, type HoursRow } from '@chisinau/shared-domain';
+import { cartSubtotal, LINE_NOTE_MAX, setLineNotes, setLineQuantity, type HoursRow } from '@chisinau/shared-domain';
 import { COLORS } from '../theme';
 import { clearCart, getCart, setCart, useCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
@@ -324,6 +324,16 @@ export default function CartScreen({ navigation }: Props) {
                   <Ionicons name="trash-outline" size={16} color={COLORS.primary} />
                 </TouchableOpacity>
               </View>
+              {/* C2: a note per dish for the kitchen ticket (place_order -> order_items.notes). */}
+              <TextInput
+                style={styles.lineNote}
+                placeholder="Notă pentru bucătărie (ex. fără wasabi)"
+                placeholderTextColor={COLORS.textMuted}
+                value={line.notes ?? ''}
+                maxLength={LINE_NOTE_MAX}
+                onChangeText={t => setCart(prev => setLineNotes(prev, line.lineId, t))}
+                accessibilityLabel={`Notă pentru ${line.name}`}
+              />
             </View>
           ))}
         </View>
@@ -480,6 +490,7 @@ const styles = StyleSheet.create({
   itemOptions: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   itemPrice: { fontSize: 15, fontWeight: '700', color: COLORS.gold },
   qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  lineNote: { marginTop: 8, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 10, paddingVertical: 8, color: COLORS.white, fontSize: 13 },
   qtyBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: COLORS.surfaceLight, justifyContent: 'center', alignItems: 'center' },
   qtyText: { fontSize: 16, fontWeight: '700', color: COLORS.white, minWidth: 20, textAlign: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
