@@ -199,7 +199,8 @@ export function OrderQueueLive({
     const due = startsDue(starts, venuePrepMinutes, now, startRungRef.current);
     if (due.length === 0) return;
     for (const id of due) startRungRef.current.add(id);
-    addIds("rung", due);
+    // Not persisted here: only a tap (acknowledge below) makes it "rung" for good — a reload
+    // while it is still ringing must ring again (verifier R2, regression in 240d9f3).
     setStartIds((prev) => new Set([...prev, ...due]));
   }, [starts, venuePrepMinutes, now]);
 
@@ -230,7 +231,10 @@ export function OrderQueueLive({
     if (!arrivalSignal && !startSignal) return;
     const acknowledge = () => {
       setArrivedIds(new Set());
-      setStartIds(new Set());
+      setStartIds((ids) => {
+        addIds("rung", [...ids]);
+        return new Set();
+      });
     };
     document.addEventListener("click", acknowledge, { once: true });
     document.addEventListener("keydown", acknowledge, { once: true });
