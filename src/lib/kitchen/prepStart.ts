@@ -24,3 +24,28 @@ export function startsDue(list: StartCandidate[], venuePrepMinutes: number, now:
     })
     .map((o) => o.id);
 }
+
+// Per-device memory (localStorage) so the kitchen tablet keeps what already happened:
+// "started" = the start time was reached once (the badge then stays "În preparare" even if
+// the ready time is later extended — verifier R2 F1); "rung" = the start alarm already rang
+// (a reload must not ring again — R2 F2). Storage can be unavailable: then it just forgets.
+const KEYS = { started: "kitchen:prep-started", rung: "kitchen:prep-rung" } as const;
+
+export function readIds(kind: keyof typeof KEYS): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(KEYS[kind]) ?? "[]") as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addIds(kind: keyof typeof KEYS, ids: string[]): void {
+  try {
+    const all = readIds(kind);
+    for (const id of ids) all.add(id);
+    // ponytail: keep the last 200 ids; old orders are long gone from the queue
+    localStorage.setItem(KEYS[kind], JSON.stringify([...all].slice(-200)));
+  } catch {
+    /* storage unavailable: nothing to remember */
+  }
+}

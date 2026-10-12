@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from "react";
 import { acceptOrder, extendPrepTime, markReadyForPickup, rejectOrder, setPrepTimeEstimate } from "@/app/(admin)/restaurant/orders/actions";
 import { pickupCode } from "@/lib/kitchen/pickupCode";
 import { offlineSafe } from "@/lib/kitchen/offlineSafe";
-import { prepStartAt } from "@/lib/kitchen/prepStart";
+import { addIds, prepStartAt, readIds } from "@/lib/kitchen/prepStart";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
 import { ORDER_STATUS_LABEL, type Order, type OrderItem } from "@/lib/types/domain";
@@ -49,6 +49,16 @@ export function OrderQueueRow({
     const id = setInterval(() => setClock(Date.now()), 30_000);
     return () => clearInterval(id);
   }, [startAt]);
+  // Once the start time was reached the order stays "În preparare" on this tablet, even if
+  // "Mai am nevoie de timp" later moves the ready time (and thus the computed start) ahead.
+  const [startedBefore, setStartedBefore] = useState(false);
+  useEffect(() => {
+    if (startAt === null) return;
+    if (startAt <= clock) addIds("started", [order.id]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reads per-device memory after mount
+    setStartedBefore(readIds("started").has(order.id));
+  }, [startAt, clock, order.id]);
+  const started = startAt !== null && (startedBefore || startAt <= clock);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -162,14 +172,16 @@ export function OrderQueueRow({
           {startAt !== null && (
             <p
               className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
-                startAt <= clock
+                started
                   ? "animate-pulse bg-amber-500/20 text-amber-200 ring-amber-400/40"
                   : "bg-sky-400/10 text-sky-300 ring-sky-400/30"
               }`}
             >
               👨‍🍳{" "}
-              {startAt <= clock
-                ? "Începe prepararea acum"
+              {started
+                ? startAt <= clock
+                  ? "Începe prepararea acum"
+                  : "În preparare"
                 : `Începe prepararea la ${new Date(startAt).toLocaleTimeString("ro-MD", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Chisinau" })}`}
             </p>
           )}

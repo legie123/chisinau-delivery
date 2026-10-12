@@ -7,7 +7,7 @@ import { subscribeTable } from "@/lib/realtime/subscribeTable";
 import { ReconnectNotice } from "@/components/shared/ReconnectNotice";
 import { kitchenAlertAudio } from "@/lib/kitchen/alertAudio";
 import { duePending, newArrivals, type PendingOrder } from "@/lib/kitchen/queueAlarm";
-import { startsDue, type StartCandidate } from "@/lib/kitchen/prepStart";
+import { addIds, readIds, startsDue, type StartCandidate } from "@/lib/kitchen/prepStart";
 import type { Order } from "@/lib/types/domain";
 
 const ALERT_TITLE = "🔴 Comandă nouă!";
@@ -65,7 +65,8 @@ export function OrderQueueLive({
   const arrivalSignal = (pending ?? []).some((o) => arrivedIds.has(o.id));
   // Start-cooking signal for scheduled orders: rings until a tap, only while the order is
   // still accepted (marked ready or cancelled elsewhere → it stops).
-  const startRungRef = useRef<Set<string>>(new Set());
+  // Seeded from per-device memory so a reload does not ring an old start again (R2 F2).
+  const startRungRef = useRef<Set<string> | null>(null);
   const [startIds, setStartIds] = useState<ReadonlySet<string>>(new Set());
   const startSignal = (starts ?? []).some((o) => startIds.has(o.id));
   const alerting = dueCount > 0 || arrivalSignal || startSignal;
@@ -194,9 +195,11 @@ export function OrderQueueLive({
 
   useEffect(() => {
     if (!starts?.length) return;
+    startRungRef.current ??= readIds("rung");
     const due = startsDue(starts, venuePrepMinutes, now, startRungRef.current);
     if (due.length === 0) return;
     for (const id of due) startRungRef.current.add(id);
+    addIds("rung", due);
     setStartIds((prev) => new Set([...prev, ...due]));
   }, [starts, venuePrepMinutes, now]);
 
@@ -322,7 +325,9 @@ export function OrderQueueLive({
         className="fixed inset-0 z-50 flex animate-pulse flex-col items-center justify-center gap-3 bg-primary/90 text-center text-white"
       >
         <span className="text-5xl" aria-hidden>🔔</span>
-        <span className="font-serif text-3xl font-bold">Comandă nouă</span>
+        <span className="font-serif text-3xl font-bold">
+          {dueCount > 0 || arrivalSignal ? "Comandă nouă" : "Începe prepararea"}
+        </span>
         <span className="text-base">Atinge ecranul ca să pornești sunetul</span>
       </button>
     ) : null;
