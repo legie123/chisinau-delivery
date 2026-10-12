@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DeliveryStatusControls } from "@/components/courier/DeliveryStatusControls";
+import { collectLine } from "@/components/courier/collectLine";
 import { DeliveryProgress } from "@/components/courier/DeliveryProgress";
 import { CourierRouteMap } from "@/components/courier/CourierRouteMap";
 import { DeliveryLive } from "@/components/courier/DeliveryLive";
@@ -170,7 +171,7 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
           ))}
         </ul>
         <div className="mt-3 flex justify-between border-t border-white/10 pt-3 font-bold text-white">
-          <span>De încasat ({typedOrder.payment_method === "cash" ? "cash" : "card POS"})</span>
+          <span>{collectLine(typedOrder).label}</span>
           <span className="text-gold">{typedOrder.total_mdl} MDL</span>
         </div>
       </section>
