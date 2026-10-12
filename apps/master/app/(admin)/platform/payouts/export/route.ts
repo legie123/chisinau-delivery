@@ -1,1 +1,1 @@
-export { GET } from "@/app/(admin)/platform/payouts/export/route";
+export { GET, POST } from "@/app/(admin)/platform/payouts/export/route";

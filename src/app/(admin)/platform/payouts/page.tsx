@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Payout } from "@/lib/types/domain";
 import { GeneratePayoutsForm } from "@/components/admin/GeneratePayoutsForm";
-import { SettlePayeeButton } from "@/components/admin/SettlePayeeButton";
+import { SettleExportLineButton, VoidExportButton } from "@/components/admin/PayoutExportControls";
 import { buildPayoutBankCsv } from "@/lib/payouts/bankCsv";
 import { loadPendingBankRows } from "@/lib/payouts/pendingBankRows";
 
@@ -50,6 +50,17 @@ export default async function PlatformPayoutsPage() {
     .order("created_at", { ascending: false });
   const rows = (payoutRows ?? []) as Payout[];
   const bank = buildPayoutBankCsv(await loadPendingBankRows(supabase));
+  // Open (not voided) export batches with lines still to settle — settlement acts on these only.
+  const { data: exportRows } = await supabase
+    .from("payout_exports")
+    .select("id, created_at, payout_export_lines(recipient_type, recipient_id, name, iban, net_mdl, iban_changed, settled_at)")
+    .is("voided_at", null)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  type OpenLine = { recipient_type: "courier" | "restaurant"; recipient_id: string; name: string; iban: string; net_mdl: number; iban_changed: boolean; settled_at: string | null };
+  const openExports = ((exportRows ?? []) as { id: string; created_at: string; payout_export_lines: OpenLine[] }[])
+    .map((e) => ({ id: e.id, created_at: e.created_at, lines: e.payout_export_lines.filter((l) => !l.settled_at) }))
+    .filter((e) => e.lines.length > 0);
 
   // Friendly recipient names via two lookups + a map (courier.full_name /
   // restaurant.name) — payouts store only recipient_id.
@@ -102,15 +113,15 @@ export default async function PlatformPayoutsPage() {
       </div>
 
       <section className="mb-8 flex flex-wrap items-center gap-3 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
-        <a
-          href="/platform/payouts/export"
-          className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-black hover:bg-gold/90"
-        >
-          Exportă CSV pentru bancă
-        </a>
+        {/* POST freezes a batch (admin_create_payout_export) and downloads its file. */}
+        <form method="post" action="/platform/payouts/export">
+          <button type="submit" className="rounded-xl bg-gold px-4 py-2 text-sm font-semibold text-black hover:bg-gold/90">
+            Exportă CSV pentru bancă
+          </button>
+        </form>
         <p className="text-sm text-white/60">
-          {bank.exported} transferuri în așteptare · {round2(bank.totalMdl)} MDL
-          {bank.skippedNonPositive > 0 && ` · ${bank.skippedNonPositive} recuperări excluse`}
+          De plătit (previzualizare): {bank.exported} transferuri · {round2(bank.totalMdl)} MDL
+          {bank.skippedNonPositive > 0 && ` · ${bank.skippedNonPositive} recuperări reportate`}
         </p>
         {bank.payees.filter((p) => p.net > 0).length > 0 && (
           <ul className="w-full divide-y divide-white/5">
@@ -128,11 +139,43 @@ export default async function PlatformPayoutsPage() {
                       </span>
                     )}
                   </span>
-                  <SettlePayeeButton recipientType={p.recipient_type} recipientId={p.recipient_id} netMdl={p.net} />
+                  <span className="text-white/70">{round2(p.net)} MDL</span>
                 </li>
               ))}
           </ul>
         )}
+        {openExports.map((e) => (
+          <div key={e.id} className="w-full rounded-xl bg-white/[0.03] p-3 ring-1 ring-gold/20">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-white/60">
+              <span>
+                Lot {e.id.slice(0, 8)} · exportat {new Date(e.created_at).toLocaleString("ro-RO", { timeZone: "Europe/Chisinau" })} — marchează
+                fiecare linie după transferul din bancă
+              </span>
+              <span className="flex items-center gap-2">
+                <a href={`/platform/payouts/export?id=${e.id}`} className="text-gold hover:underline">
+                  Descarcă din nou
+                </a>
+                <VoidExportButton exportId={e.id} />
+              </span>
+            </div>
+            <ul className="divide-y divide-white/5">
+              {e.lines.map((l) => (
+                <li key={`${l.recipient_type}:${l.recipient_id}`} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="text-white">
+                    {l.name} <span className="text-white/40">· {RECIPIENT_LABEL[l.recipient_type]} · IBAN …{l.iban.slice(-4)}</span>
+                  </span>
+                  <SettleExportLineButton
+                    exportId={e.id}
+                    recipientType={l.recipient_type}
+                    recipientId={l.recipient_id}
+                    netMdl={Number(l.net_mdl)}
+                    ibanChanged={l.iban_changed}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
         {bank.missingIban.length > 0 && (
           <p className="w-full text-sm text-gold/90">
             Fără IBAN (nu intră în fișier): {bank.missingIban.join(", ")}
