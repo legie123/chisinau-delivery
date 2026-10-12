@@ -28,6 +28,12 @@ export function isOpenForOrders(r: Restaurant): boolean {
   return r.openNow && r.acceptingOrders;
 }
 
+/** Closed now but accepting and opening later: a SCHEDULED order is still possible (place_order checks
+ *  restaurant_open_at at the requested time). The cart then forces "Programează". */
+export function canOrderAhead(r: Restaurant): boolean {
+  return r.acceptingOrders && !r.openNow && r.nextOpening != null;
+}
+
 export function isDefaultFilter(f: BrowseFilter): boolean {
   return f.query.trim() === "" && f.category === "all" && !f.openNowOnly;
 }

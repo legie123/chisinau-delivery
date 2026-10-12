@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Status
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { placeOrder, setOrderTip } from '@chisinau/shared-api';
-import { cartSubtotal, LINE_NOTE_MAX, setLineNotes, setLineQuantity, type HoursRow } from '@chisinau/shared-domain';
+import { cartSubtotal, chisinauNow, isOpenNow, LINE_NOTE_MAX, setLineNotes, setLineQuantity, type HoursRow } from '@chisinau/shared-domain';
 import { COLORS } from '../theme';
 import { clearCart, getCart, setCart, useCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
@@ -177,6 +177,9 @@ export default function CartScreen({ navigation }: Props) {
   // hint only: the server decides, its refusal comes back as the same Romanian line.
   const overCashCap = summary != null && cashCapExceeded(payment, subtotal, deliveryFee);
   const selected = addresses.find(a => a.id === addressId);
+  // Parity 16a: closed now -> only a scheduled order is possible (place_order would refuse ASAP).
+  const closedNow = summary != null && !isOpenNow(summary.hours, chisinauNow().dow, chisinauNow().time);
+  useEffect(() => { if (closedNow) setScheduled(true); }, [closedNow]);
   // Parity 16b/16c: say it here, before "Plasează" — out of the delivery zone blocks (place_order
   // would refuse it), no courier online only warns (dispatch keeps trying).
   const deliveryPin = effectiveDeliveryPin(addressId, selected, pin, savedPin);
@@ -405,13 +408,16 @@ export default function CartScreen({ navigation }: Props) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Când livrăm</Text>
           <View style={styles.chips}>
-            <TouchableOpacity style={[styles.chip, !scheduled && styles.chipOn]} onPress={() => setScheduled(false)}>
-              <Text style={styles.chipText}>⚡ Acum</Text>
-            </TouchableOpacity>
+            {!closedNow && (
+              <TouchableOpacity style={[styles.chip, !scheduled && styles.chipOn]} onPress={() => setScheduled(false)}>
+                <Text style={styles.chipText}>⚡ Acum</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={[styles.chip, scheduled && styles.chipOn]} onPress={() => setScheduled(true)}>
               <Text style={styles.chipText}>🕒 Programează</Text>
             </TouchableOpacity>
           </View>
+          {closedNow && <Text style={styles.notice}>Restaurantul e închis acum — alege ziua și ora livrării.</Text>}
           {scheduled && (
             <>
               <WhenPicker date={date} time={time} onDate={setDate} onTime={setTime} days={7} />

@@ -6,7 +6,7 @@ import { addToCart, cartCount, cartSubtotal, EMPTY_CART, needsRestaurantSwitch, 
 import { COLORS } from '../theme';
 import { MenuItem, OptionGroup, Restaurant } from '../types';
 import { fetchInsights, fetchMenu, fetchRestaurants, fetchCouriersAvailable } from '../lib/api';
-import { isOpenForOrders } from '../lib/browse';
+import { isOpenForOrders, canOrderAhead } from '../lib/browse';
 import { useFavorites } from '../lib/favorites';
 import { getCart, setCart, useCart } from '../lib/cart';
 import ModifierSheet from '../components/ModifierSheet';
@@ -124,7 +124,8 @@ export default function RestaurantScreen({ route, navigation }: Props) {
     );
   }
 
-  const ordering = isOpenForOrders(restaurant) && !missing;
+  // Open now, or closed but opening later -> a scheduled order (the cart forces "Programează").
+  const ordering = (isOpenForOrders(restaurant) || canOrderAhead(restaurant)) && !missing;
   const filteredItems = selectedCategory ? menuItems.filter(i => i.category === selectedCategory) : menuItems;
 
   const commitAdd = (item: MenuItem, options?: ChosenOptions, quantity = 1) => {
@@ -218,6 +219,9 @@ export default function RestaurantScreen({ route, navigation }: Props) {
           </View>
         </View>
 
+        {!missing && canOrderAhead(restaurant) && (
+          <Text style={styles.closedNote}>Închis acum · se deschide {restaurant.nextOpening}. Poți programa livrarea din coș.</Text>
+        )}
         {!ordering && (
           <Text style={styles.closedNote}>
             {missing
