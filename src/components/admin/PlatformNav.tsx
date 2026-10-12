@@ -68,6 +68,9 @@ export async function PlatformNav({ children }: { children: React.ReactNode }) {
           <Link href="/platform/tarife" className="shrink-0 whitespace-nowrap transition hover:text-white">
             Tarife
           </Link>
+          <Link href="/platform/cash" className="shrink-0 whitespace-nowrap transition hover:text-white">
+            Cash
+          </Link>
           <Link href="/platform/view-as" className="shrink-0 whitespace-nowrap transition hover:text-white">
             Vezi ca
           </Link>
