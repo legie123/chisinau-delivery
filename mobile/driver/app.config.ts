@@ -2,8 +2,8 @@ import type { ExpoConfig } from "expo/config";
 
 // Courier app — built in the cloud with EAS Build (no Xcode/Android Studio on the
 // dev Mac). Supabase config comes ONLY from EXPO_PUBLIC_* (see src/lib/supabase.ts,
-// which refuses to start without them). EAS_PROJECT_ID is written by `eas init`
-// and is what getExpoPushTokenAsync() needs to mint an Expo push token.
+// which refuses to start without them). The EAS project id (below) is what
+// getExpoPushTokenAsync() needs to mint an Expo push token; EAS_PROJECT_ID overrides it.
 
 const LOCATION_ALWAYS =
   "Dragons Curier folosește locația ta și în fundal, doar cât ai o livrare activă, ca să vadă clientul unde e comanda lui.";
@@ -21,6 +21,9 @@ const mapsKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY;
 const config: ExpoConfig = {
   name: "Dragons Curier",
   slug: "dragons-curier",
+  // EAS project linked 2026-10-12 (`eas init`, account alliancedragons123). Not a secret: the same id goes
+  // into every build and is what getExpoPushTokenAsync() needs (src/lib/push.ts).
+  owner: "alliancedragons123",
   scheme: "dragonscurier",
   version: "1.0.0",
   orientation: "portrait",
@@ -98,7 +101,7 @@ const config: ExpoConfig = {
     ["expo-secure-store", { faceIDPermission: false }],
   ],
   extra: {
-    eas: process.env.EAS_PROJECT_ID ? { projectId: process.env.EAS_PROJECT_ID } : undefined,
+    eas: { projectId: process.env.EAS_PROJECT_ID ?? "882b3374-f420-44b6-a369-ca5c834bd1e4" },
   },
 };
 
