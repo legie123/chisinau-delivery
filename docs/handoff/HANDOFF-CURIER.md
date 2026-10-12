@@ -106,7 +106,7 @@ Branch: `main` comun (nu un branch de sector: cele 4 sesiuni împart un singur w
 | gate | stare | dovadă / blocaj |
 |---|---|---|
 | 1 verificare adversarială | runda 3 de cerut | rundele 1–2: NEVALIDAT (nu PERICULOS); toate defectele reparate în `80b9efa`, `83ee8a7`, `56489a6`, `d9e1902`; mutanții verificatorilor care treceau verde sunt acum roșii (SQL: toți în afară de „fără FOR UPDATE”, concurență; app: 18/18) |
-| 2 defecte rămase | DONE | flag pe 3 stări + backfill (adresele șterse = necunoscut); lockfile JUSTIFIED: `scripts/lock-justify.mjs` = 303 mutări forțate de SDK + 32 flotări neforțate, toate unelte de build/dev, listate pachet cu pachet, 0 derivă |
+| 2 defecte rămase | DONE | flag pe 3 stări; istoricul = null (nedovedibil, `000208`); lockfile: **DRIFT minor** — `scripts/lock-justify.mjs` per instanță: 180 mutate, 149 forțate de SDK, 31 flotări neforțate, toate unelte de build/dev, niciuna livrată în bundle (identic cu analiza verificatorului) |
 | 3 matrice | DONE | tabelul de mai jos |
 | 4 construcție | DONE pe ce nu depinde de owner | raportare probleme, foto la livrare, IBAN, meniu fără rânduri moarte, bacșiș + notă de tarif, cod de ridicare, plată de bază fără pin (decizia owner-ului) |
 | 5 build nativ | BLOCKED (owner) | owner: build EAS după verdictul verificatorilor; backend = proiect Supabase de staging nou (de creat pe contul lui, cost de confirmat) |

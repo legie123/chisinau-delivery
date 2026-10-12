@@ -57,14 +57,14 @@ begin
   select sum(courier_fee_mdl) into v_fees_before from public.orders;
   v_ret := public.backfill_courier_fee_distance_assumed(v_cut);
 
-  -- ===== U1: historic delivery, address without a pin -> true =====
+  -- ===== U1: historic delivery, address without a pin TODAY -> null (pin state at delivery unprovable; 000208) =====
   select courier_fee_distance_assumed into v_flag from public.orders where id = h_nopin_addr;
-  if v_flag is distinct from true then raise exception 'FAIL 152.U1: historic pinless address -> % (expected true)', v_flag; end if;
-  raise notice 'PASS 152.U1: historic delivery to an unpinned address -> true';
-  -- ===== U2: historic delivery, restaurant without a pin -> true =====
+  if v_flag is not null then raise exception 'FAIL 152.U1: historic pinless address -> % (expected null: a pin missing today proves nothing about delivery)', v_flag; end if;
+  raise notice 'PASS 152.U1: historic delivery to an unpinned address -> null';
+  -- ===== U2: historic delivery, restaurant without a pin today -> null =====
   select courier_fee_distance_assumed into v_flag from public.orders where id = h_nopin_rest;
-  if v_flag is distinct from true then raise exception 'FAIL 152.U2: historic unpinned restaurant -> % (expected true)', v_flag; end if;
-  raise notice 'PASS 152.U2: historic delivery from an unpinned restaurant -> true';
+  if v_flag is not null then raise exception 'FAIL 152.U2: historic unpinned restaurant -> % (expected null)', v_flag; end if;
+  raise notice 'PASS 152.U2: historic delivery from an unpinned restaurant -> null';
   -- ===== U3: historic delivery, both pins present -> null (unknown), NOT false (measured) =====
   select courier_fee_distance_assumed into v_flag from public.orders where id = h_pins;
   if v_flag is not null then raise exception 'FAIL 152.U3: historic pinned delivery -> % (expected null = unknown)', v_flag; end if;
@@ -75,18 +75,18 @@ begin
   select courier_fee_distance_assumed into v_flag from public.orders where id = n_true;
   if v_flag is distinct from true then raise exception 'FAIL 152.U4: assumed flag after the cutoff changed to %', v_flag; end if;
   raise notice 'PASS 152.U4: flags written after the cutoff untouched';
-  -- ===== U5: monotone — a true stays true even if both pins exist now =====
+  -- ===== U5: a historic true (written by the old backfill from today's pins) is unproven -> null =====
   select courier_fee_distance_assumed into v_flag from public.orders where id = h_true_pins;
-  if v_flag is distinct from true then raise exception 'FAIL 152.U5: a true was downgraded to %', v_flag; end if;
-  raise notice 'PASS 152.U5: true is never downgraded';
+  if v_flag is not null then raise exception 'FAIL 152.U5: historic true kept as % (expected null)', v_flag; end if;
+  raise notice 'PASS 152.U5: historic true -> null (unproven)';
   -- ===== U6: an order that is not delivered is not touched, even with a delivered_at =====
   select courier_fee_distance_assumed into v_flag from public.orders where id = inflight;
   if v_flag is distinct from false then raise exception 'FAIL 152.U6: not-delivered order touched (now %)', v_flag; end if;
   raise notice 'PASS 152.U6: not-delivered order untouched';
-  -- ===== U11: half a pin (lat without lng) is no pin -> true =====
+  -- ===== U11: half a pin today (lat without lng) -> null, like any historic row =====
   select courier_fee_distance_assumed into v_flag from public.orders where id = h_half;
-  if v_flag is distinct from true then raise exception 'FAIL 152.U11: half pin -> % (expected true)', v_flag; end if;
-  raise notice 'PASS 152.U11: lat without lng -> true';
+  if v_flag is not null then raise exception 'FAIL 152.U11: half pin -> % (expected null)', v_flag; end if;
+  raise notice 'PASS 152.U11: lat without lng -> null';
   -- ===== U12: an address erased after delivery is unknown (null), not "6 km assumed" =====
   select courier_fee_distance_assumed into v_flag from public.orders where id = h_erased;
   if v_flag is not null then raise exception 'FAIL 152.U12: erased address -> % (expected null)', v_flag; end if;
@@ -123,7 +123,7 @@ begin
   end;
   raise notice 'PASS 152.U9: authenticated and service_role are denied';
 
-  -- ===== U10: the ROLLBACK written in the migration works and keeps the trues =====
+  -- ===== U10: the ROLLBACK written in 000204 works (null -> false, NOT NULL DEFAULT false back) =====
   update public.orders set courier_fee_distance_assumed = false where courier_fee_distance_assumed is null;
   alter table public.orders alter column courier_fee_distance_assumed set default false,
                             alter column courier_fee_distance_assumed set not null;
@@ -132,8 +132,8 @@ begin
    where table_schema = 'public' and table_name = 'orders' and column_name = 'courier_fee_distance_assumed';
   select not exists (select 1 from pg_proc where proname = 'backfill_courier_fee_distance_assumed') into function_gone;
   select courier_fee_distance_assumed into v_flag from public.orders where id = h_nopin_addr;
-  if v_nullable <> 'NO' or v_default <> 'false' or not function_gone or v_flag is distinct from true then
+  if v_nullable <> 'NO' or v_default <> 'false' or not function_gone or v_flag is distinct from false then
     raise exception 'FAIL 152.U10: rollback left nullable=% default=% function_gone=% backfilled=%', v_nullable, v_default, function_gone, v_flag;
   end if;
-  raise notice 'PASS 152.U10: rollback restores NOT NULL DEFAULT false, drops the function, keeps the trues';
+  raise notice 'PASS 152.U10: rollback restores NOT NULL DEFAULT false (nulls back to false) and drops the function';
 end $$;

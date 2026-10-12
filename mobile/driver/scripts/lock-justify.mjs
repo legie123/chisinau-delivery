@@ -79,25 +79,45 @@ for (const n of names) {
   const sdk = [...rs].filter((r) => sdkRoots.has(r));
   rows.push({ n, a: a || "-", b: b || "-", verdict: sdk.length ? "SDK" : rs.size ? "DRIFT" : "ORPHAN", via: (sdk.length ? sdk : [...rs]).slice(0, 3).join(" ") });
 }
-// requirers of a name in the new lock: every entry whose deps / optional / peer list it, with the range
-const requirers = new Map();
-for (const [p, e] of Object.entries(newLock.packages)) {
-  for (const [d, range] of Object.entries({ ...e.dependencies, ...e.optionalDependencies, ...e.peerDependencies })) {
-    if (!requirers.has(d)) requirers.set(d, []);
-    requirers.get(d).push({ by: p || "(root)", range });
+// Per INSTANCE (verif-curier round 3: name-level requirers miscount): for every path in the new lock whose
+// version did not exist before under that name, collect the requirers that RESOLVE to that path; the move is a
+// float when some old version would satisfy all of them. A duplicate that was only removed is not a move.
+const npk = newLock.packages;
+const resolveIn = (pk, from, name) => {
+  let base = from;
+  for (;;) {
+    const cand = (base ? base + "/" : "") + "node_modules/" + name;
+    if (pk[cand]) return cand;
+    if (!base) return null;
+    const i = base.lastIndexOf("/node_modules/");
+    base = i < 0 ? "" : base.slice(0, i);
+  }
+};
+const requirersOf = new Map();
+for (const [p, e] of Object.entries(npk)) {
+  for (const [kind, deps] of [["dep", e.dependencies], ["opt", e.optionalDependencies], ["peer", e.peerDependencies]]) {
+    for (const [d, range] of Object.entries(deps || {})) {
+      const q = resolveIn(npk, p, d);
+      if (!q) continue;
+      if (!requirersOf.has(q)) requirersOf.set(q, []);
+      requirersOf.get(q).push({ by: p || "(root)", range, kind });
+    }
   }
 }
-for (const r of rows) {
-  if (r.verdict !== "SDK" || r.a === "-" || r.b === "-") continue;
-  const olds = r.a.split(",");
-  const reqs = requirers.get(r.n) ?? [];
-  const oldStillOk = olds.some((v) => reqs.every((q) => semver.satisfies(v, q.range, { includePrerelease: true })));
-  if (oldStillOk) {
-    r.verdict = "SDK-UNFORCED";
-    r.via = reqs.slice(0, 2).map((q) => `${q.by.replace(/^.*node_modules\//, "")} ${q.range}`).join("; ");
-  }
+const floats = [];
+let movedInstances = 0;
+for (const [p, e] of Object.entries(npk)) {
+  if (!p) continue;
+  const olds = ov.get(nameOf(p));
+  if (!olds || olds.has(e.version)) continue; // new package, or a version that already existed
+  movedInstances++;
+  const reqs = requirersOf.get(p) ?? [];
+  const fits = [...olds].filter((v) => reqs.every((q) => { try { return semver.satisfies(v, q.range, { includePrerelease: true }); } catch { return false; } }));
+  if (reqs.length && fits.length) floats.push({ p, from: [...olds].join(","), to: e.version, via: reqs.slice(0, 2).map((q) => `${q.by.replace(/^.*node_modules\//, "")} ${q.range}`).join("; ") });
 }
 const count = (v) => rows.filter((r) => r.verdict === v).length;
 console.log(`direct deps changed by the bump (${sdkRoots.size}): ${[...sdkRoots].sort().join(" ")}`);
-console.log(`moved packages: ${rows.length}  SDK-forced: ${count("SDK")}  SDK-unforced (float): ${count("SDK-UNFORCED")}  DRIFT: ${count("DRIFT")}  ORPHAN: ${count("ORPHAN")}`);
+console.log(`moved package names: ${rows.length}  reached by the SDK bump: ${count("SDK")}  DRIFT: ${count("DRIFT")}  ORPHAN: ${count("ORPHAN")}`);
+console.log(`moved instances: ${movedInstances}  forced by a range: ${movedInstances - floats.length}  unforced floats: ${floats.length}`);
+for (const f of floats) console.log(`FLOAT\t${f.p.replace(/^node_modules\//, "")}\t${f.from} -> ${f.to}\tvia ${f.via}`);
 for (const r of rows) if (flag === "--table" || r.verdict !== "SDK") console.log(`${r.verdict}\t${r.n}\t${r.a} -> ${r.b}\tvia ${r.via}`);
