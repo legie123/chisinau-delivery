@@ -7,6 +7,8 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
       // Same mapping as tsconfig paths — no node_modules link needed (no root lockfile change).
       "@chisinau/shared-domain": path.resolve(__dirname, "packages/shared-domain/src/index.ts"),
+      // "server-only" throws outside the react-server condition; builds still enforce it.
+      "server-only": path.resolve(__dirname, "tests/stubs/server-only.ts"),
     },
   },
   test: {
