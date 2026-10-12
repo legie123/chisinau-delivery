@@ -8,7 +8,7 @@ declare
   c_cust uuid := 'a0000000-0000-0000-0000-000000000001';
   v_rest uuid; v_rlat numeric; v_rlng numeric; v_addr uuid;
   v_a uuid; v_ua uuid; v_b uuid; v_o uuid; v_x uuid; v_y uuid; v_d uuid; v_c uuid;
-  v_left int; v_left2 int; v_to uuid; n int; v_msg text; v_day timestamptz; v_st text;
+  v_left int; v_left2 int; v_to uuid; n int; v_msg text; v_day timestamptz; v_st text; v_ub uuid; v_z uuid;
 begin
   select id, lat, lng into v_rest, v_rlat, v_rlng from public.restaurants where is_active and lat is not null order by name limit 1;
   insert into public.addresses (customer_id, street_address, lat, lng) values (c_cust, 'Str. Sim 158', v_rlat + 0.01, v_rlng) returning id into v_addr;
@@ -63,6 +63,47 @@ begin
     if (select status from public.orders where id = v_d) <> v_st then raise exception 'FAIL 158.X3: % order changed', v_st; end if;
   end loop;
   raise notice 'PASS 158.X3: delivered and cancelled orders refused';
+
+  -- ===== X5: the exclusion is per ORDER, never a ban: A is still offered OTHER orders (EU 2024/2831) =====
+  update public.couriers set status = 'online' where id = v_a;
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method, payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl)
+  values ('standard', c_cust, v_rest, v_addr, 'ready_for_pickup', 'card_on_delivery', 'unpaid', 200, 30, 230) returning id into v_z;
+  update public.dispatch_offers set status = 'declined' where courier_id = v_b and status = 'offered';   -- B busy elsewhere would hide the point
+  update public.couriers set status = 'offline' where id = v_b;
+  perform public.dispatch_order(v_z);
+  select courier_id into v_to from public.dispatch_offers where order_id = v_z and status = 'offered';
+  if v_to is distinct from v_a then raise exception 'FAIL 158.X5: after a release A was not offered another order (offer to %)', v_to; end if;
+  update public.dispatch_offers set status = 'declined' where order_id = v_z;
+  raise notice 'PASS 158.X5: the courier who released X is still offered other orders';
+
+  -- ===== X6: a DIFFERENT courier cannot get the replay answer on an order it never held =====
+  select user_id into v_ub from public.couriers where id = v_b;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ub, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  begin
+    perform public.courier_release_order(v_x, 'other');
+    reset role; raise exception 'FAIL 158.X6: another courier got a success on A''s released order';
+  exception when raise_exception then
+    get stacked diagnostics v_msg = message_text; reset role;
+    if v_msg like 'FAIL%' then raise exception '%', v_msg; end if;
+  end;
+  raise notice 'PASS 158.X6: another courier refused (%)', v_msg;
+
+  -- ===== X7: assigned back to A (an admin act), a new release really releases (not a replay) =====
+  update public.dispatch_offers set status = 'cancelled' where order_id = v_x and status = 'offered';
+  update public.orders set courier_id = v_a, status = 'courier_assigned' where id = v_x;
+  update public.couriers set status = 'on_delivery' where id = v_a;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_ua, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.courier_release_order(v_x, 'personal_emergency');
+  reset role;
+  select count(*) into n from public.courier_order_releases where order_id = v_x and courier_id = v_a;
+  if n <> 2 or (select courier_id from public.orders where id = v_x) is not null
+     or (select status from public.orders where id = v_x) <> 'ready_for_pickup' then
+    raise exception 'FAIL 158.X7: reassigned-back release rows=% courier=% status=%', n,
+      (select courier_id from public.orders where id = v_x), (select status from public.orders where id = v_x);
+  end if;
+  raise notice 'PASS 158.X7: assigned back, released again for real (2 rows, order free)';
 
   -- ===== X4: cap 2 counts only A, only since local midnight =====
   v_day := date_trunc('day', now() at time zone 'Europe/Chisinau') at time zone 'Europe/Chisinau';
