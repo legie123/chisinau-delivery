@@ -14,6 +14,8 @@ export interface BankCsvPayout {
   name: string;
   iban: string | null;
   holder_name: string | null;
+  /** Last IBAN change in the last 7 days (payout_account_changes), else null. */
+  iban_changed_at: string | null;
 }
 
 export interface BankPayee {
@@ -24,6 +26,8 @@ export interface BankPayee {
   net: number;
   rows: number;
   hasIban: boolean;
+  /** IBAN changed recently: confirm with the payee before sending money (red-team on 9c2e8db). */
+  ibanChangedAt: string | null;
 }
 
 export interface BankCsvResult {
@@ -55,7 +59,7 @@ export function buildPayoutBankCsv(rows: BankCsvPayout[]): BankCsvResult {
     const g = byPayee.get(key);
     if (!g) {
       byPayee.set(key, {
-        payee: { recipient_type: r.recipient_type, recipient_id: r.recipient_id, name: r.name, net: 0, rows: 1, hasIban: !!r.iban },
+        payee: { recipient_type: r.recipient_type, recipient_id: r.recipient_id, name: r.name, net: 0, rows: 1, hasIban: !!r.iban, ibanChangedAt: r.iban_changed_at },
         bani,
         first: r,
         from: r.period_start,
@@ -66,6 +70,7 @@ export function buildPayoutBankCsv(rows: BankCsvPayout[]): BankCsvResult {
     } else {
       g.bani += bani;
       g.payee.rows += 1;
+      if (r.iban_changed_at && (!g.payee.ibanChangedAt || r.iban_changed_at > g.payee.ibanChangedAt)) g.payee.ibanChangedAt = r.iban_changed_at;
       if (r.period_start < g.from) g.from = r.period_start;
       if (r.period_end > g.to) g.to = r.period_end;
     }

@@ -7,8 +7,7 @@ import { statusLabel } from '../../lib/orderStatus';
 import {
   QUOTE_LABEL,
   SUPPORT_EMAIL,
-  SUPPORT_PHONE_LABEL,
-  SUPPORT_TEL,
+  SUPPORT_PHONE,
   formatEventDate,
   guestsLabel,
   prepCountdown,
@@ -119,6 +118,7 @@ export function CateringStatus({ catering, status, cancellationReason }: {
 
 /** Same channel as the web footer: mail + phone, no in-app form. */
 export function SupportLinks({ orderNumber }: { orderNumber: string }) {
+  const phone = SUPPORT_PHONE; // null until a real number is configured: e-mail only
   return (
     <View style={styles.support}>
       <Text style={styles.mutedSmallTight}>Ai o problemă cu comanda?</Text>
@@ -126,10 +126,14 @@ export function SupportLinks({ orderNumber }: { orderNumber: string }) {
         <TouchableOpacity onPress={() => open(supportMailto(orderNumber))} accessibilityRole="link">
           <Text style={styles.link}>{SUPPORT_EMAIL}</Text>
         </TouchableOpacity>
-        <Text style={styles.mutedSmallTight}>·</Text>
-        <TouchableOpacity onPress={() => open(SUPPORT_TEL)} accessibilityRole="link">
-          <Text style={styles.link}>{SUPPORT_PHONE_LABEL}</Text>
-        </TouchableOpacity>
+        {phone && (
+          <>
+            <Text style={styles.mutedSmallTight}>·</Text>
+            <TouchableOpacity onPress={() => open(phone.tel)} accessibilityRole="link">
+              <Text style={styles.link}>{phone.label}</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </View>
   );

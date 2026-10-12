@@ -63,7 +63,7 @@ export type PlaceOrderInput = {
   restaurantId: string;
   orderType: "standard" | "catering";
   paymentMethod: string;
-  items: Array<{ menu_item_id: string; quantity: number; option_ids?: string[] }>;
+  items: Array<{ menu_item_id: string; quantity: number; option_ids?: string[]; notes?: string }>;
   deliveryAddressId?: string;
   requestedFor?: string;
   notes?: string;

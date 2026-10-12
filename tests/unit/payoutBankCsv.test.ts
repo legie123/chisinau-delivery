@@ -15,6 +15,7 @@ const row = (over: Partial<BankCsvPayout>): BankCsvPayout => ({
   name: "Ion Curier",
   iban: "MD24AG000225100013104168",
   holder_name: "Ion Curier",
+  iban_changed_at: null,
   ...over,
 });
 
@@ -50,6 +51,16 @@ describe("buildPayoutBankCsv", () => {
     expect(r.missingIban).toEqual(["Fără Cont"]);
     expect(r.skippedNonPositive).toBe(1);
     expect(r.totalMdl).toBe(100);
+  });
+
+  it("carries the most recent IBAN change to the payee, so the page can warn before paying", () => {
+    const r = buildPayoutBankCsv([
+      row({ id: "a", iban_changed_at: "2026-10-10T09:00:00Z" }),
+      row({ id: "b", net_mdl: 5, iban_changed_at: "2026-10-11T09:00:00Z" }),
+      row({ id: "c", recipient_id: "c2", iban_changed_at: null }),
+    ]);
+    expect(r.payees.find((p) => p.recipient_id === "c1")?.ibanChangedAt).toBe("2026-10-11T09:00:00Z");
+    expect(r.payees.find((p) => p.recipient_id === "c2")?.ibanChangedAt).toBeNull();
   });
 
   it("writes a header, two decimals and a period reference", () => {

@@ -11,7 +11,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { cancelOrder, placeOrder } from "@chisinau/shared-api";
 import type { Database } from "@chisinau/shared-types";
-import { EMPTY_CART, addToCart, cartSubtotal, chosenOptions, type OptionGroupLike, type Selection } from "@chisinau/shared-domain";
+import { EMPTY_CART, addToCart, cartLineId, cartSubtotal, chosenOptions, setLineNotes, type OptionGroupLike, type Selection } from "@chisinau/shared-domain";
 import { buildOrderInput, newIdempotencyKey } from "../src/lib/checkout";
 
 function must<T>(v: T | null | undefined, what: string): T {
@@ -64,7 +64,8 @@ export async function main(env: { url: string; anonKey: string; email: string; p
   // Reach the minimum order, stay under the 1400 MDL cash cap.
   const qty = Math.max(1, Math.ceil(Number(r.min_order_amount_mdl) / unit));
   if (unit * qty > 1400) throw new Error(`smoke: ${item.name} x${qty} exceeds the cash cap — pick another fixture`);
-  const cart = addToCart(EMPTY_CART, r, item, options, qty);
+  // C2: a kitchen note on the line must land on order_items.notes (sim 108).
+  const cart = setLineNotes(addToCart(EMPTY_CART, r, item, options, qty), cartLineId(item.id, options?.optionIds ?? []), "smoke: fără wasabi ");
 
   const { data: address, error: addrError } = await db
     .from("addresses")
@@ -80,6 +81,7 @@ export async function main(env: { url: string; anonKey: string; email: string; p
   const retryId = await placeOrder(db, input); // same key -> same order, no duplicate
 
   const { data: order } = await db.from("orders").select("status, subtotal_mdl, order_number").eq("id", orderId).single();
+  const { data: lines } = await db.from("order_items").select("notes").eq("order_id", orderId);
   await cancelOrder(db, orderId, "Smoke test mobile/client — anulată automat");
   const { data: after } = await db.from("orders").select("status").eq("id", orderId).single();
 
@@ -92,6 +94,7 @@ export async function main(env: { url: string; anonKey: string; email: string; p
     serverSubtotal: Number(order?.subtotal_mdl),
     statusAfterPlace: order?.status,
     idempotentRetrySameId: retryId === orderId,
+    itemNotesStored: (lines ?? []).map((l) => l.notes),
     statusAfterCancel: after?.status,
     orderId,
     addressId: address.id,
@@ -100,6 +103,7 @@ export async function main(env: { url: string; anonKey: string; email: string; p
     result.idempotentRetrySameId &&
     result.statusAfterPlace === "pending_restaurant" &&
     result.statusAfterCancel === "cancelled" &&
+    result.itemNotesStored.length === 1 && result.itemNotesStored[0] === "smoke: fără wasabi" &&
     Math.abs(result.clientSubtotal - result.serverSubtotal) < 0.005;
   return { ok, result };
 }

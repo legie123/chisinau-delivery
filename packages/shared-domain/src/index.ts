@@ -6,3 +6,4 @@ export * from "./hours";
 export * from "./cart";
 export * from "./cartReconcile";
 export * from "./soldOut";
+export * from "./supportPhone";

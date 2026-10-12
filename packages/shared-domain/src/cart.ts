@@ -13,6 +13,8 @@ export interface CartLine {
   quantity: number;
   optionIds: string[];
   optionsLabel: string;
+  /** A note for the kitchen on this dish ("fără wasabi"); max 140, sent as p_items[].notes. */
+  notes?: string;
 }
 
 export interface CartState {
@@ -80,6 +82,24 @@ export function setLineQuantity(state: CartState, lineId: string, quantity: numb
   return { ...state, lines };
 }
 
+export const LINE_NOTE_MAX = 140;
+
+/** Sets (or, when blank, clears) the kitchen note of one line. Kept as typed (a trim on every
+ *  keystroke would eat the space between words); placeOrderItems sends it trimmed. Max 140, like
+ *  place_order. */
+export function setLineNotes(state: CartState, lineId: string, notes: string): CartState {
+  const raw = notes.slice(0, LINE_NOTE_MAX);
+  return {
+    ...state,
+    lines: state.lines.map((l) => {
+      if (l.lineId !== lineId) return l;
+      const { notes: _old, ...rest } = l;
+      void _old;
+      return raw.trim() ? { ...rest, notes: raw } : rest;
+    }),
+  };
+}
+
 export function cartSubtotal(lines: CartLine[]): number {
   return lines.reduce((sum, l) => sum + l.priceMdl * l.quantity, 0);
 }
@@ -89,8 +109,15 @@ export function cartCount(lines: CartLine[]): number {
 }
 
 /** The p_items payload of place_order — the server recomputes every price from these. */
-export function placeOrderItems(lines: CartLine[]): Array<{ menu_item_id: string; quantity: number; option_ids: string[] }> {
-  return lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.optionIds }));
+export function placeOrderItems(
+  lines: CartLine[],
+): Array<{ menu_item_id: string; quantity: number; option_ids: string[]; notes?: string }> {
+  return lines.map((l) => ({
+    menu_item_id: l.menuItemId,
+    quantity: l.quantity,
+    option_ids: l.optionIds,
+    ...(l.notes?.trim() ? { notes: l.notes.trim() } : {}),
+  }));
 }
 
 // ---- Modifiers ----

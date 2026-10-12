@@ -17,6 +17,10 @@ import {
 } from "@/lib/types/domain";
 import { formatScheduledFor } from "@/lib/orders/scheduled";
 import { paymentPresence } from "@/lib/orders/payment";
+import { supportPhone } from "@chisinau/shared-domain";
+
+// From NEXT_PUBLIC_SUPPORT_PHONE; null until a real number is configured (never the old placeholder).
+const SUPPORT_PHONE = supportPhone(process.env.NEXT_PUBLIC_SUPPORT_PHONE);
 
 // Bolt-style 4-step progress. Maps our 7 active statuses onto customer-facing steps.
 const STEPS = [
@@ -328,15 +332,19 @@ export function OrderTracking({
       {/* Minimal dispute channel — discreet, mail/phone only (no in-app form). */}
       <div className="flex items-center justify-center gap-4 pt-1 text-xs text-white/30">
         <a
-          href={`mailto:suport@dragon-courier.md?subject=${encodeURIComponent(`Comanda ${order.order_number}`)}`}
+          href={`mailto:contact@dragonsdelivery.md?subject=${encodeURIComponent(`Comanda ${order.order_number}`)}`}
           className="underline decoration-white/20 underline-offset-2 transition hover:text-white/60"
         >
           Raportează o problemă
         </a>
-        <span aria-hidden>·</span>
-        <a href="tel:+37360000000" className="underline decoration-white/20 underline-offset-2 transition hover:text-white/60">
-          Sună suportul
-        </a>
+        {SUPPORT_PHONE && (
+          <>
+            <span aria-hidden>·</span>
+            <a href={SUPPORT_PHONE.tel} className="underline decoration-white/20 underline-offset-2 transition hover:text-white/60">
+              Sună suportul
+            </a>
+          </>
+        )}
       </div>
     </div>
   );

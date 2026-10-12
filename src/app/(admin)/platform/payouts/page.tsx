@@ -121,6 +121,12 @@ export default async function PlatformPayoutsPage() {
                   <span className="text-white">
                     {p.name} <span className="text-white/40">· {RECIPIENT_LABEL[p.recipient_type]} · {p.rows} plăți</span>
                     {!p.hasIban && <span className="ml-2 text-gold">fără IBAN</span>}
+                    {p.ibanChangedAt && (
+                      <span className="ml-2 rounded bg-red-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-red-300">
+                        IBAN schimbat pe {new Date(p.ibanChangedAt).toLocaleDateString("ro-RO", { timeZone: "Europe/Chisinau" })} — confirmă cu
+                        beneficiarul înainte de plată
+                      </span>
+                    )}
                   </span>
                   <SettlePayeeButton recipientType={p.recipient_type} recipientId={p.recipient_id} netMdl={p.net} />
                 </li>
