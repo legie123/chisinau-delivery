@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayRange, foodValue, weekCsv, type CsvOrder } from "@/app/(admin)/restaurant/earnings/csv";
+import { dayRange, foodValue, isCalendarDay, weekCsv, type CsvOrder } from "@/app/(admin)/restaurant/earnings/csv";
 
 const std: CsvOrder = {
   order_number: "CHD-1",
@@ -43,5 +43,15 @@ describe("dayRange (Chișinău day)", () => {
   it("keeps the DST day at 25 h (clocks go back on 25 Oct 2026)", () => {
     const { start, end } = dayRange("2026-10-25");
     expect((end.getTime() - start.getTime()) / 3_600_000).toBe(25);
+  });
+});
+
+describe("isCalendarDay", () => {
+  it("accepts real days and refuses rolled-over or malformed ones", () => {
+    expect(isCalendarDay("2026-10-25")).toBe(true);
+    expect(isCalendarDay("2028-02-29")).toBe(true);
+    expect(isCalendarDay("2026-02-30")).toBe(false); // Date would roll it to 2 March
+    expect(isCalendarDay("2026-13-01")).toBe(false);
+    expect(isCalendarDay("26-1-1")).toBe(false);
   });
 });

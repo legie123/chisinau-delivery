@@ -52,3 +52,10 @@ export function dayRange(day: string): { start: Date; end: Date } {
   const noon = Date.parse(`${day}T12:00:00Z`);
   return { start: todayStart(new Date(noon)), end: todayStart(new Date(noon + 86_400_000)) };
 }
+
+/** "YYYY-MM-DD" that is a real calendar day (2026-02-30 is not: Date rolls it to 2 March). */
+export function isCalendarDay(day: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return false;
+  const d = new Date(`${day}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day;
+}

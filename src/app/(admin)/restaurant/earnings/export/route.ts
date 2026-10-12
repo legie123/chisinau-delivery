@@ -1,6 +1,6 @@
 import { currentWeekRange } from "@chisinau/shared-domain";
 import { requireOwnRestaurant } from "@/lib/auth/require";
-import { dayRange, weekCsv, type CsvOrder } from "../csv";
+import { dayRange, isCalendarDay, weekCsv, type CsvOrder } from "../csv";
 
 // GET /restaurant/earnings/export?week=YYYY-MM-DD → CSV of the delivered orders
 // in the Chișinău week (Mon–Sun) containing that date; default: current week.
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const week = params.get("week");
   let start: Date, end: Date, filename: string;
   if (day) {
-    if (!ymd.test(day) || Number.isNaN(Date.parse(`${day}T12:00:00Z`))) return new Response("Zi invalidă.", { status: 400 });
+    if (!isCalendarDay(day)) return new Response("Zi invalidă.", { status: 400 });
     ({ start, end } = dayRange(day));
     filename = `vanzari-zi-${day}.csv`;
   } else {
