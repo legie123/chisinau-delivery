@@ -10,7 +10,7 @@ declare
   v_cust uuid := 'a0000000-0000-0000-0000-000000000001';
   v_partner uuid := 'a0000000-0000-0000-0000-000000000003';
   v_admin uuid := 'a0000000-0000-0000-0000-000000000004';
-  v_item uuid; v_qty int; v_addr uuid; v_items jsonb; v_o uuid; n int; v_status text; v_pay text;
+  v_item uuid; v_qty int; v_addr uuid; v_items jsonb; v_o uuid; v_on uuid; v_on2 uuid; n int; v_status text; v_pay text;
 begin
   delete from public.restaurant_hours where restaurant_id = v_rest;
   insert into public.restaurant_hours (restaurant_id, day_of_week, opens_at, closes_at, is_closed)
@@ -82,8 +82,29 @@ begin
   if n is not null then raise exception 'S2.ledger: courier fee % on a rejected order', n; end if;
   if v_pay <> 'unpaid' then raise exception 'S2.ledger: cash order payment_status=% after reject', v_pay; end if;
 
-  -- R2 (paid online order rejected → must leave 'paid') is RED today and kept out of the suite
-  -- until fixed: repro + owner in docs/handoff/CROSS-REQUESTS.md (RESTAURANT→TOȚI, 2026-10-12).
+  -- R2/R3 (owner decision 2026-10-12): an online order that is already PAID and then rejected
+  -- (R2) or cancelled by the restaurant after accepting (R3) goes to refund_pending — the admin
+  -- refunds it. Before 000307 it stayed `paid`: the customer's money was kept with no refund path,
+  -- while the cancel push promised "restituirea pornește automat".
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method,
+                             payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl)
+  values ('standard', v_cust, v_rest, v_addr, 'pending_restaurant', 'online_gateway', 'paid', 200, 30, 230)
+  returning id into v_on;
+  insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method,
+                             payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl)
+  values ('standard', v_cust, v_rest, v_addr, 'accepted', 'online_gateway', 'paid', 200, 30, 230)
+  returning id into v_on2;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_partner, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.reject_order(v_on, 'Produs epuizat');
+  perform public.restaurant_cancel_order(v_on2, 'Cuptorul s-a defectat');
+  reset role;
+  select payment_status into v_pay from public.orders where id = v_on;
+  if v_pay <> 'refund_pending' then raise exception 'S2.R2: paid online order rejected → payment_status=% (want refund_pending)', v_pay; end if;
+  select payment_status into v_pay from public.orders where id = v_on2;
+  if v_pay <> 'refund_pending' then raise exception 'S2.R3: paid online order cancelled by the restaurant → payment_status=% (want refund_pending)', v_pay; end if;
+  -- the cash order above did not become refund_pending (nothing was paid)
+  if (select payment_status from public.orders where id = v_o) <> 'unpaid' then raise exception 'S2.R4: cash order touched'; end if;
 
   raise notice 'system scenario 2 (restaurant rejects) OK';
 end $$;

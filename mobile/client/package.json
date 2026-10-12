@@ -42,7 +42,8 @@
     "test": "vitest run",
     "smoke:order": "node scripts/run-smoke.mjs",
     "check:config": "node scripts/check-public-config.mjs",
-    "test:price": "node scripts/run-smoke.mjs price-diff.ts"
+    "test:price": "node scripts/run-smoke.mjs price-diff.ts",
+    "verify": "tsc --noEmit && vitest run && node scripts/check-public-config.mjs"
   },
   "private": true
 }
