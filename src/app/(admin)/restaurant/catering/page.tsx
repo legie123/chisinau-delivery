@@ -22,7 +22,9 @@ export default async function RestaurantCateringPage() {
   // RLS (orders_partner_scope) restricts everything to the caller's restaurant.
   const { data: orders } = await supabase
     .from("orders")
-    .select("*")
+    // Only what CateringQuoteCard renders (it is a client component: `*` shipped customer_id,
+    // payment internals and the idempotency key to the browser).
+    .select("id, order_number, status, subtotal_mdl, notes, created_at")
     .eq("order_type", "catering")
     .order("created_at", { ascending: false })
     .limit(50);
