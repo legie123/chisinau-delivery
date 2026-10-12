@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { LINE_NOTE_MAX } from "@chisinau/shared-domain";
 
 export interface CartLine {
   lineId: string; // menuItemId, or menuItemId::sortedOptionIds when customized
@@ -12,6 +13,8 @@ export interface CartLine {
   /** Set by live reconciliation when the item/option vanished from the menu —
    *  place_order would reject the whole cart with a generic error otherwise. */
   unavailable?: boolean;
+  /** Kitchen note on this dish ("fără wasabi"), kept as typed, max 140; sent trimmed (placeOrderItems). */
+  notes?: string;
 }
 
 // Options chosen in the modifier modal; omitted for a plain add.
@@ -43,6 +46,8 @@ interface CartState {
   cancelSwitch: () => void;
   removeItem: (lineId: string) => void;
   setQuantity: (lineId: string, quantity: number) => void;
+  /** Kitchen note per line; blank clears it. Same rule as the mobile cart (shared setLineNotes). */
+  setNotes: (lineId: string, notes: string) => void;
   /** Live-menu reconciliation (prices moved / line went dead). */
   updateLine: (lineId: string, patch: Partial<Pick<CartLine, "priceMdl" | "unavailable">>) => void;
   clear: () => void;
@@ -124,6 +129,17 @@ export const useCartStore = create<CartState>()(
             quantity <= 0
               ? state.lines.filter((l) => l.lineId !== lineId)
               : state.lines.map((l) => (l.lineId === lineId ? { ...l, quantity } : l)),
+        })),
+
+      setNotes: (lineId, notes) =>
+        set((state) => ({
+          lines: state.lines.map((l) => {
+            if (l.lineId !== lineId) return l;
+            const raw = notes.slice(0, LINE_NOTE_MAX);
+            const { notes: _old, ...rest } = l;
+            void _old;
+            return raw.trim() ? { ...rest, notes: raw } : rest;
+          }),
         })),
 
       clear: () => set({ restaurantId: null, restaurantName: null, lines: [], pendingSwitch: null }),

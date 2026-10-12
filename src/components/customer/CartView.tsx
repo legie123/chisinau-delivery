@@ -10,7 +10,7 @@ import { ItemModifierModal } from "@/components/customer/ItemModifierModal";
 import type { MenuItem, MenuOptionGroup } from "@/lib/types/domain";
 
 export function CartView() {
-  const { restaurantId, restaurantName, lines, setQuantity, removeItem, addItem } = useCartStore();
+  const { restaurantId, restaurantName, lines, setQuantity, setNotes, removeItem, addItem } = useCartStore();
   const hydrated = useHydrated();
   // Audit 2026-08-11: live reconciliation — refresh stale unit prices in place
   // and NAME the lines that died instead of letting place_order reject blind.
@@ -111,6 +111,15 @@ export function CartView() {
                 ) : (
                   <p className="text-sm text-white/50">{line.priceMdl} MDL</p>
                 )}
+                {/* C2: kitchen note per dish (place_order -> order_items.notes, printed on the ticket). */}
+                <input
+                  value={line.notes ?? ""}
+                  onChange={(e) => setNotes(line.lineId, e.target.value)}
+                  maxLength={140}
+                  placeholder="Notă pentru bucătărie (ex. fără wasabi)"
+                  aria-label={`Notă pentru ${line.name}`}
+                  className="mt-1.5 w-full rounded-lg bg-white/5 px-2 py-1 text-xs text-white placeholder-white/30 ring-1 ring-white/10 outline-none focus:ring-primary/60"
+                />
               </div>
               {/* Bolt-style quantity stepper */}
               <div className="flex items-center gap-1 rounded-full bg-white/5 p-1 ring-1 ring-white/10">
