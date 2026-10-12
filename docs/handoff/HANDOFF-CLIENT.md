@@ -48,3 +48,11 @@
 - 7ee2104 numărul de suport fals scos; vine din `EXPO_PUBLIC_SUPPORT_PHONE` / `NEXT_PUBLIC_SUPPORT_PHONE` — **ownerul dă numărul real**.
 - C2 notă per produs: e0f888d (place_order, sim 108) + 37ed580 (coș mobil; smoke real: nota ajunge în order_items.notes).
 - Tunel + Metro :8082 repornite pentru gate 5 (Expo Go pe iPhone, exp://192.168.1.34:8082).
+
+## Red-team runda 2 (2026-10-12) — toate defectele reparate
+- HIGH decontarea legată de suma din pagină, nu de fișierul exportat (+80 MDL): `62982be` — loturi de export înghețate (`payout_exports`), decontare pe linie de lot, clawback-ul de după export se compensează la exportul următor; IBAN schimbat de la ultima plată cere confirmare. Sim 259.
+- MEDIUM retry idempotent compara doar totalul (adresă/plată/produs/catering ignorate): `069f98b` — `orders.request_fingerprint`. Sim 111.
+- MEDIUM recuperarea plăților fără limită (ar fi plătit tot istoricul în prima zi): `b0dd8dc` — `payouts_catchup_from`, implicit începutul registrului. Sim 260.
+- LOW schimbarea doar a titularului IBAN: `b0dd8dc`.
+- Rămas LOW: aceeași cheie după anulare întoarce comanda anulată (clientul rotește cheia după succes, deci nu apare în fluxul normal).
+- Alte livrări: `8013a21`+`460ffb5` ștergerea contului (App Store 5.1.1(v)); `2af3224` manifest de confidențialitate iOS; `b0f315a`+`8109eee` banner „toți curierii sunt ocupați”; `92bc424` notă per produs și pe web.
