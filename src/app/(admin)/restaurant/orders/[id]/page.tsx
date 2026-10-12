@@ -82,7 +82,7 @@ export default async function RestaurantOrderDetailPage({ params }: { params: Pr
 
       <div className="mb-5">
         <KitchenTicket
-          order={o}
+          order={{ order_number: o.order_number, created_at: o.created_at, total_mdl: o.total_mdl, notes: o.notes }}
           items={orderItems}
           paymentLabel={PAYMENT_METHOD_LABEL[o.payment_method]}
           scheduledLabel={o.requested_for ? formatScheduledFor(o.requested_for) : null}

@@ -62,7 +62,11 @@ export default async function RestaurantOrdersPage() {
   // the quote flow entirely; they live in /restaurant/catering.
   const { data: orders } = await supabase
     .from("orders")
-    .select("*, order_items(*)")
+    // Only what the queue renders: `*` shipped customer_id, the delivery address id, payment
+    // internals and the idempotency key into the client payload of the kitchen tablet.
+    .select(
+      "id, order_number, order_type, status, total_mdl, requested_for, courier_id, created_at, estimated_ready_at, prep_time_override_minutes, order_items(*)",
+    )
     .eq("order_type", "standard")
     .in("status", QUEUE_STATUSES)
     .order("created_at");
