@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
 import { CustomerProfile, fetchMyProfile } from '../lib/api';
 import { signOutAndUnbindPush, UNBIND_FAILED } from '../lib/push';
-import { SUPPORT_EMAIL, SUPPORT_PHONE } from './LegalScreen';
+import { SUPPORT_EMAIL } from './LegalScreen';
+import { SUPPORT_PHONE } from '../lib/tracking';
 
 // Entries with no screen/backend behind them yet stay visible (so the menu
 // doesn't look empty) but are disabled instead of firing dead onPress handlers.
@@ -20,10 +21,11 @@ function open(url: string, fallback: string) {
 }
 
 function showSupport() {
-  Alert.alert('Ajutor & Suport', `Scrie-ne la ${SUPPORT_EMAIL} sau sună la ${SUPPORT_PHONE}.`, [
+  const phone = SUPPORT_PHONE; // null until a real number is configured: e-mail only
+  Alert.alert('Ajutor & Suport', phone ? `Scrie-ne la ${SUPPORT_EMAIL} sau sună la ${phone.label}.` : `Scrie-ne la ${SUPPORT_EMAIL}.`, [
     { text: 'Scrie-ne', onPress: () => open(`mailto:${SUPPORT_EMAIL}`, `Scrie-ne la ${SUPPORT_EMAIL}.`) },
-    { text: 'Sună', onPress: () => open(`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`, `Sună la ${SUPPORT_PHONE}.`) },
-    { text: 'Închide', style: 'cancel' },
+    ...(phone ? [{ text: 'Sună', onPress: () => open(phone.tel, `Sună la ${phone.label}.`) }] : []),
+    { text: 'Închide', style: 'cancel' as const },
   ]);
 }
 

@@ -1,3 +1,4 @@
+import { supportPhone } from "@chisinau/shared-domain";
 import { COUNTDOWN_HORIZON_MIN, DELIVERY_BUFFER_MIN, formatTargetClock, minutesUntil } from "@chisinau/shared-domain";
 import type { LatLng } from "./realtime";
 
@@ -99,8 +100,8 @@ export function telUrl(phone: string | null | undefined): string | null {
 // ── Support (web customer footer) ───────────────────────────────────────────────
 
 export const SUPPORT_EMAIL = "contact@dragonsdelivery.md";
-export const SUPPORT_PHONE_LABEL = "+373 60 000 000";
-export const SUPPORT_TEL = "tel:+37360000000";
+/** From EXPO_PUBLIC_SUPPORT_PHONE (build config); null = not configured → e-mail only, never a fake number. */
+export const SUPPORT_PHONE = supportPhone(process.env.EXPO_PUBLIC_SUPPORT_PHONE);
 
 export function supportMailto(orderNumber: string): string {
   return `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Comanda ${orderNumber}`)}`;

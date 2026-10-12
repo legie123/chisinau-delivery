@@ -1,10 +1,14 @@
 import Link from "next/link";
+import { supportPhone } from "@chisinau/shared-domain";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { FloatingBasket } from "@/components/customer/FloatingBasket";
 import { AppTabBar } from "@/components/customer/AppTabBar";
 import { InstallAppPrompt } from "@/components/customer/InstallAppPrompt";
 
+
+// From NEXT_PUBLIC_SUPPORT_PHONE; null until a real number is configured (never the old placeholder).
+const SUPPORT_PHONE = supportPhone(process.env.NEXT_PUBLIC_SUPPORT_PHONE);
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
@@ -94,11 +98,13 @@ export default async function CustomerLayout({ children }: { children: React.Rea
                   contact@dragonsdelivery.md
                 </a>
               </li>
-              <li>
-                <a href="tel:+37360000000" className="transition hover:text-white">
-                  +373 60 000 000
-                </a>
-              </li>
+              {SUPPORT_PHONE && (
+                <li>
+                  <a href={SUPPORT_PHONE.tel} className="transition hover:text-white">
+                    {SUPPORT_PHONE.label}
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
           <div>

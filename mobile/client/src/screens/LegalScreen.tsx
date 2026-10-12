@@ -7,7 +7,6 @@ import { COLORS, SERIF } from '../theme';
 // src/app/(customer)/termeni and /confidentialitate. Change both together.
 
 export const SUPPORT_EMAIL = 'contact@dragonsdelivery.md';
-export const SUPPORT_PHONE = '+373 60 000 000';
 
 type Block = { h: string; p?: string[]; rows?: [string, string][]; note?: string; mail?: boolean };
 type Doc = { title: string; updated: string; blocks: Block[] };
