@@ -12,6 +12,7 @@ const LINKS: Array<[href: string, label: string, hover: string]> = [
   ["/restaurant/catering", "Catering", "hover:text-white"],
   ["/restaurant/earnings", "Câștiguri", "hover:text-gold"],
   ["/restaurant/analytics", "Analiză", "hover:text-gold"],
+  ["/restaurant/recenzii", "Recenzii", "hover:text-gold"],
 ];
 
 export function PartnerNav() {
