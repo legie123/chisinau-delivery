@@ -44,6 +44,37 @@ begin
   if v_err is null then raise exception 'FAIL 293.R2: non-admin changed a role'; end if;
   raise notice 'PASS 293.R2: no reason / self / courier / unknown / non-admin all refused';
 
+  -- ===== R4: an unconfirmed (or banned / deleted) account cannot be promoted =====
+  reset role;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data,
+                          created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, email_change)
+  values ('00000000-0000-0000-0000-000000000000', 'f2930000-0000-0000-0000-000000000293', 'authenticated', 'authenticated',
+          'neconfirmat-293@test.md', '', null, '{}', '{}', now(), now(), '', '', '', '');
+  insert into public.profiles (id, full_name, role) values ('f2930000-0000-0000-0000-000000000293', 'Neconfirmat 293', 'customer')
+  on conflict (id) do update set role = 'customer';
+  set local role authenticated;
+  v_err := null; begin perform public.admin_set_platform_admin('neconfirmat-293@test.md', true, 'sim 293 neconfirmat'); exception when others then v_err := sqlerrm; end;
+  reset role;
+  if v_err is null then raise exception 'FAIL 293.R4: an unconfirmed account was promoted'; end if;
+  raise notice 'PASS 293.R4: unconfirmed account refused (%)', v_err;
+
+  -- ===== R5: digit runs in the reason (phone, IDNP) are masked in the audit =====
+  set local role authenticated;
+  perform public.admin_set_platform_admin(v_target_email, false, 'retras, sunat la 069 123 456, IDNP 2001234567890');
+  reset role;
+  if exists (select 1 from public.admin_audit_log where id > v_before and new_values->>'_motiv' ~ '[0-9]{5,}|069') then
+    raise exception 'FAIL 293.R5: digits from the reason kept in clear in the audit log';
+  end if;
+  if not exists (select 1 from public.admin_audit_log where id > v_before and new_values->>'_motiv' like 'retras, sunat la ***%') then
+    raise exception 'FAIL 293.R5: reason not kept (masked) in the audit log';
+  end if;
+  raise notice 'PASS 293.R5: reason kept, phone/IDNP masked';
+  perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.admin_set_platform_admin(v_target_email, true, 'sim 293 din nou');
+  reset role;
+
   -- ===== R3: revoke -> back to customer, audited =====
   perform set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role', 'authenticated')::text, true);
   set local role authenticated;

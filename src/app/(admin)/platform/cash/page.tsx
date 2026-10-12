@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { summarizeLedger, type LedgerRow } from "@/lib/admin/cashLedger";
 
 // Cash ledger (courier_cash_movements, append-only): how much cash each courier still holds and
-// every movement behind it. Read-only — depositing goes through the courier page (record_cash_offload).
+// every movement behind it. Balances come from the SQL view admin_courier_cash_balances (same sum as
+// courier_cash_balance()) — an app-side sum over a select would be cut at PostgREST's 1000 rows. Read-only — depositing goes through the courier page (record_cash_offload).
 // RLS courier_cash_movements_admin_read limits this to platform_admin.
 
 const KIND_LABEL: Record<string, string> = {
@@ -15,17 +15,21 @@ const KIND_LABEL: Record<string, string> = {
 const fmt = new Intl.DateTimeFormat("ro-MD", { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Chisinau" });
 const mdl = (n: number) => `${n.toLocaleString("ro-MD", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MDL`;
 
-type Movement = LedgerRow & { id: string; order_id: string | null; note: string | null };
+type Movement = { id: string; courier_id: string; kind: string; amount_mdl: number | string; created_at: string; order_id: string | null; note: string | null };
+type Balance = { courier_id: string; balance_mdl: number; collected_mdl: number; offloaded_mdl: number; other_mdl: number; last_at: string; movements: number };
 
 export default async function PlatformCashPage({ searchParams }: { searchParams: Promise<{ courier?: string }> }) {
   const { courier } = await searchParams;
   const supabase = await createClient();
-  const [{ data: all, error }, { data: couriers }] = await Promise.all([
-    supabase.from("courier_cash_movements").select("courier_id, kind, amount_mdl, created_at"),
+  const [{ data: balances, error }, { data: couriers }] = await Promise.all([
+    supabase.from("admin_courier_cash_balances").select("*").order("balance_mdl", { ascending: false }),
     supabase.from("couriers").select("id, full_name"),
   ]);
   const name = new Map((couriers ?? []).map((c) => [c.id, c.full_name]));
-  const summary = summarizeLedger((all ?? []) as LedgerRow[]);
+  const summary = ((balances ?? []) as Balance[]).map((b) => ({
+    courierId: b.courier_id, balance: Number(b.balance_mdl), collected: Number(b.collected_mdl),
+    offloaded: Number(b.offloaded_mdl), other: Number(b.other_mdl), lastAt: b.last_at, movements: Number(b.movements),
+  }));
 
   let movements: Movement[] = [];
   if (courier) {

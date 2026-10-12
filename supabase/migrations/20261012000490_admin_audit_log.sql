@@ -126,7 +126,10 @@ begin
 
   -- An admin RPC may state why (set_config('app.audit_reason', …, true)); it rides along as _motiv.
   k := nullif(btrim(current_setting('app.audit_reason', true)), '');
-  if k is not null then v_new := coalesce(v_new, '{}'::jsonb) || jsonb_build_object('_motiv', left(k, 500)); end if;
+  -- Free text like every other reason column: digit runs (phone, IDNP, card) are masked.
+  if k is not null then
+    v_new := coalesce(v_new, '{}'::jsonb) || jsonb_build_object('_motiv', regexp_replace(left(k, 500), '[0-9][0-9 .-]{4,}[0-9]', '***', 'g'));
+  end if;
 
   insert into public.admin_audit_log (actor, actor_role, action, table_name, row_id, old_values, new_values)
   values (v_actor, v_kind, tg_op, tg_table_name,
