@@ -6,6 +6,7 @@ import { DeliveryProgress } from "@/components/courier/DeliveryProgress";
 import { CourierRouteMap } from "@/components/courier/CourierRouteMap";
 import { DeliveryLive } from "@/components/courier/DeliveryLive";
 import { pickupCode } from "@/components/courier/pickupCode";
+import { doorDetails } from "@/components/courier/doorDetails";
 import type { Address, Order, OrderItem } from "@/lib/types/domain";
 
 export default async function DeliveryDetailPage({ params }: { params: Promise<{ deliveryId: string }> }) {
@@ -108,11 +109,8 @@ export default async function DeliveryDetailPage({ params }: { params: Promise<{
             {typedAddress ? (
               <>
                 <p className="mt-1 font-semibold text-white">{typedAddress.street_address}</p>
-                <p className="text-white/50">
-                  {[typedAddress.building && `bloc ${typedAddress.building}`, typedAddress.apartment && `ap. ${typedAddress.apartment}`]
-                    .filter(Boolean)
-                    .join(", ")}
-                </p>
+                {/* Scară / etaj / ap. / interfon — ce-i trebuie la ușă (mobilul le avea din 768c26d, webul nu). */}
+                {doorDetails(typedAddress) && <p className="text-white/50">{doorDetails(typedAddress)}</p>}
                 {typedAddress.notes && <p className="mt-1 text-white/50">📝 {typedAddress.notes}</p>}
                 {/* Contactul clientului — până acum îl avea doar catering-ul,
                     deci pe comenzile obișnuite curierul rămânea blocat la poartă

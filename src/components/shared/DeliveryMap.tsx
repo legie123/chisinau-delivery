@@ -64,6 +64,10 @@ export function DeliveryMap({
         maxZoom: 19,
         attribution: "© OpenStreetMap",
       }).addTo(map);
+      // Tile-urile OSM sunt luminoase pe un UI întunecat. Filtrul clasic "dark OSM" doar pe pane-ul de
+      // tile-uri: markerele și linia rutei stau în alte pane-uri, deci își păstrează culorile.
+      const tilePane = map.getPane("tilePane");
+      if (tilePane) tilePane.style.filter = "invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9)";
       mapRef.current = map;
 
       const bounds: [number, number][] = [];
