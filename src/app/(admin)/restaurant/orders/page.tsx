@@ -142,6 +142,16 @@ export default async function RestaurantOrdersPage() {
               pending={orderList
                 .filter((o) => o.status === "pending_restaurant")
                 .map((o) => ({ id: o.id, created_at: o.created_at, requested_for: o.requested_for }))}
+              starts={orderList
+                .filter((o) => o.status === "accepted" && o.requested_for)
+                .map((o) => ({
+                  id: o.id,
+                  status: o.status,
+                  requested_for: o.requested_for,
+                  estimated_ready_at: o.estimated_ready_at,
+                  prep_time_override_minutes: o.prep_time_override_minutes ?? null,
+                }))}
+              venuePrepMinutes={prepEstimate?.prep_minutes ?? 30}
               showConnection
             />
           )}
@@ -191,6 +201,7 @@ export default async function RestaurantOrdersPage() {
               order={order}
               items={itemsByOrder.get(order.id) ?? []}
               acceptSlaMinutes={acceptSlaMinutes}
+              venuePrepMinutes={prepEstimate?.prep_minutes ?? 30}
             />
           ))}
         </ul>

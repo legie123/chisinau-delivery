@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { acceptOrder, extendPrepTime, markReadyForPickup, rejectOrder, setPrepTimeEstimate } from "@/app/(admin)/restaurant/orders/actions";
 import { pickupCode } from "@/lib/kitchen/pickupCode";
 import { offlineSafe } from "@/lib/kitchen/offlineSafe";
+import { prepStartAt } from "@/lib/kitchen/prepStart";
 import { SlaCountdown } from "@/components/shared/SlaCountdown";
 import { ReadyTargetBadge } from "@/components/admin/ReadyTargetBadge";
 import { ORDER_STATUS_LABEL, type Order, type OrderItem } from "@/lib/types/domain";
@@ -30,11 +31,24 @@ export function OrderQueueRow({
   order,
   items = [],
   acceptSlaMinutes,
+  venuePrepMinutes = 30,
 }: {
   order: Order;
   items?: OrderItem[];
   acceptSlaMinutes: number;
+  venuePrepMinutes?: number;
 }) {
+  // Scheduled + accepted: when to START cooking (ready time − prep). Clock ticks every 30 s.
+  const startAt = prepStartAt(
+    { ...order, prep_time_override_minutes: order.prep_time_override_minutes ?? null },
+    venuePrepMinutes,
+  );
+  const [clock, setClock] = useState(Date.now);
+  useEffect(() => {
+    if (startAt === null) return;
+    const id = setInterval(() => setClock(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [startAt]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -144,6 +158,20 @@ export function OrderQueueRow({
                 Setează
               </button>
             </div>
+          )}
+          {startAt !== null && (
+            <p
+              className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${
+                startAt <= clock
+                  ? "animate-pulse bg-amber-500/20 text-amber-200 ring-amber-400/40"
+                  : "bg-sky-400/10 text-sky-300 ring-sky-400/30"
+              }`}
+            >
+              👨‍🍳{" "}
+              {startAt <= clock
+                ? "Începe prepararea acum"
+                : `Începe prepararea la ${new Date(startAt).toLocaleTimeString("ro-MD", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Chisinau" })}`}
+            </p>
           )}
           {order.status === "accepted" && order.estimated_ready_at && (
             <div className="mt-1.5 inline-block rounded-full ring-1 ring-[color:var(--pg-amethyst-line)] shadow-[0_0_10px_-2px_rgba(168,85,247,0.45)]">

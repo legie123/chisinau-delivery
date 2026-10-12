@@ -7,6 +7,7 @@ import { subscribeTable } from "@/lib/realtime/subscribeTable";
 import { ReconnectNotice } from "@/components/shared/ReconnectNotice";
 import { kitchenAlertAudio } from "@/lib/kitchen/alertAudio";
 import { duePending, newArrivals, type PendingOrder } from "@/lib/kitchen/queueAlarm";
+import { startsDue, type StartCandidate } from "@/lib/kitchen/prepStart";
 import type { Order } from "@/lib/types/domain";
 
 const ALERT_TITLE = "🔴 Comandă nouă!";
@@ -35,6 +36,8 @@ const ALERT_FAVICON =
 export function OrderQueueLive({
   restaurantId,
   pending,
+  starts,
+  venuePrepMinutes = 30,
   // Pastila de conexiune, redată INLINE acolo unde stă componenta. Pagina de
   // comenzi avea o pastilă „● Live" scrisă de mână lângă titlu, iar componenta
   // asta — care ȘTIE când conexiunea a căzut — arăta în același timp banda
@@ -46,6 +49,9 @@ export function OrderQueueLive({
   restaurantId: string;
   /** The queue's pending_restaurant orders (orders page only; catering omits it). */
   pending?: PendingOrder[];
+  /** Accepted scheduled orders: ring once when it is time to start cooking. */
+  starts?: StartCandidate[];
+  venuePrepMinutes?: number;
   showConnection?: boolean;
 }) {
   const router = useRouter();
@@ -57,7 +63,12 @@ export function OrderQueueLive({
   const [now, setNow] = useState(Date.now);
   const dueCount = pending ? duePending(pending, now).length : 0;
   const arrivalSignal = (pending ?? []).some((o) => arrivedIds.has(o.id));
-  const alerting = dueCount > 0 || arrivalSignal;
+  // Start-cooking signal for scheduled orders: rings until a tap, only while the order is
+  // still accepted (marked ready or cancelled elsewhere → it stops).
+  const startRungRef = useRef<Set<string>>(new Set());
+  const [startIds, setStartIds] = useState<ReadonlySet<string>>(new Set());
+  const startSignal = (starts ?? []).some((o) => startIds.has(o.id));
+  const alerting = dueCount > 0 || arrivalSignal || startSignal;
   const [netDown, setNetDown] = useState(false);
   const [epoch, setEpoch] = useState(0); // bumped on "online" → fresh realtime subscription
   const seenRef = useRef<Set<string> | null>(null);
@@ -176,10 +187,18 @@ export function OrderQueueLive({
 
   // Clock for "due": a scheduled order starts ringing 60 min before its window.
   useEffect(() => {
-    if (!pending?.length) return;
+    if (!pending?.length && !starts?.length) return;
     const id = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(id);
-  }, [pending?.length]);
+  }, [pending?.length, starts?.length]);
+
+  useEffect(() => {
+    if (!starts?.length) return;
+    const due = startsDue(starts, venuePrepMinutes, now, startRungRef.current);
+    if (due.length === 0) return;
+    for (const id of due) startRungRef.current.add(id);
+    setStartIds((prev) => new Set([...prev, ...due]));
+  }, [starts, venuePrepMinutes, now]);
 
   // New arrivals (by id, so polling and reloads count too — not only realtime INSERTs).
   const pendingKey = (pending ?? []).map((o) => o.id).join(",");
@@ -202,11 +221,14 @@ export function OrderQueueLive({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the id list
   }, [pendingKey]);
 
-  // A tap acknowledges a NEW ARRIVAL that isn't due yet (a scheduled order). It never
-  // silences a due order: that rings until Accept/Reject removes it from the queue.
+  // A tap acknowledges a NEW ARRIVAL that isn't due yet (a scheduled order) and a
+  // start-cooking signal. It never silences a due order: that rings until Accept/Reject.
   useEffect(() => {
-    if (!arrivalSignal) return;
-    const acknowledge = () => setArrivedIds(new Set());
+    if (!arrivalSignal && !startSignal) return;
+    const acknowledge = () => {
+      setArrivedIds(new Set());
+      setStartIds(new Set());
+    };
     document.addEventListener("click", acknowledge, { once: true });
     document.addEventListener("keydown", acknowledge, { once: true });
     window.addEventListener("focus", acknowledge, { once: true });
@@ -215,7 +237,7 @@ export function OrderQueueLive({
       document.removeEventListener("keydown", acknowledge);
       window.removeEventListener("focus", acknowledge);
     };
-  }, [arrivalSignal]);
+  }, [arrivalSignal, startSignal]);
 
   // Audible ping, repeated — a muted tab or a partner not looking at the
   // screen still needs a chance to notice within the SLA window. A beep that
