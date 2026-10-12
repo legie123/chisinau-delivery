@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SERIF, CARD_TINTS } from '../theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Restaurant } from '../types';
-import { fetchRestaurants } from '../lib/api';
+import { fetchCouriersAvailable, fetchRestaurants } from '../lib/api';
 import { currentPosition, dismissPriming, locationPermission, primingDismissed } from '../lib/location';
 import { DEFAULT_FILTER, filterRestaurants, isDefaultFilter, isStale, popularRestaurants, type BrowseFilter } from '../lib/browse';
 import { useFavorites } from '../lib/favorites';
@@ -48,6 +48,7 @@ export default function HomeScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [couriersFree, setCouriersFree] = useState<boolean | null>(null);
   const [priming, setPriming] = useState(false);
   const loadedAt = useRef<number | null>(null);
   const cart = useCart();
@@ -58,6 +59,7 @@ export default function HomeScreen({ navigation }: Props) {
     try {
       const position = mode === 'none' ? null : await currentPosition(6000, mode === 'ask');
       setRestaurants(await fetchRestaurants(position));
+      fetchCouriersAvailable().then(setCouriersFree).catch(() => setCouriersFree(null));
       loadedAt.current = Date.now();
       setLoadError(null);
     } catch {
@@ -231,6 +233,12 @@ export default function HomeScreen({ navigation }: Props) {
           </View>
         )}
 
+        {couriersFree === false && (
+          <View style={styles.couriersBusy} accessibilityRole="alert">
+            <Text style={styles.couriersBusyText}>Toți curierii sunt ocupați acum — livrarea poate întârzia.</Text>
+          </View>
+        )}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{located ? 'Aproape de tine' : 'Restaurante'}</Text>
           {!loading && !loadError && <Text style={styles.countText}>{filteredRestaurants.length} disponibile</Text>}
@@ -372,6 +380,8 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', gap: 12, marginBottom: 28 },
   searchBar: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface, borderRadius: 14, paddingHorizontal: 16, height: 50, borderWidth: 1, borderColor: COLORS.border },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 14, color: COLORS.textPrimary },
+  couriersBusy: { marginHorizontal: 20, marginBottom: 12, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: COLORS.gold, backgroundColor: 'rgba(245,166,35,0.08)' },
+  couriersBusyText: { color: COLORS.gold, fontSize: 13, fontWeight: '600' },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary },
   cardContent: { flexDirection: 'row', padding: 16 },

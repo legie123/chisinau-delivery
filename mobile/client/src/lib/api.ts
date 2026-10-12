@@ -224,6 +224,14 @@ export async function currentUserId(): Promise<string | null> {
   return data.session?.user.id ?? null;
 }
 
+/** Empty state "no couriers": is any active courier online right now? (couriers_available, one
+ *  boolean, authenticated only). null = unknown (signed out / offline) — then nothing is shown. */
+export async function fetchCouriersAvailable(): Promise<boolean | null> {
+  if (!(await currentUserId())) return null;
+  const { data, error } = await supabase.rpc("couriers_available");
+  return error || typeof data !== "boolean" ? null : data;
+}
+
 export async function isSignedIn(): Promise<boolean> {
   return (await currentUserId()) !== null;
 }
