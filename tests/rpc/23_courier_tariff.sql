@@ -42,7 +42,7 @@ begin
   select public.haversine_km(r.lat, r.lng, a.lat, a.lng) into v_dist2
     from public.restaurants r, public.addresses a
     where r.id = 'd0000000-0000-0000-0000-000000000004' and a.id = 'f0000000-0000-0000-0000-000000000002';
-  v_dist19 := 6.0; -- order 19 has no delivery_address_id -> 6km fallback (same as WS2 dispatch)
+  v_dist19 := 0; -- order 19 has no delivery_address_id -> no km on a guess, base fee only (owner 2026-10-12, 000206/000310)
   v_expected_quote2 := round(30.00 + 6.00 * v_dist2, 2);   -- seeded v1 tariff
   v_expected_quote19 := round(30.00 + 6.00 * v_dist19, 2);
 
@@ -59,7 +59,7 @@ begin
 
   select courier_fee_quoted_mdl into v_quote19 from public.orders where id = 'e0000000-0000-0000-0000-000000000019';
   if v_quote19 is distinct from v_expected_quote19 then
-    raise exception 'FAIL: order 19 (no address) quote = % (expected % = 30 + 6*6 fallback)', v_quote19, v_expected_quote19;
+    raise exception 'FAIL: order 19 (no address) quote = % (expected % = base fee only, no km on a guess)', v_quote19, v_expected_quote19;
   end if;
 
   -- idempotent retry: quote does not get re-stamped
