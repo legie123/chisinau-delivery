@@ -56,3 +56,26 @@
 - LOW schimbarea doar a titularului IBAN: `b0dd8dc`.
 - Rămas LOW: aceeași cheie după anulare întoarce comanda anulată (clientul rotește cheia după succes, deci nu apare în fluxul normal).
 - Alte livrări: `8013a21`+`460ffb5` ștergerea contului (App Store 5.1.1(v)); `2af3224` manifest de confidențialitate iOS; `b0f315a`+`8109eee` banner „toți curierii sunt ocupați”; `92bc424` notă per produs și pe web.
+
+## GATE 3 — Matricea de paritate CLIENT (verificată pe cod, agent separat read-only, 2026-10-12)
+| Flux | Stare | Dovadă | Blochează comanda? |
+|---|---|---|---|
+| 1 Autentificare | PARȚIAL | email+parolă + reset cu cod (`LoginScreen.tsx:83-113`); fără telefon/OTP | nu (OTP/SMS = owner, cost) |
+| 2 Adresă + pin pe hartă | EXISTĂ | `PinPicker.tsx`, obligatoriu `checkout.ts:202`, server `…000103` | nu |
+| 3 Descoperire (zonă, deschis, ETA, taxă) | PARȚIAL | zonă doar pe prima adresă cu pin; „ETA” = interval de pregătire | nu |
+| 4 Căutare + categorii | EXISTĂ | `SearchScreen.tsx:61`, `browse.ts` | nu |
+| 5 Meniu cu modificatori + Epuizat | EXISTĂ | `ModifierSheet.tsx`, `RestaurantScreen.tsx` | nu |
+| 6 Coș + notă per produs | EXISTĂ | `CartScreen.tsx:330`; prin API real ajunge în `order_items.notes` (37ed580) | nu |
+| 7 Checkout cu defalcare | EXISTĂ | `checkoutTotals`, `p_expected_total` (…101/104/108) | nu |
+| 8 Plată | PARȚIAL | cash + card la POS; online = owner (maib) | nu |
+| 9 Coduri promo | LIPSĂ | grep = 0 | nu (reguli comerciale = owner) |
+| 10 Tracking + cronologie | PARȚIAL | live + timeline; ETA linie dreaptă | nu |
+| 11 Contact curier / suport | PARȚIAL | apel curier; suport fără număr până îl dă ownerul | nu |
+| 12 Anulare client | PARȚIAL | doar `pending_restaurant`; după acceptare nicio acțiune în app | risc |
+| 13 Istoric + reorder | EXISTĂ | `OrdersScreen.tsx`, `reorder.ts` | nu |
+| 14 Evaluare | EXISTĂ | `OrderTrackingScreen.tsx:233-250` | nu |
+| 15 Push | EXISTĂ | `push.ts`, outbox + drain (livrarea pe telefon nedovedită) | nu |
+| 16a Gol: închis | PARȚIAL | banner + „se deschide…”; nu poți programa la un local închis | nu |
+| 16b Gol: în afara zonei | PARȚIAL | marcat pe Home; meniul/coșul nu avertizează | risc (refuz târziu) |
+| 16c Gol: fără curieri | PARȚIAL | banner doar pe Home | risc |
+Ordinea de construcție: 12 (problemă raportată din app după acceptare) → 16c → 16b → 16a.
