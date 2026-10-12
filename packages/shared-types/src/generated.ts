@@ -2695,6 +2695,7 @@ export type Database = {
           courier_commission_pct: number
           id: boolean
           no_courier_cancel_minutes: number
+          payouts_catchup_from: string | null
           restaurant_accept_alert_minutes: number
           restaurant_commission_pct: number
           updated_at: string
@@ -2704,6 +2705,7 @@ export type Database = {
           courier_commission_pct?: number
           id?: boolean
           no_courier_cancel_minutes?: number
+          payouts_catchup_from?: string | null
           restaurant_accept_alert_minutes?: number
           restaurant_commission_pct?: number
           updated_at?: string
@@ -2713,6 +2715,7 @@ export type Database = {
           courier_commission_pct?: number
           id?: boolean
           no_courier_cancel_minutes?: number
+          payouts_catchup_from?: string | null
           restaurant_accept_alert_minutes?: number
           restaurant_commission_pct?: number
           updated_at?: string
