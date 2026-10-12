@@ -3,6 +3,7 @@ import { BrandMark } from "@/components/brand/BrandMark";
 import { createClient } from "@/lib/supabase/server";
 import { getCourierCashStatus, getPublicPricingHistory } from "@chisinau/shared-api";
 import { CourierCommandBar } from "@/components/courier/CourierCommandBar";
+import { IdleLocationHeartbeat } from "@/components/courier/IdleLocationHeartbeat";
 import { AvailableOrderRow } from "@/components/courier/AvailableOrderRow";
 import { AvailableOrdersLive } from "@/components/courier/AvailableOrdersLive";
 import { OfferCard } from "@/components/courier/OfferCard";
@@ -122,6 +123,7 @@ export default async function DeliveriesPage() {
 
       <AvailableOrdersLive />
       <OffersLive courierId={courier.id} />
+      <IdleLocationHeartbeat courierId={courier.id} active={courier.status === "online" && active.length === 0} />
 
       {/* Starea, banii și cursele — în ordinea în care le caută omul de pe stradă. */}
       <CourierCommandBar

@@ -57,10 +57,12 @@ export function DeliveryMap({
       if (cancelled || !containerRef.current || mapRef.current) return;
       leafletRef.current = L;
 
-      const map = L.map(containerRef.current, { zoomControl: false, attributionControl: false });
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd",
+      const map = L.map(containerRef.current, { zoomControl: false, attributionControl: true });
+      // OSM standard tiles: CARTO basemaps now answer every request with an "API KEY REQUIRED"
+      // image (HTTP 200), so the maps showed no streets. Attribution is mandatory.
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
+        attribution: "© OpenStreetMap",
       }).addTo(map);
       mapRef.current = map;
 
