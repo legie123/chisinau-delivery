@@ -72,6 +72,12 @@ export default async function RestaurantMenuPage() {
       >
         ⇪ Import din Excel / Google Sheets
       </Link>
+      <Link
+        href="/restaurant/menu/prices"
+        className="mb-6 ml-2 inline-flex min-h-11 items-center rounded-full bg-white/5 px-4 text-sm text-white/75 ring-1 ring-white/10 transition hover:bg-white/10"
+      >
+        % Prețuri în masă
+      </Link>
       <AddCategoryForm />
       <AddMenuItemForm restaurantId={restaurantId} categories={categoryList} />
 
