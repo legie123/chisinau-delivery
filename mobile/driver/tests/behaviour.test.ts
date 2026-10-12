@@ -16,8 +16,8 @@ vi.mock("../src/lib/supabase", () => ({
     auth: { getSession: async () => ({ data: { session: { user: { id: "u1" } } } }) },
     storage: {
       from: (bucket: string) => ({
-        upload: async (path: string, _body: unknown, opts: unknown) => {
-          h.calls.push({ op: "upload", args: [bucket, path, opts] });
+        upload: async (path: string, body: ArrayBuffer, opts: unknown) => {
+          h.calls.push({ op: "upload", args: [bucket, path, opts, body.byteLength] });
           return { error: h.uploadError };
         },
       }),
@@ -40,8 +40,8 @@ vi.mock("../src/lib/supabase", () => ({
 const api = await import("../src/lib/api");
 const { reportDeliveryIssue } = await import("@chisinau/shared-api");
 const { describeReport, ISSUE_LABELS } = await import("../src/lib/issues");
-const { CAMERA_OPTIONS, proofButtonVisible } = await import("../src/lib/deliveryProof");
-const { submitPayout, payoutSummary } = await import("../src/lib/iban");
+const { CAMERA_OPTIONS, proofButtonVisible, takeProofPhoto } = await import("../src/lib/deliveryProof");
+const { submitPayout, payoutSummary, ibanError } = await import("../src/lib/iban");
 const { runMenuAction } = await import("../src/lib/profileMenu");
 const { historyExtraLines, historyTipLabel } = await import("../src/lib/earnings");
 const { readSupportPhone } = await import("../src/lib/config");
@@ -93,6 +93,9 @@ describe("proof photo", () => {
     const path = h.calls[0].args[1] as string;
     expect(path).toMatch(/^o1\/\d+-[a-z0-9]+\.jpg$/);
     expect(h.calls[0].args[0]).toBe("delivery-proof");
+    // the bucket accepts images only (000207) and the photo bytes must really be sent
+    expect(h.calls[0].args[2]).toEqual({ contentType: "image/jpeg" });
+    expect(h.calls[0].args[3]).toBe(8);
     expect(h.calls[1].args[0]).toEqual({ p_order_id: "o1", p_path: path });
   });
   it("a failed upload is reported and NEVER attached", async () => {
@@ -103,6 +106,48 @@ describe("proof photo", () => {
   it("camera options: JPEG at 0.4, no editing, EXIF not handed to JS", () => {
     expect(CAMERA_OPTIONS).toEqual({ mediaTypes: ["images"], quality: 0.4, allowsEditing: false, exif: false });
   });
+  const flowDeps = (over: Partial<Parameters<typeof takeProofPhoto>[1]> = {}) => {
+    const log: string[] = [];
+    const deps = {
+      requestCamera: async () => ({ granted: true }),
+      launchCamera: async () => ({ canceled: false, assets: [{ uri: "file:///p.jpg" }] }),
+      upload: async () => null as string | null,
+      alert: (t: string) => void log.push(`alert:${t}`),
+      setSending: (on: boolean) => void log.push(`sending:${on}`),
+      setSaved: (s: boolean) => void log.push(`saved:${s}`),
+      ...over,
+    };
+    return { deps, log };
+  };
+  it("photo flow: success -> sending on, off, then saved", async () => {
+    const { deps, log } = flowDeps();
+    await takeProofPhoto("o1", deps);
+    expect(log).toEqual(["sending:true", "sending:false", "saved:true"]);
+  });
+  it("photo flow: no camera permission -> told, camera never opened", async () => {
+    let opened = false;
+    const { deps, log } = flowDeps({ requestCamera: async () => ({ granted: false }), launchCamera: async () => ((opened = true), { canceled: true, assets: null }) });
+    await takeProofPhoto("o1", deps);
+    expect(opened).toBe(false);
+    expect(log).toEqual(["alert:Camera nu e permisă"]);
+  });
+  it("photo flow: upload failure -> told, NOT marked saved, sending flag back off", async () => {
+    const { deps, log } = flowDeps({ upload: async () => "Încărcarea a eșuat" });
+    await takeProofPhoto("o1", deps);
+    expect(log).toEqual(["sending:true", "sending:false", "alert:Poza nu s-a salvat"]);
+  });
+  it("photo flow: upload throws -> the sending flag still goes back off", async () => {
+    const { deps, log } = flowDeps({ upload: async () => { throw new Error("boom"); } });
+    await expect(takeProofPhoto("o1", deps)).rejects.toThrow("boom");
+    expect(log).toEqual(["sending:true", "sending:false"]);
+  });
+  it("photo flow: cancelled camera -> nothing uploaded", async () => {
+    let uploaded = false;
+    const { deps, log } = flowDeps({ launchCamera: async () => ({ canceled: true, assets: null }), upload: async () => ((uploaded = true), null) });
+    await takeProofPhoto("o1", deps);
+    expect(uploaded).toBe(false);
+    expect(log).toEqual([]);
+  });
   it("the button exists only on the delivery leg", () => {
     expect(proofButtonVisible("pickup")).toBe(false);
     expect(proofButtonVisible("delivering")).toBe(true);
@@ -112,6 +157,14 @@ describe("proof photo", () => {
     const plugins = (config.plugins ?? []).map((p) => (Array.isArray(p) ? p[0] : p));
     expect(plugins.filter((p) => p === "expo-image-picker")).toHaveLength(1);
     expect(plugins).not.toContain("expo-media-library");
+    expect(config.android?.permissions).toEqual([
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_FINE_LOCATION",
+      "ACCESS_BACKGROUND_LOCATION",
+      "FOREGROUND_SERVICE",
+      "FOREGROUND_SERVICE_LOCATION",
+      "POST_NOTIFICATIONS",
+    ]);
     expect(config.android?.blockedPermissions).toEqual(
       expect.arrayContaining(["android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE"]),
     );
@@ -150,6 +203,16 @@ describe("payout account", () => {
     const eqs = h.calls.filter((c) => c.op === "payout_accounts.eq").map((c) => c.args);
     expect(eqs).toEqual([["recipient_type", "courier"], ["recipient_id", "c1"]]);
   });
+  it("IBAN length bounds: 15..34 (MD exactly 24) — a 35-char or a 14-char one is refused locally", () => {
+    const mk = (cc: string, bban: string) => {
+      const mod = (s: string) => { let r = 0; for (const ch of s.slice(4) + s.slice(0, 4)) { const v = /[A-Z]/.test(ch) ? String(ch.charCodeAt(0) - 55) : ch; for (const d of v) r = (r * 10 + Number(d)) % 97; } return r; };
+      return cc + String(98 - mod(cc + "00" + bban)).padStart(2, "0") + bban;
+    };
+    expect(ibanError(mk("DE", "1".repeat(18)))).toBeNull(); // 22 chars, valid checksum
+    expect(ibanError(mk("XX", "1".repeat(31)))).toMatch(/Lungimea/); // 35 chars
+    expect(ibanError(mk("XX", "1".repeat(10)))).toMatch(/Lungimea/); // 14 chars
+    expect(ibanError(mk("XX", "1".repeat(11)))).toBeNull(); // 15 chars
+  });
   it("the screen line never shows the full IBAN", () => {
     const s = payoutSummary({ iban: "MD24AG000225100013104168", holderName: "Ion" });
     expect(s).not.toContain("AG000225100013");
@@ -174,6 +237,8 @@ describe("profile menu actions", () => {
   it("a 5-digit 'number' is not a support line", () => {
     expect(readSupportPhone("12345")).toBeNull();
     expect(readSupportPhone("123456")).not.toBeNull();
+    expect(readSupportPhone("1".repeat(15))).not.toBeNull();
+    expect(readSupportPhone("1".repeat(16))).toBeNull();
   });
 });
 
@@ -196,7 +261,11 @@ describe("screens pass the real values to the tested logic", async () => {
     const s = read("src/screens/ActiveDeliveryScreen.tsx");
     expect(s).toMatch(/const shown = describeReport\(kind, isNew\);\s*Alert\.alert\(shown\.title, shown\.text\);/);
     expect(s).toMatch(/\{proofButtonVisible\(status\) && \(/);
-    expect(s).toMatch(/ImagePicker\.launchCameraAsync\(CAMERA_OPTIONS\)/);
+    expect(s).toMatch(/requestCamera: ImagePicker\.requestCameraPermissionsAsync,\s*launchCamera: ImagePicker\.launchCameraAsync,\s*upload: uploadDeliveryProof,/);
+    expect(s).toMatch(/setSending: setProofSending,\s*setSaved: setProofSaved,/);
+  });
+  it("ProfileScreen signs out for real", () => {
+    expect(read("src/screens/ProfileScreen.tsx")).toMatch(/signOut: \(\) => void handleSignOut\(\),/);
   });
   it("PayoutAccountForm caps the input length", () => {
     expect(read("src/components/PayoutAccountForm.tsx")).toMatch(/maxLength=\{42\}/);

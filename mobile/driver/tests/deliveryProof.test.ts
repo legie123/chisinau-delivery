@@ -44,8 +44,8 @@ describe("wiring: the delivery screen really uploads and attaches the photo", ()
   });
   it("ActiveDeliveryScreen takes a CAMERA photo (not the library) and sends it through uploadDeliveryProof", () => {
     const s = src("src/screens/ActiveDeliveryScreen.tsx");
-    expect(s).toMatch(/launchCameraAsync\(/);
+    expect(s).toMatch(/launchCamera: ImagePicker\.launchCameraAsync,/);
     expect(s).not.toMatch(/launchImageLibraryAsync/);
-    expect(s).toMatch(/uploadDeliveryProof\(order\.id, shot\.assets\[0\]\.uri\)/);
+    expect(s).toMatch(/takeProofPhoto\(order\.id, \{/);
   });
 });

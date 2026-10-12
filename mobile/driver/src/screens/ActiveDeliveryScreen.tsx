@@ -18,7 +18,7 @@ import { styles, darkMapStyle } from './ActiveDeliveryScreen.styles';
 import * as ImagePicker from 'expo-image-picker';
 import { CHISINAU_CENTER, fetchActiveOrder, getMyCourierId, markArrivedAtRestaurant, reportIssue, uploadDeliveryProof, userMessage, type DriverOrder } from '../lib/api';
 import { ISSUE_LABELS, describeReport, issueKindsFor, type IssueKind } from '../lib/issues';
-import { CAMERA_OPTIONS, proofButtonVisible } from '../lib/deliveryProof';
+import { proofButtonVisible, takeProofPhoto } from '../lib/deliveryProof';
 import { navUrl, pickupCode, telUrl } from '../lib/orderView';
 import { advanceOrEnqueue } from '../lib/offlineQueue';
 import { startDeliveryTracking, stopDeliveryTracking } from '../lib/backgroundLocation';
@@ -107,23 +107,15 @@ export default function ActiveDeliveryScreen({ route, navigation }: Props) {
   // Proof-of-delivery photo (soft signal, never a gate): camera only, uploaded to the private bucket.
   const [proofSending, setProofSending] = useState(false);
   const [proofSaved, setProofSaved] = useState(false);
-  const handleProofPhoto = async () => {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Camera nu e permisă', 'Permite accesul la cameră din setările telefonului ca să faci poza la livrare.');
-      return;
-    }
-    const shot = await ImagePicker.launchCameraAsync(CAMERA_OPTIONS);
-    if (shot.canceled || shot.assets.length === 0) return;
-    setProofSending(true);
-    const err = await uploadDeliveryProof(order.id, shot.assets[0].uri);
-    setProofSending(false);
-    if (err) {
-      Alert.alert('Poza nu s-a salvat', err);
-      return;
-    }
-    setProofSaved(true);
-  };
+  const handleProofPhoto = () =>
+    takeProofPhoto(order.id, {
+      requestCamera: ImagePicker.requestCameraPermissionsAsync,
+      launchCamera: ImagePicker.launchCameraAsync,
+      upload: uploadDeliveryProof,
+      alert: (title, text) => Alert.alert(title, text),
+      setSending: setProofSending,
+      setSaved: setProofSaved,
+    });
 
   // Problem report: one tap per kind; the server ignores a repeat (returns false) instead of stacking.
   const [issueOpen, setIssueOpen] = useState(false);

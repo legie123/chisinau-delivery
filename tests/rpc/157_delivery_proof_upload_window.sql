@@ -15,10 +15,11 @@ begin
   insert into public.orders (order_type, customer_id, restaurant_id, delivery_address_id, status, payment_method, payment_status, subtotal_mdl, delivery_fee_mdl, total_mdl, courier_id)
   values ('standard', c_cust, v_rest, v_addr, 'courier_assigned', 'cash', 'unpaid', 200, 30, 230, v_a) returning id into v_o;
 
-  foreach v_st in array array['courier_assigned', 'picked_up', 'en_route', 'delivered_recent', 'delivered_old', 'cancelled'] loop
+  foreach v_st in array array['courier_assigned', 'picked_up', 'en_route', 'delivered_recent', 'delivered_90min', 'delivered_old', 'cancelled'] loop
     update public.orders set
       status = case when v_st like 'delivered%' then 'delivered' else v_st end,
       delivered_at = case v_st when 'delivered_recent' then now() - interval '10 minutes'
+                               when 'delivered_90min' then now() - interval '90 minutes'
                                when 'delivered_old' then now() - interval '3 days' else null end
     where id = v_o;
     perform set_config('request.jwt.claims', json_build_object('sub', v_ua, 'role', 'authenticated')::text, true);
@@ -49,7 +50,7 @@ begin
   raise notice 'PASS 157.W2: another courier refused';
 
   select file_size_limit, allowed_mime_types into v_limit, v_mimes from storage.buckets where id = 'delivery-proof';
-  if v_limit is distinct from 10485760 or not ('image/jpeg' = any(v_mimes)) or 'application/pdf' = any(v_mimes) then
+  if v_limit is distinct from 10485760 or v_mimes is distinct from array['image/jpeg', 'image/png', 'image/webp'] then
     raise exception 'FAIL 157.W3: bucket limit=% mimes=%', v_limit, v_mimes;
   end if;
   raise notice 'PASS 157.W3: bucket capped at 10 MiB, images only';
