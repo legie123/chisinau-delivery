@@ -232,6 +232,15 @@ export async function fetchCouriersAvailable(): Promise<boolean | null> {
   return error || typeof data !== "boolean" ? null : data;
 }
 
+/** In-app account deletion (App Store 5.1.1(v)): delete_my_account() scrubs the personal data,
+ *  removes every session server-side and anonymizes the login; orders stay anonymous (fiscal).
+ *  Then the local session is dropped. Throws the server's Romanian refusal (order in flight, …). */
+export async function deleteMyAccount(): Promise<void> {
+  const { error } = await supabase.rpc("delete_my_account");
+  if (error) throw new Error(error.message);
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+}
+
 export async function isSignedIn(): Promise<boolean> {
   return (await currentUserId()) !== null;
 }

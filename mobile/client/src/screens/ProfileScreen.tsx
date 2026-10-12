@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Activi
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { CustomerProfile, fetchMyProfile } from '../lib/api';
+import { CustomerProfile, deleteMyAccount, errorText, fetchMyProfile } from '../lib/api';
+import { clearCart } from '../lib/cart';
 import { signOutAndUnbindPush, UNBIND_FAILED } from '../lib/push';
 import { SUPPORT_EMAIL } from './LegalScreen';
 import { SUPPORT_PHONE } from '../lib/tracking';
@@ -87,6 +88,31 @@ export default function ProfileScreen({ navigation }: { navigation: any }) {
         onPress: signOut,
       },
     ]);
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Șterge contul',
+      'Datele tale personale (nume, telefon, adrese, note) se șterg definitiv și nu te mai poți autentifica în acest cont. Istoricul comenzilor rămâne, fără date personale (obligație fiscală).',
+      [
+        { text: 'Anulează', style: 'cancel' },
+        { text: 'Șterge definitiv', style: 'destructive', onPress: deleteAccount },
+      ],
+    );
+  }
+
+  async function deleteAccount() {
+    setSigningOut(true);
+    try {
+      await deleteMyAccount();
+      clearCart();
+      setProfile(null);
+      Alert.alert('Cont șters', 'Contul tău a fost șters. Îți mulțumim că ai comandat cu noi.');
+    } catch (err) {
+      Alert.alert('Șterge contul', errorText(err, 'Nu am putut șterge contul. Încearcă din nou.'));
+    } finally {
+      setSigningOut(false);
+    }
   }
 
   // The push token is unbound first, while we still own its row (RLS). If that fails
@@ -182,6 +208,13 @@ export default function ProfileScreen({ navigation }: { navigation: any }) {
               </View>
               <Text style={styles.menuLabel}>Deconectare</Text>
               {signingOut ? <ActivityIndicator size="small" color={COLORS.primary} /> : <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />}
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleDeleteAccount} disabled={signingOut} accessibilityLabel="Șterge contul">
+              <View style={[styles.menuIcon, { backgroundColor: COLORS.primary + '15' }]}>
+                <Ionicons name="trash-outline" size={20} color={COLORS.primary} />
+              </View>
+              <Text style={[styles.menuLabel, { color: COLORS.primary }]}>Șterge contul</Text>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.textMuted} />
             </TouchableOpacity>
           </View>
         </ScrollView>
