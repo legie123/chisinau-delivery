@@ -2217,6 +2217,36 @@ export type Database = {
           },
         ]
       }
+      payout_account_changes: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: number
+          new_iban_last4: string
+          old_iban_last4: string | null
+          recipient_id: string
+          recipient_type: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: never
+          new_iban_last4: string
+          old_iban_last4?: string | null
+          recipient_id: string
+          recipient_type: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: never
+          new_iban_last4?: string
+          old_iban_last4?: string | null
+          recipient_id?: string
+          recipient_type?: string
+        }
+        Relationships: []
+      }
       payout_accounts: {
         Row: {
           holder_name: string
