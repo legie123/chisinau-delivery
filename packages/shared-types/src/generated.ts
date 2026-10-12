@@ -2936,6 +2936,7 @@ export type Database = {
           min_order_amount_mdl: number
           name: string
           phone: string
+          pin_confirmed_at: string | null
           rating_avg: number | null
           rating_count: number
           sector: string | null
@@ -2967,6 +2968,7 @@ export type Database = {
           min_order_amount_mdl?: number
           name: string
           phone: string
+          pin_confirmed_at?: string | null
           rating_avg?: number | null
           rating_count?: number
           sector?: string | null
@@ -2998,6 +3000,7 @@ export type Database = {
           min_order_amount_mdl?: number
           name?: string
           phone?: string
+          pin_confirmed_at?: string | null
           rating_avg?: number | null
           rating_count?: number
           sector?: string | null
@@ -3785,6 +3788,10 @@ export type Database = {
           p_success: boolean
         }
         Returns: undefined
+      }
+      confirm_restaurant_pin: {
+        Args: { p_restaurant_id: string }
+        Returns: string
       }
       confirm_venue_booking: {
         Args: { p_booking_id: string }
