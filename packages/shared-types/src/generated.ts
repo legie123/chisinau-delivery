@@ -2120,6 +2120,7 @@ export type Database = {
           payment_status: string
           pod_photo_path: string | null
           prep_time_override_minutes: number | null
+          request_fingerprint: string | null
           requested_for: string | null
           restaurant_id: string
           status: string
@@ -2151,6 +2152,7 @@ export type Database = {
           payment_status?: string
           pod_photo_path?: string | null
           prep_time_override_minutes?: number | null
+          request_fingerprint?: string | null
           requested_for?: string | null
           restaurant_id: string
           status?: string
@@ -2182,6 +2184,7 @@ export type Database = {
           payment_status?: string
           pod_photo_path?: string | null
           prep_time_override_minutes?: number | null
+          request_fingerprint?: string | null
           requested_for?: string | null
           restaurant_id?: string
           status?: string
