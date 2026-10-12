@@ -7,7 +7,7 @@ import { cartSubtotal, LINE_NOTE_MAX, setLineNotes, setLineQuantity, type HoursR
 import { COLORS } from '../theme';
 import { clearCart, getCart, setCart, useCart } from '../lib/cart';
 import { supabase } from '../lib/supabase';
-import { createAddress, errorText, fetchAddressBook, fetchLiveMenu, isSignedIn, type AddressBookEntry } from '../lib/api';
+import { createAddress, errorText, fetchAddressBook, fetchCouriersAvailable, fetchLiveMenu, isSignedIn, restaurantDeliversTo, type AddressBookEntry } from '../lib/api';
 import { reconcileLines, type ReconcileResult } from '@chisinau/shared-domain';
 import {
   addressDraftProblem,
@@ -17,6 +17,7 @@ import {
   CASH_CAP_HINT,
   cashCapExceeded,
   checkoutTotals,
+  effectiveDeliveryPin,
   chisinauWallTime,
   defaultAddressChoice,
   newIdempotencyKey,
@@ -176,8 +177,22 @@ export default function CartScreen({ navigation }: Props) {
   // hint only: the server decides, its refusal comes back as the same Romanian line.
   const overCashCap = summary != null && cashCapExceeded(payment, subtotal, deliveryFee);
   const selected = addresses.find(a => a.id === addressId);
+  // Parity 16b/16c: say it here, before "Plasează" — out of the delivery zone blocks (place_order
+  // would refuse it), no courier online only warns (dispatch keeps trying).
+  const deliveryPin = effectiveDeliveryPin(addressId, selected, pin, savedPin);
+  const pinKey = deliveryPin ? `${deliveryPin.lat.toFixed(6)},${deliveryPin.lng.toFixed(6)}` : '';
+  const [outOfZone, setOutOfZone] = useState<boolean | null>(null);
+  const [couriersFree, setCouriersFree] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!cart.restaurantId || !deliveryPin) { setOutOfZone(null); return; }
+    let stale = false;
+    restaurantDeliversTo(cart.restaurantId, deliveryPin).then(d => { if (!stale) setOutOfZone(d === null ? null : !d); });
+    return () => { stale = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.restaurantId, pinKey]);
+  useFocusEffect(useCallback(() => { fetchCouriersAvailable().then(setCouriersFree).catch(() => setCouriersFree(null)); }, []));
   const deadLines = cart.lines.filter(l => dead.has(l.lineId));
-  const blocked = placing || belowMinimum || !summary || deadLines.length > 0 || prices !== 'ok' || tipError != null;
+  const blocked = placing || belowMinimum || !summary || deadLines.length > 0 || prices !== 'ok' || tipError != null || outOfZone === true;
 
   // The lock is taken before the first await: a double tap places ONE order and
   // creates ONE address row (the idempotency key alone surfaced a 23505 as an error).
@@ -361,6 +376,12 @@ export default function CartScreen({ navigation }: Props) {
               <AddressFieldsForm value={fields} onChange={(k, t) => { addressTouched.current = true; setFields(f => ({ ...f, [k]: t })); }} />
               <PinPicker value={pin} onChange={touched(setPin)} />
             </>
+          )}
+          {outOfZone === true && (
+            <Text style={styles.error}>Restaurantul nu livrează la această adresă — alege altă adresă sau alt restaurant.</Text>
+          )}
+          {couriersFree === false && (
+            <Text style={styles.notice}>Toți curierii sunt ocupați acum — livrarea poate întârzia.</Text>
           )}
           {selectedNeedsPin && (
             <>

@@ -203,6 +203,19 @@ export function addressDraftProblem(d: AddressDraft): string | null {
   return null;
 }
 
+/** The pin the order will be delivered to: the new address' map pin, a saved address' own pin, or
+ *  the pin just placed on an old pinless address. null = not known yet (no zone check possible). */
+export function effectiveDeliveryPin(
+  addressId: string,
+  selected: { lat: number | null; lng: number | null } | undefined,
+  newPin: { lat: number; lng: number } | null,
+  savedPin: { lat: number; lng: number } | null,
+): { lat: number; lng: number } | null {
+  if (addressId === "new") return newPin;
+  if (selected && selected.lat != null && selected.lng != null) return { lat: Number(selected.lat), lng: Number(selected.lng) };
+  return savedPin;
+}
+
 /** The map opens here when an address has no pin yet (central Chișinău). */
 export const CHISINAU_CENTER = { lat: 47.0245, lng: 28.8322 };
 

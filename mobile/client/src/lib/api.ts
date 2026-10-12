@@ -232,6 +232,14 @@ export async function fetchCouriersAvailable(): Promise<boolean | null> {
   return error || typeof data !== "boolean" ? null : data;
 }
 
+/** Parity row 16b: does this restaurant deliver to this pin? (restaurants_delivering_to = the
+ *  place_order radius rule). null = unknown (signed out / offline) — the server still decides. */
+export async function restaurantDeliversTo(restaurantId: string, pin: { lat: number; lng: number }): Promise<boolean | null> {
+  const { data, error } = await supabase.rpc("restaurants_delivering_to", { p_lat: pin.lat, p_lng: pin.lng });
+  if (error || !Array.isArray(data)) return null;
+  return (data as string[]).includes(restaurantId);
+}
+
 /** Parity row 12: report a problem after acceptance (customer_report_problem, sim 112). */
 export async function reportProblem(orderId: string, kind: string, note: string): Promise<void> {
   const { error } = await supabase.rpc("customer_report_problem", { p_order_id: orderId, p_kind: kind, p_note: note });

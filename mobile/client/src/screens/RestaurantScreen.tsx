@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { addToCart, cartCount, cartSubtotal, EMPTY_CART, needsRestaurantSwitch, type ChosenOptions } from '@chisinau/shared-domain';
 import { COLORS } from '../theme';
 import { MenuItem, OptionGroup, Restaurant } from '../types';
-import { fetchInsights, fetchMenu, fetchRestaurants } from '../lib/api';
+import { fetchInsights, fetchMenu, fetchRestaurants, fetchCouriersAvailable } from '../lib/api';
 import { isOpenForOrders } from '../lib/browse';
 import { useFavorites } from '../lib/favorites';
 import { getCart, setCart, useCart } from '../lib/cart';
@@ -50,6 +50,9 @@ export default function RestaurantScreen({ route, navigation }: Props) {
   // open across closing time (or reached from a stale list) must stop offering "Adaugă".
   // ponytail: re-reads the whole (small, ~dozen rows) list to reuse fetchRestaurants'
   // hours/estimate mapping; add a by-id read to api.ts if the list grows large.
+  const [couriersFree, setCouriersFree] = useState<boolean | null>(null);
+  useFocusEffect(useCallback(() => { fetchCouriersAvailable().then(setCouriersFree).catch(() => setCouriersFree(null)); }, []));
+
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -224,6 +227,10 @@ export default function RestaurantScreen({ route, navigation }: Props) {
                 : restaurant.nextOpening ? `Închis acum · se deschide ${restaurant.nextOpening}.` : 'Restaurantul nu primește comenzi acum.'}
           </Text>
         )}
+        {restaurant.deliversHere === false && (
+          <Text style={styles.closedNote}>Nu livrează la adresa ta salvată — poți comanda la altă adresă din coș.</Text>
+        )}
+        {couriersFree === false && <Text style={styles.closedNote}>Toți curierii sunt ocupați acum — livrarea poate întârzia.</Text>}
         {restaurant.minOrder > 0 && <Text style={styles.minNote}>Comandă minimă {restaurant.minOrder} MDL</Text>}
 
         {totalRatings > 0 && (
