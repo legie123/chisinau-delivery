@@ -761,6 +761,7 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          leg: string
           order_id: string
           order_status: string
         }
@@ -769,6 +770,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind: string
+          leg: string
           order_id: string
           order_status: string
         }
@@ -777,6 +779,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          leg?: string
           order_id?: string
           order_status?: string
         }
@@ -2214,6 +2217,36 @@ export type Database = {
           },
         ]
       }
+      payout_account_changes: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: number
+          new_iban_last4: string
+          old_iban_last4: string | null
+          recipient_id: string
+          recipient_type: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: never
+          new_iban_last4: string
+          old_iban_last4?: string | null
+          recipient_id: string
+          recipient_type: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: never
+          new_iban_last4?: string
+          old_iban_last4?: string | null
+          recipient_id?: string
+          recipient_type?: string
+        }
+        Relationships: []
+      }
       payout_accounts: {
         Row: {
           holder_name: string
@@ -2933,6 +2966,7 @@ export type Database = {
           min_order_amount_mdl: number
           name: string
           phone: string
+          pin_confirmed_at: string | null
           rating_avg: number | null
           rating_count: number
           sector: string | null
@@ -2964,6 +2998,7 @@ export type Database = {
           min_order_amount_mdl?: number
           name: string
           phone: string
+          pin_confirmed_at?: string | null
           rating_avg?: number | null
           rating_count?: number
           sector?: string | null
@@ -2995,6 +3030,7 @@ export type Database = {
           min_order_amount_mdl?: number
           name?: string
           phone?: string
+          pin_confirmed_at?: string | null
           rating_avg?: number | null
           rating_count?: number
           sector?: string | null
@@ -3712,6 +3748,18 @@ export type Database = {
           trigger_name: string
         }[]
       }
+      admin_set_platform_admin: {
+        Args: { p_email: string; p_grant: boolean; p_reason: string }
+        Returns: undefined
+      }
+      admin_settle_payee: {
+        Args: {
+          p_expected_net: number
+          p_recipient_id: string
+          p_recipient_type: string
+        }
+        Returns: number
+      }
       admin_update_payment_status: {
         Args: { p_new_status: string; p_note?: string; p_order_id: string }
         Returns: undefined
@@ -3774,6 +3822,10 @@ export type Database = {
           p_success: boolean
         }
         Returns: undefined
+      }
+      confirm_restaurant_pin: {
+        Args: { p_restaurant_id: string }
+        Returns: string
       }
       confirm_venue_booking: {
         Args: { p_booking_id: string }

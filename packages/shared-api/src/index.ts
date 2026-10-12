@@ -15,3 +15,4 @@ export * from "./bookings";
 export * from "./cash";
 export * from "./tariff";
 export * from "./pilot";
+export * from "./team";
