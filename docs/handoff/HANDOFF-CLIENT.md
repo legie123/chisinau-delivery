@@ -40,3 +40,11 @@
 ## Verificatori 2026-10-12 (rezultate)
 - CLIENT gate 2 NEVALIDAT → (1) retry idempotent ocolea totalul: REPARAT 20261012000104, sim 106. (2) catering: `confirm_catering_quote` nu primește suma afișată, `place_order` catering ignoră `p_expected_total` — DE FĂCUT (confirm = funcție RESTAURANT → predare). (3) `test:price` nu acoperă randarea CartScreen — limită declarată. (4) web fără total: REPARAT în 70d9288. (5) `check:config` nelegat de nicio poartă — de legat.
 - ADMIN plăți (scrise de această sesiune) NEVALIDAT: (1) CSV plătește în plus când există clawback negativ pending (105,50 MDL în probă); (2) cron-ul plătește doar săptămâna trecută, nu recuperează comenzi marcate plătite târziu / rulări ratate; (3) orice staff schimbă IBAN-ul fără urmă; (4) erori ignorate + 414 la >200 beneficiari în pendingBankRows. Scripturi: scratchpad/rt/. NEREPARATE — prioritate maximă pentru cine preia plățile.
+
+## Runda 2026-10-12 (după)
+- Defectele red-team ale plăților (scrise de această sesiune) REPARATE: 7fac27b (cron recuperează, sim 256), 50c9a03 (sold net + export pe loturi, sim 257), c9e299c (istoric IBAN + avertisment 7 zile, sim 258). Rămas: rol pe staff (predare RESTAURANT).
+- 3a9ff78 refuzurile noi ajung la client ca text (mutație → 5/5 roșu); `npm run verify` în mobile/client = tsc + vitest + check:config.
+- ad83f4b sim 107 încrucișat: busy mode și `extend_prep_time` mută ETA-ul văzut de client (rândul din matrice corectat: era deja consumat).
+- 7ee2104 numărul de suport fals scos; vine din `EXPO_PUBLIC_SUPPORT_PHONE` / `NEXT_PUBLIC_SUPPORT_PHONE` — **ownerul dă numărul real**.
+- C2 notă per produs: e0f888d (place_order, sim 108) + 37ed580 (coș mobil; smoke real: nota ajunge în order_items.notes).
+- Tunel + Metro :8082 repornite pentru gate 5 (Expo Go pe iPhone, exp://192.168.1.34:8082).
