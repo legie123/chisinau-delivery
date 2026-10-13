@@ -79,3 +79,12 @@
 | 16b Gol: în afara zonei | PARȚIAL | marcat pe Home; meniul/coșul nu avertizează | risc (refuz târziu) |
 | 16c Gol: fără curieri | PARȚIAL | banner doar pe Home | risc |
 Ordinea de construcție: 12 (problemă raportată din app după acceptare) → 16c → 16b → 16a.
+
+## Red-team runda 3 (2026-10-13) — 7 defecte reparate: migrația `20261012000111`, sim 113
+- HIGH `banned_until='infinity'` din `delete_my_account` rupea GoTrue (500 pe lista de utilizatori): acum `2999-12-31`, conturile deja șterse reparate; verificat `GET /auth/v1/admin/users` = 200.
+- MED date personale rămase după ștergere (evaluări, reclamații proprii, contacte catering/rezervări, onboarding, notificări, token-uri, jurnal auth): `scrub_deleted_customer` (intern); rezervarea viitoare blochează ștergerea.
+- MED clientul citea notele/rezoluțiile ops din `order_complaints`: policy șters; aplicația arată doar starea (`my_order_complaint_status`). Sim 112.5 / 252.4 actualizate.
+- MED injecție în webhook-ul ops: alerta fără textul clientului; `scan_ops_alerts` neutralizează `< > @`, mențiuni dezactivate (probat pe coada pg_net).
+- LOW+ JWT emis înainte de ștergere: `place_order`, adrese, profil refuză „Contul a fost șters.”
+- LOW `customer_report_problem`: comenzile anulate/respinse neacceptate refuzate; max 3 pe comandă. LOW amprenta cererii: opțiunile sortate.
+- Gate 2 catering ÎNCHIS: RESTAURANT a livrat `confirm_catering_quote(p_order_id, p_expected_total)` (b76348f); aplicațiile trimit suma afișată (mobil `OrderTrackingScreen`, web `CateringTracking`), sim 114 încrucișat (3500 afișat / 9000 re-cotat → refuz, nimic scris).

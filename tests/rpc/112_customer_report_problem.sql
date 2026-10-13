@@ -44,22 +44,20 @@ begin
   raise notice 'PASS 112.1-4: after acceptance only, own order only, one open, logged + alerted';
 end $$;
 
--- 112.5 the customer reads their own complaint (status), nobody else's; no direct writes
+-- 112.5 the customer reads NO complaint row (since 20261012000111: ops notes/resolutions are internal,
+-- sim 113.6 covers my_order_complaint_status); no direct writes
 select set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
 set local role authenticated;
 do $$
 declare v_n int;
 begin
-  select count(*) into v_n from public.order_complaints oc join public.orders o on o.id = oc.order_id where o.customer_id <> 'a0000000-0000-0000-0000-000000000001';
-  if v_n <> 0 then raise exception 'FAIL 112.5: the customer reads other customers'' complaints'; end if;
-  if not exists (select 1 from public.order_complaints where kind = 'missing_item' and note = 'Lipsea sosul') then
-    raise exception 'FAIL 112.5: the customer cannot read their own complaint';
-  end if;
+  select count(*) into v_n from public.order_complaints;
+  if v_n <> 0 then raise exception 'FAIL 112.5: the customer reads % complaint rows', v_n; end if;
   begin
     insert into public.order_complaints (order_id, kind, note) select id, 'other', 'direct' from public.orders limit 1;
     raise exception 'FAIL 112.5: direct insert allowed';
   exception when insufficient_privilege then null;
   end;
-  raise notice 'PASS 112.5: own complaint readable, others not, no direct writes';
+  raise notice 'PASS 112.5: no complaint rows for the customer, no direct writes';
 end $$;
 reset role;

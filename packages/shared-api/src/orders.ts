@@ -109,8 +109,13 @@ export async function cancelOrder(db: Db, orderId: OrderId, reason: string): Pro
 }
 
 /** Customer confirms a catering quote (→ accepted, joins the standard pipeline). */
-export async function confirmCateringQuote(db: Db, orderId: OrderId): Promise<void> {
-  const { error } = await db.rpc("confirm_catering_quote", { p_order_id: orderId });
+/** `expectedTotal` = the quoted amount the customer was SHOWN; the server refuses if the partner
+ *  re-quoted meanwhile ("oferta s-a schimbat", 20261012000311, sim 114). */
+export async function confirmCateringQuote(db: Db, orderId: OrderId, expectedTotal?: number | null): Promise<void> {
+  const { error } = await db.rpc("confirm_catering_quote", {
+    p_order_id: orderId,
+    ...(expectedTotal == null ? {} : { p_expected_total: expectedTotal }),
+  });
   if (error) throw new RpcError(error);
 }
 

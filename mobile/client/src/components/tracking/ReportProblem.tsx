@@ -26,7 +26,7 @@ export default function ReportProblem({ orderId }: { orderId: string }) {
       <View style={styles.box}>
         <Text style={styles.title}>Problemă raportată</Text>
         <Text style={styles.muted}>
-          {existing.status === 'open' ? 'Echipa noastră o verifică și te contactează.' : `Rezolvată${existing.resolution ? `: ${existing.resolution}` : '.'}`}
+          {existing.status === 'open' ? 'Echipa noastră o verifică și te contactează.' : 'Rezolvată — echipa te-a contactat sau te contactează.'}
         </Text>
       </View>
     );

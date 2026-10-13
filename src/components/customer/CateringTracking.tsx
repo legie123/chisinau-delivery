@@ -110,7 +110,7 @@ export function CateringTracking({
 
   function handleConfirm() {
     startTransition(async () => {
-      const result = await confirmCateringQuote(order.id);
+      const result = await confirmCateringQuote(order.id, details.quoted_total_mdl);
       setError(result.error);
     });
   }

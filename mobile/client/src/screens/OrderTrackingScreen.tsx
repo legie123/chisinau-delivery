@@ -188,7 +188,7 @@ export default function OrderTrackingScreen({ route, navigation }: { route: any;
             <TouchableOpacity
               style={styles.primaryBtn}
               disabled={busy}
-              onPress={() => run(() => confirmCateringQuote(supabase, asOrderId(orderId)), 'Nu am putut confirma oferta.')}
+              onPress={() => run(() => confirmCateringQuote(supabase, asOrderId(orderId), order.catering?.quotedTotalMdl), 'Nu am putut confirma oferta.')}
             >
               <Text style={styles.primaryText}>Confirmă oferta</Text>
             </TouchableOpacity>

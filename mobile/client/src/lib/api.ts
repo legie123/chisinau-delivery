@@ -246,18 +246,14 @@ export async function reportProblem(orderId: string, kind: string, note: string)
   if (error) throw new Error(error.message);
 }
 
-export type MyComplaint = { status: "open" | "resolved"; resolution: string | null };
+export type MyComplaint = { status: "open" | "resolved" };
 
-/** The latest complaint on this order (RLS: the customer reads only their own orders'). */
+/** The status of the latest complaint on this order (my_order_complaint_status, sim 113.6). The notes
+ *  and the resolution are ops-internal: the customer never reads order_complaints rows. */
 export async function fetchMyComplaint(orderId: string): Promise<MyComplaint | null> {
-  const { data, error } = await supabase
-    .from("order_complaints")
-    .select("status, resolution")
-    .eq("order_id", orderId)
-    .order("created_at", { ascending: false })
-    .limit(1);
+  const { data, error } = await supabase.rpc("my_order_complaint_status", { p_order_id: orderId });
   if (error) throw new Error(error.message);
-  return (data?.[0] as MyComplaint | undefined) ?? null;
+  return data === "open" || data === "resolved" ? { status: data } : null;
 }
 
 /** In-app account deletion (App Store 5.1.1(v)): delete_my_account() scrubs the personal data,

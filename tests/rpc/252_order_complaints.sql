@@ -57,9 +57,9 @@ begin
   raise notice 'PASS 252.3: non-admin refused';
 end $$;
 
--- 252.4 reads under RLS: admin sees all; since 20261012000109 a customer sees ONLY the complaints on
--- their own orders (the app shows the status of a problem they reported); courier/staff see nothing;
--- no direct writes. (Changed by its author: the customer read was deliberately added for parity row 12.)
+-- 252.4 reads under RLS: admin sees all; customer/courier/staff see nothing; no direct writes.
+-- (20261012000109 had opened the customer's own rows; 20261012000111 closed them again — the notes and
+-- resolutions are ops-internal; the app reads only the status via my_order_complaint_status, sim 113.6.)
 select set_config('request.jwt.claims', '{"sub":"a0000000-0000-0000-0000-000000000004","role":"authenticated"}', true);
 set local role authenticated;
 do $$
@@ -73,19 +73,14 @@ begin
   loop
     perform set_config('request.jwt.claims', json_build_object('sub', r.uid, 'role', 'authenticated')::text, true);
     select count(*) into v_n from public.order_complaints;
-    if r.who = 'customer' then
-      if exists (select 1 from public.order_complaints oc
-                 where not exists (select 1 from public.orders o where o.id = oc.order_id and o.customer_id = r.uid)) then
-        raise exception 'FAIL 252.4: the customer sees a complaint on someone else''s order';
-      end if;
-    elsif (v_n > 0) <> r.sees then raise exception 'FAIL 252.4: % sees % complaint rows', r.who, v_n; end if;
+    if (v_n > 0) <> r.sees then raise exception 'FAIL 252.4: % sees % complaint rows', r.who, v_n; end if;
   end loop;
   begin
     insert into public.order_complaints (order_id, kind, note) select id, 'other', 'direct' from public.orders limit 1;
     raise exception 'FAIL 252.4: authenticated inserted directly';
   exception when insufficient_privilege then null;
   end;
-  raise notice 'PASS 252.4: admin reads all, customer only own orders, courier/staff nothing, no direct writes';
+  raise notice 'PASS 252.4: admin reads all, customer/courier/staff nothing, no direct writes';
 end $$;
 reset role;
 

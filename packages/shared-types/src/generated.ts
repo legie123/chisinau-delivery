@@ -4292,6 +4292,10 @@ export type Database = {
         Args: { p_order_id: string }
         Returns: undefined
       }
+      my_order_complaint_status: {
+        Args: { p_order_id: string }
+        Returns: string
+      }
       nearby_available_couriers: {
         Args: {
           p_limit?: number
@@ -4513,6 +4517,7 @@ export type Database = {
         Returns: undefined
       }
       scan_ops_alerts: { Args: never; Returns: number }
+      scrub_deleted_customer: { Args: { p_uid: string }; Returns: undefined }
       search_menu_items: {
         Args: { p_query: string }
         Returns: {

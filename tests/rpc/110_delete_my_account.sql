@@ -63,7 +63,8 @@ begin
      or r.tokens <> 0 or r.favs <> 0 or r.sessions <> 0 then
     raise exception 'FAIL 110.2: personal data left: %', row(r.name, r.phone, r.addr_pii, r.item_notes, r.order_notes, r.tokens, r.favs, r.sessions);
   end if;
-  if r.email like '%sim110%' or r.banned is null or r.meta::text like '%Ana%' then
+  -- banned: far in the future but FINITE ('infinity' breaks GoTrue's user list, 20261012000111)
+  if r.email like '%sim110%' or r.banned is null or r.banned = 'infinity' or r.banned < now() + interval '100 years' or r.meta::text like '%Ana%' then
     raise exception 'FAIL 110.2: login still usable or identifying: %', row(r.email, r.banned, r.meta);
   end if;
   select count(*) into v_n_after from public.orders where customer_id = v_uid;

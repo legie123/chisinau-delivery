@@ -11,7 +11,8 @@ import { createClient } from "@/lib/supabase/server";
 // @chisinau/shared-api wrapper (RpcError → uniform Romanian userMessage).
 export type ActionResult = { error: string | null };
 
-export async function confirmCateringQuote(orderId: string): Promise<ActionResult> {
+/** `shownTotal` = the quoted amount on the page; a re-quote in between is refused server-side (sim 114). */
+export async function confirmCateringQuote(orderId: string, shownTotal?: number | null): Promise<ActionResult> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -19,7 +20,7 @@ export async function confirmCateringQuote(orderId: string): Promise<ActionResul
   if (!user) return { error: "Neautentificat." };
 
   try {
-    await confirmCateringQuoteRpc(supabase, asOrderId(orderId));
+    await confirmCateringQuoteRpc(supabase, asOrderId(orderId), shownTotal);
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : "Nu am putut confirma oferta." };
   }
