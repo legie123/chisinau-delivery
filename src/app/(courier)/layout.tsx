@@ -30,6 +30,9 @@ export default function CourierLayout({ children }: { children: React.ReactNode 
           <Link href="/earnings" className="py-1 transition hover:text-gold">
             Câștiguri
           </Link>
+          <Link href="/profile" className="py-1 transition hover:text-white">
+            Profil
+          </Link>
           <SignOutButton />
         </nav>
       </header>
