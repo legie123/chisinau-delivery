@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, StatusBar, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { addToCart, cartCount, cartSubtotal, EMPTY_CART, needsRestaurantSwitch, type ChosenOptions } from '@chisinau/shared-domain';
 import { COLORS } from '../theme';
 import { MenuItem, OptionGroup, Restaurant } from '../types';
 import { fetchInsights, fetchMenu, fetchRestaurants, fetchCouriersAvailable } from '../lib/api';
-import { isOpenForOrders, canOrderAhead } from '../lib/browse';
+import { isOpenForOrders, canOrderAhead, filterMenu } from '../lib/browse';
 import { useFavorites } from '../lib/favorites';
 import { getCart, setCart, useCart } from '../lib/cart';
 import ModifierSheet from '../components/ModifierSheet';
@@ -33,6 +33,7 @@ export default function RestaurantScreen({ route, navigation }: Props) {
   const [categories, setCategories] = useState<string[]>([]);
   const [groups, setGroups] = useState<Record<string, OptionGroup[]>>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [menuQuery, setMenuQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -126,7 +127,7 @@ export default function RestaurantScreen({ route, navigation }: Props) {
 
   // Open now, or closed but opening later -> a scheduled order (the cart forces "Programează").
   const ordering = (isOpenForOrders(restaurant) || canOrderAhead(restaurant)) && !missing;
-  const filteredItems = selectedCategory ? menuItems.filter(i => i.category === selectedCategory) : menuItems;
+  const filteredItems = filterMenu(menuItems, selectedCategory, menuQuery);
 
   const commitAdd = (item: MenuItem, options?: ChosenOptions, quantity = 1) => {
     const ref = { id: item.id, name: item.name, price_mdl: item.priceMdl };
@@ -252,11 +253,30 @@ export default function RestaurantScreen({ route, navigation }: Props) {
         )}
         {busiest.length > 0 && <Text style={styles.minNote}>Ore aglomerate: {busiest.join(', ')}</Text>}
 
+        <View style={styles.menuSearch}>
+          <Ionicons name="search" size={16} color={COLORS.textMuted} />
+          <TextInput
+            style={styles.menuSearchInput}
+            placeholder="Caută în meniu"
+            placeholderTextColor={COLORS.textMuted}
+            value={menuQuery}
+            onChangeText={setMenuQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+            accessibilityLabel="Caută în meniu"
+          />
+          {menuQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setMenuQuery('')} accessibilityLabel="Șterge căutarea" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={16} color={COLORS.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
           {categories.map(cat => (
             <TouchableOpacity
               key={cat}
-              style={[styles.categoryPill, selectedCategory === cat && styles.categoryPillActive]}
+              style={[styles.categoryPill, selectedCategory === cat && !menuQuery.trim() && styles.categoryPillActive]}
               onPress={() => setSelectedCategory(cat)}
             >
               <Text style={[styles.categoryText, selectedCategory === cat && styles.categoryTextActive]}>{cat}</Text>
@@ -270,6 +290,9 @@ export default function RestaurantScreen({ route, navigation }: Props) {
             <TouchableOpacity onPress={() => setReload(r => r + 1)}>
               <Text style={styles.closedNote}>{loadError} Atinge pentru a reîncerca.</Text>
             </TouchableOpacity>
+          )}
+          {!loading && !loadError && menuQuery.trim() !== '' && filteredItems.length === 0 && (
+            <Text style={styles.closedNote}>Niciun produs pentru „{menuQuery.trim()}”.</Text>
           )}
           {filteredItems.map(item => (
             <View
@@ -374,6 +397,8 @@ const styles = StyleSheet.create({
   starTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
   starFill: { height: 6, backgroundColor: COLORS.gold },
   starCount: { color: COLORS.textMuted, fontSize: 11, width: 28, textAlign: 'right' },
+  menuSearch: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 12, paddingHorizontal: 12, minHeight: 44, borderRadius: 12, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.cardBorder },
+  menuSearchInput: { flex: 1, color: COLORS.white, fontSize: 14, paddingVertical: 10 },
   categoriesRow: { paddingHorizontal: 16, paddingVertical: 16, gap: 10 },
   categoryPill: {
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,

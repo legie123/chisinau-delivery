@@ -96,3 +96,22 @@ export function liveAvailability<T extends { is_available: boolean; sold_out_unt
   const { sold_out_until, ...rest } = row;
   return { ...rest, is_available: row.is_available && !isSoldOut(sold_out_until, now) };
 }
+
+// ---- search inside one restaurant's menu (parity row 11) ----
+
+/** Diacritics-insensitive, case-insensitive: "peste" finds "Pește", "ŞTRUDEL" finds "Ștrudel". */
+export function foldText(v: string): string {
+  return v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[\u0219\u015f]/g, "s").replace(/[\u021b\u0163]/g, "t").toLowerCase().trim();
+}
+
+/** With a query the whole menu is searched (name, description, category) and the category pill is
+ *  ignored; without one the selected category filters as before. */
+export function filterMenu<T extends { name: string; description: string; category: string }>(
+  items: T[],
+  category: string | null,
+  query: string,
+): T[] {
+  const q = foldText(query);
+  if (!q) return category ? items.filter((i) => i.category === category) : items;
+  return items.filter((i) => foldText(`${i.name} ${i.description} ${i.category}`).includes(q));
+}
