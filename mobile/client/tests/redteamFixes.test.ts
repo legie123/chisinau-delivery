@@ -22,14 +22,14 @@ import { planReorder, type ReorderGroup } from "../src/lib/reorder";
 
 describe("HIGH 1 — editing an address an order references never mutates it", () => {
   const before = { street_address: "Str. A 1", lat: 47.01, lng: 28.86, is_default: true };
-  const draft = { street: "Str. A 1", phone: "069111111", notes: "etaj 3", pin: { lat: 47.01, lng: 28.86 }, sector: "", building: "", apartment: "7", label: "Acasă" };
+  const draft = { street: "Str. A 1", phone: "069111111", notes: "etaj 3", pin: { lat: 47.01, lng: 28.86 }, sector: "", building: "", apartment: "7", floor: "2", label: "Acasă" };
 
   it("used by any order → a NEW row (same pin while the street is unchanged), default carried over", () => {
     const plan = addressEditPlan(before, draft, true);
     expect(plan).toEqual({
       kind: "insert",
       makeDefault: true,
-      row: { street_address: "Str. A 1", contact_phone: "069111111", notes: "etaj 3", label: "Acasă", sector: null, building: null, apartment: "7", lat: 47.01, lng: 28.86 },
+      row: { street_address: "Str. A 1", contact_phone: "069111111", notes: "etaj 3", label: "Acasă", sector: null, building: null, apartment: "7", entrance: null, floor: "2", intercom_code: null, lat: 47.01, lng: 28.86 },
     });
   });
 

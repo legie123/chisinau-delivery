@@ -180,13 +180,17 @@ export function buildOrderInput(
 // address row was inserted. A retry reuses that row only while the draft is exactly
 // what was saved — any edit to any field or the pin means a new row.
 
-// The extra fields are the web checkout's (sector / bloc / apartament) + the label it shows.
-export type AddressFields = { label?: string; sector?: string; building?: string; apartment?: string };
+// The extra fields are the web checkout's (sector / bloc / apartament / scară / etaj / interfon) + the
+// label it shows. Scară/etaj/interfon are EXISTING columns the driver app already prints (orderView.ts).
+export type AddressFields = {
+  label?: string; sector?: string; building?: string; apartment?: string;
+  entrance?: string; floor?: string; intercom?: string;
+};
 export type AddressDraft = AddressFields & { street: string; phone: string; notes: string; pin: { lat: number; lng: number } | null };
 export type CreatedAddress = { id: string; fingerprint: string };
 
 export function addressFingerprint(d: AddressDraft): string {
-  const extra = [d.label, d.sector, d.building, d.apartment].map((v) => (v ?? "").trim());
+  const extra = [d.label, d.sector, d.building, d.apartment, d.entrance, d.floor, d.intercom].map((v) => (v ?? "").trim());
   return JSON.stringify([d.street.trim(), d.phone.trim(), d.notes.trim(), d.pin?.lat ?? null, d.pin?.lng ?? null, ...extra]);
 }
 
@@ -200,6 +204,14 @@ export function addressDraftProblem(d: AddressDraft): string | null {
   if (d.phone.replace(/\D/g, "").length < 6) return "Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.";
   // place_order refuses a pinless address (C1, sim 102): the courier needs the exact door.
   if (!d.pin) return "Fixează pinul pe hartă — trage-l exact la intrarea în bloc.";
+  return apartmentDetailsProblem(d);
+}
+
+/** Parity row 3 (Bolt: entrance/floor set before confirming): an apartment without the floor sends
+ *  the courier into the stairwell guessing. A house (no apartment) needs nothing more. */
+export function apartmentDetailsProblem(d: { apartment?: string; floor?: string }): string | null {
+  if (!d.apartment?.trim()) return null;
+  if (!d.floor?.trim()) return "Scrie etajul — curierul trebuie să știe unde urcă (scara și interfonul ajută și ele).";
   return null;
 }
 
@@ -244,6 +256,9 @@ export function addressRow(d: AddressDraft) {
     sector: opt(d.sector),
     building: opt(d.building),
     apartment: opt(d.apartment),
+    entrance: opt(d.entrance),
+    floor: opt(d.floor),
+    intercom_code: opt(d.intercom),
     ...(d.pin ?? {}),
   };
 }

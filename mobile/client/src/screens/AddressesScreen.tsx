@@ -45,13 +45,19 @@ export function AddressFieldsForm({
         {field('building', 'Bloc', styles.flex)}
         {field('apartment', 'Apartament', styles.flex)}
       </View>
+      {/* Parity row 3: the courier is told exactly where to go up (floor required with an apartment). */}
+      <View style={styles.row3}>
+        {field('entrance', 'Scara', styles.flex)}
+        {field('floor', value.apartment?.trim() ? 'Etaj (obligatoriu)' : 'Etaj', styles.flex)}
+        {field('intercom', 'Interfon', styles.flex)}
+      </View>
       {field('label', 'Etichetă (ex. Acasă, Birou) — opțional')}
     </>
   );
 }
 
 type Draft = Required<AddressFields> & { street: string; phone: string; notes: string; pin: { lat: number; lng: number } | null };
-const EMPTY: Draft = { street: '', sector: '', building: '', apartment: '', label: '', phone: '', notes: '', pin: null };
+const EMPTY: Draft = { street: '', sector: '', building: '', apartment: '', entrance: '', floor: '', intercom: '', label: '', phone: '', notes: '', pin: null };
 
 function toDraft(a: AddressBookEntry): Draft {
   return {
@@ -59,6 +65,9 @@ function toDraft(a: AddressBookEntry): Draft {
     sector: a.sector ?? '',
     building: a.building ?? '',
     apartment: a.apartment ?? '',
+    entrance: a.entrance ?? '',
+    floor: a.floor ?? '',
+    intercom: a.intercom_code ?? '',
     label: a.label ?? '',
     phone: a.contact_phone ?? '',
     notes: a.notes ?? '',
@@ -66,8 +75,8 @@ function toDraft(a: AddressBookEntry): Draft {
   };
 }
 
-export function addressLine(a: { street_address: string; sector?: string | null; building?: string | null; apartment?: string | null }): string {
-  return [a.street_address, a.building && `bl. ${a.building}`, a.apartment && `ap. ${a.apartment}`, a.sector && `sect. ${a.sector}`].filter(Boolean).join(', ');
+export function addressLine(a: { street_address: string; sector?: string | null; building?: string | null; apartment?: string | null; entrance?: string | null; floor?: string | null }): string {
+  return [a.street_address, a.building && `bl. ${a.building}`, a.entrance && `sc. ${a.entrance}`, a.floor && `et. ${a.floor}`, a.apartment && `ap. ${a.apartment}`, a.sector && `sect. ${a.sector}`].filter(Boolean).join(', ');
 }
 
 export default function AddressesScreen({ navigation }: { navigation: any }) {
@@ -168,7 +177,7 @@ export default function AddressesScreen({ navigation }: { navigation: any }) {
             <AddressFieldsForm value={draft} onChange={set} />
             <PinPicker value={draft.pin} onChange={pin => setDraft(d => ({ ...d, pin }))} />
             <TextInput style={styles.input} placeholder="Telefon de contact" placeholderTextColor={COLORS.textMuted} keyboardType="phone-pad" value={draft.phone} onChangeText={t => set('phone', t)} />
-            <TextInput style={[styles.input, { minHeight: 60 }]} placeholder="Note pentru curier: etaj, interfon..." placeholderTextColor={COLORS.textMuted} value={draft.notes} onChangeText={t => set('notes', t)} multiline />
+            <TextInput style={[styles.input, { minHeight: 60 }]} placeholder="Note pentru curier: reper, poartă, câine..." placeholderTextColor={COLORS.textMuted} value={draft.notes} onChangeText={t => set('notes', t)} multiline />
             {error && <Text style={styles.error}>{error}</Text>}
             <TouchableOpacity style={[styles.primaryBtn, busy && { opacity: 0.5 }]} onPress={save} disabled={busy}>
               {busy ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.primaryText}>Salvează</Text>}

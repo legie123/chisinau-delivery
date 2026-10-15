@@ -85,11 +85,12 @@ describe("tip — custom amount wins over the preset (web CheckoutForm)", () => 
 });
 
 describe("address fields — web parity (sector, bloc, apartament, label)", () => {
-  const draft = { street: " Str. A 1 ", phone: "069111111", notes: "", pin: null, sector: "Centru", building: "", apartment: "12", label: "Acasă" };
+  const draft = { street: " Str. A 1 ", phone: "069111111", notes: "", pin: null, sector: "Centru", building: "", apartment: "12", floor: "3", label: "Acasă" };
 
   it("row: trimmed, empty optional fields NULL, lat/lng only with a pin", () => {
     expect(addressRow(draft)).toEqual({
       street_address: "Str. A 1", contact_phone: "069111111", notes: null, label: "Acasă", sector: "Centru", building: null, apartment: "12",
+      entrance: null, floor: "3", intercom_code: null,
     });
     expect(addressRow({ ...draft, pin: { lat: 47, lng: 28.8 } })).toMatchObject({ lat: 47, lng: 28.8 });
   });
@@ -106,6 +107,9 @@ describe("address fields — web parity (sector, bloc, apartament, label)", () =
     expect(addressDraftProblem({ ...draft, street: " " })).toMatch(/obligatorie/);
     expect(addressDraftProblem({ ...draft, phone: "12" })).toMatch(/telefon/);
     expect(addressDraftProblem({ ...draft, pin: { lat: 47.02, lng: 28.83 } })).toBeNull();
+    // parity row 3: with an apartment the floor is required (a house needs nothing more)
+    expect(addressDraftProblem({ ...draft, floor: "", pin: { lat: 47.02, lng: 28.83 } })).toMatch(/etajul/);
+    expect(addressDraftProblem({ ...draft, apartment: "", floor: "", pin: { lat: 47.02, lng: 28.83 } })).toBeNull();
   });
 });
 

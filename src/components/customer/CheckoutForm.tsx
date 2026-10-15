@@ -7,6 +7,7 @@ import { PinPickerMap } from "@/components/customer/PinPickerMap";
 import { placeOrderItems } from "@chisinau/shared-domain";
 import { createClient } from "@/lib/supabase/client";
 import { cartSubtotal, useCartStore } from "@/lib/orders/cart";
+import { apartmentDetailsProblem, newAddressRow } from "@/lib/orders/addressDetails";
 import { useCartReconcile } from "@/hooks/useCartReconcile";
 import { useHydrated } from "@/hooks/useHydrated";
 import type { Address, PaymentMethod } from "@/lib/types/domain";
@@ -66,7 +67,9 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
   const selectedAddressHasPhone =
     selectedAddressId === "new" ||
     Boolean(addresses.find((a) => a.id === selectedAddressId)?.contact_phone);
-  const [newAddress, setNewAddress] = useState({ street_address: "", sector: "", building: "", apartment: "", notes: "", contact_phone: "" });
+  const [newAddress, setNewAddress] = useState({
+    street_address: "", sector: "", building: "", apartment: "", entrance: "", floor: "", intercom_code: "", notes: "", contact_phone: "",
+  });
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   // Tipping — 4 preset chips (% of subtotal) OR a custom MDL amount that overrides them.
   const [tipChoice, setTipChoice] = useState<TipChoice>("none");
@@ -210,6 +213,8 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
           throw new Error("Lasă un telefon de contact — curierul trebuie să te poată suna la livrare.");
         }
         if (!coords) throw new Error("Fixează pinul adresei pe hartă — curierul trebuie să știe exact unde livrează.");
+        const detailsProblem = apartmentDetailsProblem(newAddress);
+        if (detailsProblem) throw new Error(detailsProblem);
         if (createdAddressId) {
           // A previous submit already saved this address but place_order failed;
           // reuse it instead of inserting a duplicate.
@@ -222,7 +227,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
 
           const { data: inserted, error: addressError } = await supabase
             .from("addresses")
-            .insert({ customer_id: user.id, ...newAddress, ...(coords ?? {}) })
+            .insert({ customer_id: user.id, ...newAddressRow(newAddress), ...(coords ?? {}) })
             .select("id")
             .single();
           if (addressError) throw new Error(addressError.message);
@@ -485,6 +490,29 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
               onChange={(e) => setNewAddress({ ...newAddress, apartment: e.target.value })}
               className={inputClass}
             />
+            {/* Rândul 3 de paritate: curierul află exact unde urcă — etajul e obligatoriu la apartament. */}
+            <input
+              aria-label="Scara"
+              placeholder="Scara"
+              value={newAddress.entrance}
+              onChange={(e) => setNewAddress({ ...newAddress, entrance: e.target.value })}
+              className={inputClass}
+            />
+            <input
+              aria-label="Etaj"
+              placeholder={newAddress.apartment.trim() ? "Etaj (obligatoriu)" : "Etaj"}
+              required={Boolean(newAddress.apartment.trim())}
+              value={newAddress.floor}
+              onChange={(e) => setNewAddress({ ...newAddress, floor: e.target.value })}
+              className={inputClass}
+            />
+            <input
+              aria-label="Interfon"
+              placeholder="Interfon"
+              value={newAddress.intercom_code}
+              onChange={(e) => setNewAddress({ ...newAddress, intercom_code: e.target.value })}
+              className={inputClass}
+            />
             {/* Telefonul e OBLIGATORIU: fără el curierul n-are cum să te sune
                 dacă poarta e încuiată sau interfonul nu răspunde (armata SPOF
                 2026-08-15 — până acum nu se colecta nicăieri). */}
@@ -501,7 +529,7 @@ export function CheckoutForm({ addresses }: { addresses: Address[] }) {
             />
             <input
               aria-label="Note pentru curier"
-              placeholder="Note pentru curier (interfon, etaj...)"
+              placeholder="Note pentru curier (reper, poartă, câine...)"
               value={newAddress.notes}
               onChange={(e) => setNewAddress({ ...newAddress, notes: e.target.value })}
               className={inputClass}

@@ -322,6 +322,9 @@ export async function createAddress(input: {
   sector?: string | null;
   building?: string | null;
   apartment?: string | null;
+  entrance?: string | null;
+  floor?: string | null;
+  intercom_code?: string | null;
   lat?: number;
   lng?: number;
 }): Promise<string> {
@@ -345,6 +348,9 @@ export type AddressBookEntry = SavedAddress & {
   sector: string | null;
   building: string | null;
   apartment: string | null;
+  entrance: string | null;
+  floor: string | null;
+  intercom_code: string | null;
   is_default: boolean;
   lat: number | null;
   lng: number | null;
@@ -356,7 +362,7 @@ export async function fetchAddressBook(): Promise<AddressBookEntry[]> {
   if (!userId) return [];
   const { data, error } = await supabase
     .from("addresses")
-    .select("id, street_address, contact_phone, notes, label, sector, building, apartment, is_default, lat, lng")
+    .select("id, street_address, contact_phone, notes, label, sector, building, apartment, entrance, floor, intercom_code, is_default, lat, lng")
     .eq("customer_id", userId)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: false })
@@ -367,7 +373,11 @@ export async function fetchAddressBook(): Promise<AddressBookEntry[]> {
 
 export async function updateAddress(
   id: string,
-  patch: { street_address: string; contact_phone: string; notes: string | null; label: string | null; sector: string | null; building: string | null; apartment: string | null; lat?: number | null; lng?: number | null },
+  patch: {
+    street_address: string; contact_phone: string; notes: string | null; label: string | null; sector: string | null;
+    building: string | null; apartment: string | null; entrance: string | null; floor: string | null; intercom_code: string | null;
+    lat?: number | null; lng?: number | null;
+  },
 ): Promise<void> {
   const { error } = await supabase.from("addresses").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
