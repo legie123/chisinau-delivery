@@ -79,6 +79,7 @@ export const KNOWN_ERRORS: [string, string][] = [
   ["ponderile trebuie sa fie >= 0", "Ponderile trebuie să fie ≥ 0."],
   ["suprataxa trebuie sa fie >= 0", "Suprataxa trebuie să fie ≥ 0."],
   ["dispatch_scoring_config este imutabil", "Configurația de dispecerizare nu se modifică pe loc — creează o versiune nouă."],
+  ["courier_release_policy is versioned", "Plafonul de renunțări nu se modifică pe loc — creează o versiune nouă."],
   ["ledger-ul de payout este imutabil", "O plată decontată nu se mai modifică — corecția se face printr-o tranzacție nouă."],
   // unique constraints a user can hit (23505 names the constraint)
   ["restaurants_slug_key", "Slug-ul este deja folosit de alt restaurant — alege altul."],

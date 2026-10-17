@@ -14,8 +14,11 @@ import { StuckOrderActions } from "../../queues/StuckOrderActions";
 import { PaymentActions } from "../../queues/PaymentActions";
 import { ReassignCourierControl, type AvailableCourier } from "../../queues/ReassignCourierControl";
 import { OrderComplaints, type OrderComplaint, type PayoutAdjustment } from "@/components/admin/OrderComplaints";
+import { distanceAssumedLabel, issueLabel } from "@/lib/admin/courierSignals";
 
 const IN_FLIGHT = ["courier_assigned", "picked_up", "en_route"];
+
+type IssueReport = { id: string; kind: string; leg: string; created_at: string };
 
 const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
   unpaid: "Neîncasată",
@@ -54,7 +57,7 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: order }, { data: items }, { data: events }, { data: catering }, { data: complaints }, { data: adjustments }] =
+  const [{ data: order }, { data: items }, { data: events }, { data: catering }, { data: complaints }, { data: adjustments }, { data: issues }] =
     await Promise.all([
     supabase
       .from("orders")
@@ -74,6 +77,8 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
       .select("id, complaint_id, recipient_type, amount_mdl, reason, payout_id")
       .eq("order_id", id)
       .order("created_at", { ascending: true }),
+    // What the courier flagged (delivery_issue_reports, 000205) — no free text, so no PII.
+    supabase.from("delivery_issue_reports").select("id, kind, leg, created_at").eq("order_id", id).order("created_at", { ascending: true }),
   ]);
 
   if (!order) notFound();
@@ -102,6 +107,7 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
 
   const orderItems = (items ?? []) as unknown as OrderItem[];
   const timeline = (events ?? []) as DeliveryStatusEvent[];
+  const issueReports = (issues ?? []) as IssueReport[];
   const cateringDetails = catering as CateringDetails | null;
   const isTerminal = o.status === "delivered" || o.status === "cancelled" || o.status === "rejected";
 
@@ -156,7 +162,7 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
               refund/dispute (paid → refund_pending → refunded → clawback) is
               opened AFTER delivery. PaymentActions self-hides when the current
               payment status has no valid transitions. */}
-          <PaymentActions orderId={o.id} status={o.payment_status} />
+          <PaymentActions orderId={o.id} status={o.payment_status} paymentMethod={o.payment_method} totalMdl={Number(o.total_mdl)} refundedMdl={Number(o.refunded_mdl ?? 0)} />
         </div>
       </div>
 
@@ -196,6 +202,10 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
             <Row label="Taxă livrare" value={`${o.delivery_fee_mdl} MDL`} />
             <Row label="Bacșiș" value={`${o.tip_mdl} MDL`} />
             <Row label="Total" value={`${o.total_mdl} MDL`} />
+            {/* Courier fee + whether its distance was the 6,0 km assumption (missing pin),
+                measured, or never evaluated (orders before 000208). null ≠ false. */}
+            {o.courier_fee_mdl != null && <Row label="Taxă curier" value={`${o.courier_fee_mdl} MDL`} />}
+            <Row label="Km curier" value={distanceAssumedLabel(o.courier_fee_distance_assumed)} />
           </dl>
 
           {cateringDetails && (
@@ -254,6 +264,20 @@ export default async function PlatformOrderDetailPage({ params }: { params: Prom
             alt="Dovadă foto la livrare"
             className="max-h-96 w-auto rounded-xl ring-1 ring-white/10"
           />
+        </section>
+      )}
+
+      {issueReports.length > 0 && (
+        <section className="mt-5 rounded-2xl bg-white/[0.04] p-5 ring-1 ring-white/[0.06]">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/50">Raportări curier</h2>
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {issueReports.map((r) => (
+              <li key={r.id} className="flex flex-wrap justify-between gap-3">
+                <span className="text-gold/90">⚑ {issueLabel(r.kind, r.leg)}</span>
+                <span className="text-xs text-white/35">{formatDateTime.format(new Date(r.created_at))}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

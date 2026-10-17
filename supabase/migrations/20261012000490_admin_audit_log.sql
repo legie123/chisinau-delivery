@@ -126,9 +126,19 @@ begin
 
   -- An admin RPC may state why (set_config('app.audit_reason', …, true)); it rides along as _motiv.
   k := nullif(btrim(current_setting('app.audit_reason', true)), '');
-  -- Free text like every other reason column: digit runs (phone, IDNP, card) are masked.
+  -- Unlike the other reason columns (masked whole, mask:reason) the admin's reason is KEPT, with
+  -- identifiers masked: emails, and any run of 9+ digits (MD phone 069…, +373…, IDNP 13) however it
+  -- is grouped — spaces, NBSP, tabs, . , / _ - – between digits; fullwidth digits are folded first.
+  -- Shorter runs stay readable on purpose (dates 12.10.2026, amounts 1 250.50, #100234); the order
+  -- number CHD-AAAA-NNNNNN is 10 digits and is kept too. Names stay in clear: nothing distinguishes
+  -- them from words. Proof: sim 293.R5.
   if k is not null then
-    v_new := coalesce(v_new, '{}'::jsonb) || jsonb_build_object('_motiv', regexp_replace(left(k, 500), '[0-9][0-9 .-]{4,}[0-9]', '***', 'g'));
+    k := translate(left(k, 500), '０１２３４５６７８９' || chr(160) || chr(9), '0123456789  ');
+    k := regexp_replace(k, '(CHD-[0-9]{4})(-[0-9]{6})', '\1' || chr(1) || '\2', 'g');  -- split the run
+    k := regexp_replace(k, '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}', '***@***', 'g');
+    k := regexp_replace(k, '\+?(?:[0-9][ .,/_\-–]?){8,}[0-9]', '***', 'g');
+    k := replace(k, chr(1), '');
+    v_new := coalesce(v_new, '{}'::jsonb) || jsonb_build_object('_motiv', k);
   end if;
 
   insert into public.admin_audit_log (actor, actor_role, action, table_name, row_id, old_values, new_values)

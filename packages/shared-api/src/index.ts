@@ -14,5 +14,6 @@ export * from "./notifications";
 export * from "./bookings";
 export * from "./cash";
 export * from "./tariff";
+export * from "./releases";
 export * from "./pilot";
 export * from "./team";

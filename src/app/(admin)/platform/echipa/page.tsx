@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { AdminRoleForm } from "./AdminRoleForm";
+import { AdminRoleForm, InviteAdminForm } from "./AdminRoleForm";
 
 // The admin team: who holds platform_admin, and the one way to change it (admin_set_platform_admin,
 // reason mandatory, audited). Couriers and partners get their roles through onboarding.
@@ -30,6 +30,7 @@ export default async function PlatformTeamPage() {
           ))}
         </ul>
       )}
+      <InviteAdminForm />
       <AdminRoleForm />
     </main>
   );

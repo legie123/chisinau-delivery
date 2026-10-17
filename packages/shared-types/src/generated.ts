@@ -1165,6 +1165,33 @@ export type Database = {
           },
         ]
       }
+      dispatch_offer_radius_config: {
+        Row: {
+          created_at: string
+          effective_from: string
+          id: string
+          max_km: number
+          note: string | null
+          vehicle_type: string
+        }
+        Insert: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          max_km: number
+          note?: string | null
+          vehicle_type: string
+        }
+        Update: {
+          created_at?: string
+          effective_from?: string
+          id?: string
+          max_km?: number
+          note?: string | null
+          vehicle_type?: string
+        }
+        Relationships: []
+      }
       dispatch_offers: {
         Row: {
           courier_id: string
@@ -2120,6 +2147,8 @@ export type Database = {
           payment_status: string
           pod_photo_path: string | null
           prep_time_override_minutes: number | null
+          refunded_mdl: number
+          request_fingerprint: string | null
           requested_for: string | null
           restaurant_id: string
           status: string
@@ -2151,6 +2180,8 @@ export type Database = {
           payment_status?: string
           pod_photo_path?: string | null
           prep_time_override_minutes?: number | null
+          refunded_mdl?: number
+          request_fingerprint?: string | null
           requested_for?: string | null
           restaurant_id: string
           status?: string
@@ -2182,6 +2213,8 @@ export type Database = {
           payment_status?: string
           pod_photo_path?: string | null
           prep_time_override_minutes?: number | null
+          refunded_mdl?: number
+          request_fingerprint?: string | null
           requested_for?: string | null
           restaurant_id?: string
           status?: string
@@ -2496,6 +2529,77 @@ export type Database = {
           },
         ]
       }
+      payout_export_lines: {
+        Row: {
+          export_id: string
+          holder_name: string
+          iban: string
+          iban_changed: boolean
+          name: string
+          net_mdl: number
+          payout_ids: string[]
+          recipient_id: string
+          recipient_type: string
+          settled_at: string | null
+          settled_by: string | null
+        }
+        Insert: {
+          export_id: string
+          holder_name: string
+          iban: string
+          iban_changed?: boolean
+          name: string
+          net_mdl: number
+          payout_ids: string[]
+          recipient_id: string
+          recipient_type: string
+          settled_at?: string | null
+          settled_by?: string | null
+        }
+        Update: {
+          export_id?: string
+          holder_name?: string
+          iban?: string
+          iban_changed?: boolean
+          name?: string
+          net_mdl?: number
+          payout_ids?: string[]
+          recipient_id?: string
+          recipient_type?: string
+          settled_at?: string | null
+          settled_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_export_lines_export_id_fkey"
+            columns: ["export_id"]
+            isOneToOne: false
+            referencedRelation: "payout_exports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_exports: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          voided_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          voided_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          voided_at?: string | null
+        }
+        Relationships: []
+      }
       payout_orders: {
         Row: {
           gross_mdl: number
@@ -2624,6 +2728,7 @@ export type Database = {
           courier_commission_pct: number
           id: boolean
           no_courier_cancel_minutes: number
+          payouts_catchup_from: string | null
           restaurant_accept_alert_minutes: number
           restaurant_commission_pct: number
           updated_at: string
@@ -2633,6 +2738,7 @@ export type Database = {
           courier_commission_pct?: number
           id?: boolean
           no_courier_cancel_minutes?: number
+          payouts_catchup_from?: string | null
           restaurant_accept_alert_minutes?: number
           restaurant_commission_pct?: number
           updated_at?: string
@@ -2642,6 +2748,7 @@ export type Database = {
           courier_commission_pct?: number
           id?: boolean
           no_courier_cancel_minutes?: number
+          payouts_catchup_from?: string | null
           restaurant_accept_alert_minutes?: number
           restaurant_commission_pct?: number
           updated_at?: string
@@ -3596,6 +3703,7 @@ export type Database = {
           order_number: string | null
           payment_method: string | null
           payment_status: string | null
+          refunded_mdl: number | null
           restaurant_name: string | null
           status: string | null
           total_mdl: number | null
@@ -3867,6 +3975,7 @@ export type Database = {
           reactivation_threshold_mdl: number
         }[]
       }
+      admin_create_payout_export: { Args: never; Returns: string }
       admin_generate_payouts: {
         Args: { p_end: string; p_start: string }
         Returns: number
@@ -3912,6 +4021,10 @@ export type Database = {
         Args: { p_new_courier_id: string; p_order_id: string }
         Returns: undefined
       }
+      admin_refund_order: {
+        Args: { p_amount_mdl: number; p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       admin_resolve_complaint: {
         Args: { p_complaint_id: string; p_resolution: string }
         Returns: undefined
@@ -3929,16 +4042,21 @@ export type Database = {
         Args: { p_email: string; p_grant: boolean; p_reason: string }
         Returns: undefined
       }
-      admin_settle_payee: {
+      admin_settle_export_line: {
         Args: {
-          p_expected_net: number
+          p_export_id: string
+          p_iban_confirmed?: boolean
           p_recipient_id: string
           p_recipient_type: string
         }
-        Returns: number
+        Returns: undefined
       }
       admin_update_payment_status: {
         Args: { p_new_status: string; p_note?: string; p_order_id: string }
+        Returns: undefined
+      }
+      admin_void_payout_export: {
+        Args: { p_export_id: string }
         Returns: undefined
       }
       advance_delivery_status: {
@@ -3989,7 +4107,7 @@ export type Database = {
       }
       close_stale_courier_shifts: { Args: never; Returns: number }
       confirm_catering_quote: {
-        Args: { p_order_id: string }
+        Args: { p_expected_total?: number; p_order_id: string }
         Returns: undefined
       }
       confirm_online_payment: {
@@ -4138,6 +4256,10 @@ export type Database = {
         Args: { target_courier: string }
         Returns: boolean
       }
+      customer_report_problem: {
+        Args: { p_kind: string; p_note: string; p_order_id: string }
+        Returns: string
+      }
       customer_sees_courier_point: {
         Args: { point_at: string; target_courier: string }
         Returns: boolean
@@ -4154,6 +4276,7 @@ export type Database = {
         Args: { p_booking_id: string; p_reason: string }
         Returns: undefined
       }
+      delete_my_account: { Args: never; Returns: undefined }
       dispatch_order: { Args: { p_order_id: string }; Returns: string }
       effective_cash_cap: { Args: { p_courier_id: string }; Returns: number }
       end_view_as: { Args: { p_session: string }; Returns: undefined }
@@ -4203,6 +4326,10 @@ export type Database = {
       mark_ready_for_pickup: {
         Args: { p_order_id: string }
         Returns: undefined
+      }
+      my_order_complaint_status: {
+        Args: { p_order_id: string }
+        Returns: string
       }
       nearby_available_couriers: {
         Args: {
@@ -4425,6 +4552,7 @@ export type Database = {
         Returns: undefined
       }
       scan_ops_alerts: { Args: never; Returns: number }
+      scrub_deleted_customer: { Args: { p_uid: string }; Returns: undefined }
       search_menu_items: {
         Args: { p_query: string }
         Returns: {

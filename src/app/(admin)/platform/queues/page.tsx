@@ -9,6 +9,10 @@ import {
 import { StuckOrderActions } from "./StuckOrderActions";
 import { ReassignCourierControl, type AvailableCourier } from "./ReassignCourierControl";
 import { PaymentActions } from "./PaymentActions";
+import { issueLabel } from "@/lib/admin/courierSignals";
+
+type IssueReport = { order_id: string; kind: string; leg: string; created_at: string };
+const fmtTime = new Intl.DateTimeFormat("ro-MD", { timeStyle: "short", timeZone: "Europe/Chisinau" });
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
   unpaid: "Neplătit",
@@ -36,6 +40,20 @@ export default async function PlatformQueuesPage() {
   const stuckRows = (stuck ?? []) as AdminStuckOrderRow[];
   const payRows = (payments ?? []) as AdminPaymentQueueRow[];
   const availableCouriers = (freeCouriers ?? []) as AvailableCourier[];
+
+  // What the courier reported on a stuck order (delivery_issue_reports, 000205; admin SELECT by
+  // RLS) — "clientul nu răspunde" next to "Livrare care durează prea mult" tells ops what to do.
+  const issuesByOrder = new Map<string, IssueReport[]>();
+  if (stuckRows.length > 0) {
+    const { data: issues } = await supabase
+      .from("delivery_issue_reports")
+      .select("order_id, kind, leg, created_at")
+      .in("order_id", stuckRows.map((o) => o.id))
+      .order("created_at", { ascending: true });
+    for (const r of (issues ?? []) as IssueReport[]) {
+      issuesByOrder.set(r.order_id, [...(issuesByOrder.get(r.order_id) ?? []), r]);
+    }
+  }
 
   return (
     <main className="flex-1 px-6 py-8">
@@ -71,7 +89,14 @@ export default async function PlatformQueuesPage() {
                         {o.order_number}
                       </Link>
                     </td>
-                    <td className="py-3 text-white/70">{o.stuck_reason}</td>
+                    <td className="py-3 text-white/70">
+                      {o.stuck_reason}
+                      {issuesByOrder.get(o.id)?.map((r) => (
+                        <span key={`${r.kind}-${r.leg}`} className="mt-1 block text-xs text-gold/90">
+                          ⚑ Curier: {issueLabel(r.kind, r.leg)} · {fmtTime.format(new Date(r.created_at))}
+                        </span>
+                      ))}
+                    </td>
                     <td className="py-3 text-primary">{ageLabel(o.in_state_seconds)}</td>
                     <td className="py-3 text-white/60">{o.restaurant_name}</td>
                     <td className="py-3 text-right">
@@ -138,7 +163,7 @@ export default async function PlatformQueuesPage() {
                     </td>
                     <td className="py-3 text-white/60">{o.cancellation_reason ?? "—"}</td>
                     <td className="py-3 text-right">
-                      <PaymentActions orderId={o.id} status={o.payment_status} />
+                      <PaymentActions orderId={o.id} status={o.payment_status} paymentMethod={o.payment_method} totalMdl={Number(o.total_mdl)} refundedMdl={Number(o.refunded_mdl ?? 0)} />
                     </td>
                   </tr>
                 ))}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   adminAssignCourier,
   adminReassignCourier,
+  adminRefundOrder,
   adminUpdatePaymentStatus,
   advanceDeliveryStatus,
   cancelOrder,
@@ -96,6 +97,27 @@ export async function assignCourier(orderId: string, courierId: string): Promise
     await adminAssignCourier(supabase, asOrderId(orderId), asCourierId(courierId));
   } catch (err) {
     return { error: err instanceof RpcError ? err.userMessage : "Nu am putut atribui curierul." };
+  }
+  revalidatePath("/platform/queues");
+  revalidatePath(`/platform/orders/${orderId}`);
+  return { error: null };
+}
+
+// Partial/full refund of an online payment (admin_refund_order, 20261012000495). The RPC enforces
+// admin, bounds, reason and audit; this only shapes the input.
+export async function refundOrder(orderId: string, amountMdl: number, reason: string): Promise<ActionResult> {
+  let supabase;
+  try {
+    supabase = await client();
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Neautentificat." };
+  }
+  if (!Number.isFinite(amountMdl) || amountMdl <= 0) return { error: "Scrie suma de rambursat (MDL, peste 0)." };
+  if (reason.trim().length < 5) return { error: "Scrie motivul rambursării (minim 5 caractere) — rămâne în audit." };
+  try {
+    await adminRefundOrder(supabase, asOrderId(orderId), Math.round(amountMdl * 100) / 100, reason.trim());
+  } catch (err) {
+    return { error: surfaced(err, "Nu am putut înregistra rambursarea.") };
   }
   revalidatePath("/platform/queues");
   revalidatePath(`/platform/orders/${orderId}`);

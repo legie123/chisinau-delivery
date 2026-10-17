@@ -33,6 +33,16 @@ export async function confirmOnlinePayment(
   if (error) throw new RpcError(error);
 }
 
+/**
+ * Admin refunds part (or the rest) of a captured ONLINE payment (owner decision 2026-10-13, B2):
+ * 0 < amount <= total - already refunded, reason mandatory (lands in admin_audit_log as _motiv).
+ * payment_status becomes 'refunded' only when the total is reached, else 'refund_pending'.
+ */
+export async function adminRefundOrder(db: Db, orderId: OrderId, amountMdl: number, reason: string): Promise<void> {
+  const { error } = await db.rpc("admin_refund_order", { p_order_id: orderId, p_amount_mdl: amountMdl, p_reason: reason });
+  if (error) throw new RpcError(error);
+}
+
 /** Admin moves an order's payment status along the guarded transition matrix. */
 export async function adminUpdatePaymentStatus(
   db: Db,

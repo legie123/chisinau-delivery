@@ -162,9 +162,14 @@ export interface Order {
   tip_mdl: number;
   // Order 2 — per-delivery courier tariff. Quoted (floor) stamped at
   // mark_ready_for_pickup; final stamped at delivered, never below the quote.
+  // 000495 — running refunded amount (admin_refund_order); payment_status 'refunded' only at total_mdl.
+  refunded_mdl: number;
   // Both null until stamped; UI/earnings code must fall back to delivery_fee_mdl.
   courier_fee_quoted_mdl: number | null;
   courier_fee_mdl: number | null;
+  // 000202/000208 — TRI-STATE: true = fee paid on the 6,0 km assumption (missing pin),
+  // false = measured, null = never evaluated (history before 000208). null ≠ false.
+  courier_fee_distance_assumed: boolean | null;
   // Order 3 (observe-only, no auto-compensation) — the assigned courier's
   // arrival-at-restaurant clock. Powers ops/partner wait KPIs only.
   courier_arrived_restaurant_at: string | null;
@@ -468,6 +473,7 @@ export interface AdminPaymentQueueRow {
   updated_at: string;
   restaurant_name: string;
   courier_name: string | null;
+  refunded_mdl: number; // 000495 — already refunded (partial refunds); 'refunded' only at total_mdl
 }
 
 // Faza 5 #5 — one row per continuous online->offline courier session ("tura").

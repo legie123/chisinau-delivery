@@ -4,6 +4,7 @@ import { GeneratePayoutsForm } from "@/components/admin/GeneratePayoutsForm";
 import { PayoutMarkPaidButton } from "@/components/admin/PayoutMarkPaidButton";
 import { buildPayoutBankCsv } from "@/lib/payouts/bankCsv";
 import { loadPendingBankRows } from "@/lib/payouts/pendingBankRows";
+import { summarizeDistanceAssumed } from "@/lib/admin/courierSignals";
 
 // Platform payout console: commission rates, a generator for a chosen period,
 // and the full ledger of every payout (courier + restaurant) with a
@@ -64,6 +65,21 @@ export default async function PlatformPayoutsPage() {
   const nameMap = new Map<string, string>();
   ((couriers ?? []) as { id: string; full_name: string }[]).forEach((c) => nameMap.set(c.id, c.full_name));
   ((restaurants ?? []) as { id: string; name: string }[]).forEach((r) => nameMap.set(r.id, r.name));
+
+  // Per courier payout: how many of its orders were paid on the 6,0 km ASSUMPTION (missing pin,
+  // orders.courier_fee_distance_assumed = true) vs measured vs never evaluated (null, pre-000208).
+  // ponytail: loads every courier payout_orders line on the page; paginate with the ledger if it grows.
+  const assumedByPayout = new Map<string, (boolean | null)[]>();
+  const courierPayoutIds = rows.filter((r) => r.recipient_type === "courier").map((r) => r.id);
+  if (courierPayoutIds.length > 0) {
+    const { data: lines } = await supabase
+      .from("payout_orders")
+      .select("payout_id, orders(courier_fee_distance_assumed)")
+      .in("payout_id", courierPayoutIds);
+    for (const l of (lines ?? []) as unknown as { payout_id: string; orders: { courier_fee_distance_assumed: boolean | null } | null }[]) {
+      assumedByPayout.set(l.payout_id, [...(assumedByPayout.get(l.payout_id) ?? []), l.orders?.courier_fee_distance_assumed ?? null]);
+    }
+  }
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -133,6 +149,7 @@ export default async function PlatformPayoutsPage() {
                 <th className="py-2">Tip</th>
                 <th className="py-2">Perioadă</th>
                 <th className="py-2 text-right">Comenzi</th>
+                <th className="py-2">Km presupuși</th>
                 <th className="py-2 text-right">Brut</th>
                 <th className="py-2 text-right">Comision</th>
                 <th className="py-2 text-right">Net</th>
@@ -160,6 +177,9 @@ export default async function PlatformPayoutsPage() {
                         {fmtDate(r.period_start)} – {fmtDate(r.period_end)}
                       </td>
                       <td className="py-3 text-right text-white/70">{r.orders_count}</td>
+                      <td className="py-3 whitespace-nowrap text-xs text-white/60">
+                        {r.recipient_type === "courier" ? summarizeDistanceAssumed(assumedByPayout.get(r.id) ?? []) : "—"}
+                      </td>
                       <td className="py-3 text-right whitespace-nowrap text-white/70">{signedMdl(Number(r.gross_mdl))}</td>
                       <td className="py-3 text-right whitespace-nowrap text-white/60">{deductionMdl(Number(r.commission_mdl))}</td>
                       <td className={`py-3 text-right whitespace-nowrap font-semibold ${isClawback ? "text-red-300" : "text-gold"}`}>
@@ -181,7 +201,7 @@ export default async function PlatformPayoutsPage() {
             </tbody>
             <tfoot>
               <tr className="border-t border-white/10 font-semibold text-white">
-                <td className="py-3" colSpan={4}>
+                <td className="py-3" colSpan={5}>
                   Total
                 </td>
                 <td className="py-3 text-right whitespace-nowrap">{round2(totals.gross)} MDL</td>
