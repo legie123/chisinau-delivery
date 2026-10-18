@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { supportPhone } from "@chisinau/shared-domain";
 import { createClient } from "@/lib/supabase/server";
 import { CourierPayoutForm } from "@/components/courier/CourierPayoutForm";
@@ -20,20 +21,18 @@ export default async function CourierProfilePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  // /profile is not in proxy.ts's guarded list (not this session's file), so the page guards itself
+  // the way the proxy guards /deliveries and /earnings: no session -> login and come back; a session
+  // without a courier row (customer, admin) -> bounce home, never a false "not registered".
+  if (!user) redirect("/login?next=/profile");
 
   const { data: courier } = await supabase
     .from("couriers")
     .select("id, full_name, phone, vehicle_type")
-    .eq("user_id", user?.id ?? "")
+    .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!courier) {
-    return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-16 text-center">
-        <p className="text-white/60">Contul tău nu este înregistrat ca curier.</p>
-      </main>
-    );
-  }
+  if (!courier) redirect("/");
 
   // RLS: the courier reads only their own row (payout_accounts_read, 000402).
   const { data: account } = await supabase
