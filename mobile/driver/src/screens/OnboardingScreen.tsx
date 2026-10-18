@@ -199,7 +199,7 @@ export default function OnboardingScreen({ signedIn, onCourier, onBack }: Props)
         </View>
         <Field error={errors.photoUri}>
           <TouchableOpacity style={styles.photoBtn} onPress={() => void handlePhoto()}>
-            {form.photoUri ? <Image source={{ uri: form.photoUri }} style={styles.photo} /> : null}
+            {form.photoUri ? <Image source={{ uri: form.photoUri }} style={styles.photo} accessibilityLabel="Poza buletinului" /> : null}
             <Text style={styles.photoText}>{form.photoUri ? "Poză făcută — atinge ca să refaci" : "Fă o poză la buletin"}</Text>
           </TouchableOpacity>
         </Field>

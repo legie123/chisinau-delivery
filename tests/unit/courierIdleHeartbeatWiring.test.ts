@@ -17,4 +17,9 @@ describe("web courier idle heartbeat + map tiles", () => {
     expect(map).toContain("tile.openstreetmap.org");
     expect(map).toContain("© OpenStreetMap");
   });
+  it("the dark filter sits on the tile pane only (markers and route stay unfiltered)", () => {
+    const map = read("src/components/shared/DeliveryMap.tsx");
+    expect(map).toMatch(/getPane\("tilePane"\)[\s\S]{0,120}style\.filter = "invert\(1\)/);
+    expect(map).not.toMatch(/getPane\("(markerPane|overlayPane)"\)[\s\S]{0,80}filter/);
+  });
 });
