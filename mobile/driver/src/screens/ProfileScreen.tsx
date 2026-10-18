@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator, RefreshControl, Linking } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, TouchableOpacity, ScrollView, Alert, ActivityIndicator, RefreshControl, Linking, Switch } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../theme';
-import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, userMessage, CourierProfile, CourierStatus } from '../lib/api';
+import { signOut, setOnline, getMyCourierProfile, fetchDeliveredOrdersCount, fetchAcceptanceRate, fetchMyAcceptsCash, setMyAcceptsCash, userMessage, CourierProfile, CourierStatus } from '../lib/api';
 import PayoutAccountForm from '../components/PayoutAccountForm';
 import { readSupportPhone } from '../lib/config';
-import { runMenuAction, type MenuAction } from '../lib/profileMenu';
+import { runMenuAction, changeAcceptsCash, cashPreferenceHint, type MenuAction } from '../lib/profileMenu';
 
 const VEHICLE_LABEL: Record<string, string> = {
   bike: '🚲 Bicicletă',
@@ -58,17 +58,20 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [reloads, setReloads] = useState(0); // pull-to-refresh re-runs the focus load
   const [payoutOpen, setPayoutOpen] = useState(false);
+  const [acceptsCash, setAcceptsCash] = useState<boolean | null>(null); // couriers.accepts_cash; null = row hidden
+  const [savingCash, setSavingCash] = useState(false);
 
   // Every focus (bottom tabs stay mounted): status and counts follow the shift.
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
-      Promise.all([getMyCourierProfile(), fetchDeliveredOrdersCount(), fetchAcceptanceRate()])
-        .then(([p, d, rate]) => {
+      Promise.all([getMyCourierProfile(), fetchDeliveredOrdersCount(), fetchAcceptanceRate(), fetchMyAcceptsCash()])
+        .then(([p, d, rate, cash]) => {
           if (!mounted) return;
           setProfile(p);
           setDeliveries(d);
           setAcceptRate(rate);
+          setAcceptsCash(cash);
         })
         .catch((err: unknown) => {
           if (mounted) Alert.alert('Profilul nu s-a încărcat', userMessage(err));
@@ -110,6 +113,18 @@ export default function ProfileScreen() {
       return;
     }
     setProfile({ ...profile, status: goingOnline ? 'online' : 'offline' });
+  };
+
+  // Server-side refusal (a delivery in progress) keeps the switch where it was and says why.
+  const handleAcceptsCash = async (next: boolean) => {
+    if (savingCash) return;
+    setSavingCash(true);
+    await changeAcceptsCash(next, {
+      save: setMyAcceptsCash,
+      apply: setAcceptsCash,
+      fail: (message) => Alert.alert('Preferința nu s-a salvat', message),
+    });
+    setSavingCash(false);
   };
 
   const displayName = profile?.fullName ?? 'Curier';
@@ -185,6 +200,27 @@ export default function ProfileScreen() {
         {/* Menu */}
         <View style={styles.menuSection}>
           {payoutOpen && profile && <PayoutAccountForm courierId={profile.id} onClose={() => setPayoutOpen(false)} />}
+          {acceptsCash !== null && (
+            <View style={styles.menuItem}>
+              <View style={[styles.menuIcon, { backgroundColor: COLORS.gold + '15' }]}>
+                <Ionicons name="cash-outline" size={20} color={COLORS.gold} />
+              </View>
+              <View style={styles.menuText}>
+                <Text style={[styles.menuLabel, { flex: 0 }]}>Accept comenzi cu numerar</Text>
+                <Text style={styles.menuHint}>{cashPreferenceHint(acceptsCash)}</Text>
+              </View>
+              {savingCash ? (
+                <ActivityIndicator size="small" color={COLORS.gold} />
+              ) : (
+                <Switch
+                  value={acceptsCash}
+                  onValueChange={(v) => void handleAcceptsCash(v)}
+                  trackColor={{ false: COLORS.border, true: COLORS.success }}
+                  accessibilityLabel="Accept comenzi cu numerar"
+                />
+              )}
+            </View>
+          )}
           {MENU_ITEMS.filter((item) => item.action !== 'support' || SUPPORT).map((item) => (
             <TouchableOpacity
               key={item.action}
@@ -320,5 +356,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  menuText: {
+    flex: 1,
+    marginRight: 8,
+  },
+  menuHint: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
   },
 });
