@@ -11,9 +11,11 @@ import EarningsScreen from './src/screens/EarningsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ActiveDeliveryScreen from './src/screens/ActiveDeliveryScreen';
 import LoginScreen from './src/screens/LoginScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import { supabase } from './src/lib/supabase';
 import { onOfferTapped, registerForPush } from './src/lib/push';
-import { hasActiveDelivery, restoreCourierSession } from './src/lib/api';
+import { hasActiveDelivery } from './src/lib/api';
+import { rootScreen, sessionKind, type SessionKind } from './src/lib/onboarding';
 import { stopDeliveryTracking } from './src/lib/backgroundLocation';
 import { useOfflineSync } from './src/hooks/useOfflineSync';
 
@@ -104,28 +106,39 @@ function StatusBanners({ pushWarning }: { pushWarning: string | null }) {
 }
 
 export default function App() {
-  const [checking, setChecking] = useState(true);
-  const [signedIn, setSignedIn] = useState(false);
+  const [kind, setKind] = useState<SessionKind | 'checking'>('checking');
+  const [wantsOnboarding, setWantsOnboarding] = useState(false); // "Devino curier" tapped on the login screen
   const [pushWarning, setPushWarning] = useState<string | null>(null);
+  const signedIn = kind === 'courier' || kind === 'unknown'; // unknown = dead zone, trusted as before
 
-  // Only a COURIER session gets in: a stored session is checked against the
-  // couriers row here, a fresh login in signIn() (LoginScreen → onSignedIn).
-  // onAuthStateChange therefore only ever signs OUT — SIGNED_IN fires before
-  // that check and used to let a customer account in (and register its push).
+  // Only a COURIER session gets into the app: a stored session is checked against the couriers row
+  // here (sessionKind), a fresh login in signIn() (LoginScreen → onSignedIn). A session WITHOUT a
+  // couriers row is an applicant (K5): kept signed in, shown OnboardingScreen, never signed out here.
+  // onAuthStateChange therefore only ever signs OUT — SIGNED_IN fires before that check and used to
+  // let a customer account in (and register its push).
+  const check = useCallback(() => {
+    setKind('checking');
+    sessionKind(supabase).then(setKind, (err: unknown) => {
+      console.warn('[auth] getSession', err);
+      setKind('unknown');
+    });
+  }, []);
+  // A fresh courier login (LoginScreen) / a sign-out: the login screen is the only way back.
+  const setSignedIn = useCallback((on: boolean) => {
+    setKind(on ? 'courier' : 'none');
+    setWantsOnboarding(false);
+  }, []);
   useEffect(() => {
-    restoreCourierSession()
-      .then(setSignedIn)
-      .catch((err: unknown) => console.warn('[auth] getSession', err))
-      .finally(() => setChecking(false));
+    check();
     // Only a real sign-out leaves: INITIAL_SESSION also comes without a session when the stored one
-    // lapsed (refresh failing in a dead zone) — "cannot tell", as in restoreCourierSession.
+    // lapsed (refresh failing in a dead zone) — "cannot tell", as in sessionKind.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event !== 'SIGNED_OUT') return;
       setSignedIn(false);
       void stopDeliveryTracking().catch((err: unknown) => console.warn('[gps] stop', err));
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [check, setSignedIn]);
 
   // Offer push tapped → the Map tab (the only place the OfferCard renders),
   // with a fresh param so MapScreen refetches the live offer at once. A tap that
@@ -166,12 +179,23 @@ export default function App() {
     };
   }, [signedIn]);
 
-  if (checking) return <View style={{ flex: 1, backgroundColor: '#0D0D1F' }} />;
+  if (kind === 'checking') return <View style={{ flex: 1, backgroundColor: '#0D0D1F' }} />;
 
-  if (!signedIn) {
+  const screen = rootScreen(kind, wantsOnboarding);
+  if (screen === 'login') {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         <LoginScreen onSignedIn={() => setSignedIn(true)} />
+        <TouchableOpacity style={banner.onboardLink} onPress={() => setWantsOnboarding(true)}>
+          <Text style={banner.onboardText}>Vrei să devii curier? Înscrie-te din aplicație</Text>
+        </TouchableOpacity>
+      </GestureHandlerRootView>
+    );
+  }
+  if (screen === 'onboarding') {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <OnboardingScreen signedIn={kind === 'applicant'} onCourier={check} onBack={() => setWantsOnboarding(false)} />
       </GestureHandlerRootView>
     );
   }
@@ -202,4 +226,6 @@ const banner = StyleSheet.create({
   error: { borderColor: 'rgba(233,69,96,0.6)' },
   warn: { borderColor: 'rgba(212,175,55,0.5)' },
   text: { color: '#FFFFFF', fontSize: 12, fontWeight: '600', textAlign: 'center' },
+  onboardLink: { position: 'absolute', left: 0, right: 0, bottom: 40, alignItems: 'center', padding: 12 },
+  onboardText: { color: 'rgba(255,255,255,0.6)', textDecorationLine: 'underline', fontSize: 14 },
 });
