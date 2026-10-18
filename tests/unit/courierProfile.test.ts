@@ -9,6 +9,8 @@ describe("courier web IBAN rule", () => {
   it("accepts a valid MD IBAN with spaces/lowercase and normalises it", () => {
     expect(ibanError("md24 ag00 0225 1000 1310 4168")).toBeNull();
     expect(normalizeIban("md24 ag00 0225 1000 1310 4168")).toBe("MD24AG000225100013104168");
+    // Pasted from a bank app: BOM / zero-width space / NEL must vanish, as the server strips \s.
+    expect(normalizeIban("\uFEFFMD24\u200BAG00\u00850225100013104168")).toBe("MD24AG000225100013104168");
   });
   it("refuses with a Romanian reason: empty, bad check digit, MD wrong length, junk", () => {
     expect(ibanError("")).toBe("Scrie IBAN-ul.");

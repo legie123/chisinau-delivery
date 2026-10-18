@@ -5,7 +5,7 @@
 
 export function normalizeIban(raw: string): string {
   // \s plus the two the server strips that JS does not treat alike (U+0085 NEL, U+FEFF BOM), and zero-width space.
-  return raw.replace(/[\s\u0085﻿​]/g, "").toUpperCase();
+  return raw.replace(/[\s\u0085\uFEFF\u200B]/g, "").toUpperCase();
 }
 
 // ISO 13616 mod-97: first 4 chars to the end, letters -> 10..35, remainder must be 1.
