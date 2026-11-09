@@ -10,7 +10,7 @@ import type { RestaurantWaitKpiRow } from "@/lib/types/domain";
 // iar valorile stau într-o grilă aliniată (2 coloane pe telefon, 4 pe desktop) cu
 // eticheta deasupra cifrei — aceleași date, aceeași sursă, doar citibile dintr-o
 // privire de 20 de secunde la tejghea (rubrica de design §4).
-function Kpi({
+export function Kpi({
   label,
   value,
   hint,

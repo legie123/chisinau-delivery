@@ -184,9 +184,17 @@ export default async function OrdersPage() {
                   <div className="min-w-0">
                     {/* #7 — restaurant name + a short item summary so the row is
                         recognizable at a glance, not just an opaque order number. */}
-                    <p className="truncate font-semibold text-white">
-                      {order.restaurants?.name ?? "Restaurant"}
-                      {order.order_type === "catering" && <span className="ml-2 text-xs text-gold">CATERING</span>}
+                    {/* R2 — eticheta CATERING stătea ÎN interiorul blocului cu
+                        `truncate`, deci la 390px se tăia în „CATERI…" pe cel mai
+                        lung nume din listă. Nu e decor: rândul de catering duce
+                        pe alt drum (`/catering/{id}`, ofertă-întâi), deci e
+                        singurul semn că nu e o comandă obișnuită. Numele se
+                        scurtează, eticheta nu. */}
+                    <p className="flex items-baseline gap-2 font-semibold text-white">
+                      <span className="truncate">{order.restaurants?.name ?? "Restaurant"}</span>
+                      {order.order_type === "catering" && (
+                        <span className="shrink-0 text-xs text-gold">CATERING</span>
+                      )}
                     </p>
                     {order.order_items.length > 0 && (
                       <p className="mt-0.5 truncate text-sm text-white/60">

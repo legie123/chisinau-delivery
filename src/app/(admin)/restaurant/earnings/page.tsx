@@ -4,6 +4,7 @@ import { dayRange, foodValue, type CsvOrder } from "./csv";
 import { PremiumReveal } from "@/components/admin/premium/PremiumReveal";
 import type { Payout } from "@/lib/types/domain";
 import { PayoutAccountForm } from "@/components/admin/PayoutAccountForm";
+import { WEEK_ORDER_COLUMNS, weekGrossMdl, type WeekOrderRow } from "@/lib/kitchen/homeKpis";
 
 // "Câștiguri" for the restaurant partner: this-week gross sales (subtotal of
 // delivered orders in the Chisinau week Mon–Sun — the payout period, migration
@@ -12,8 +13,6 @@ import { PayoutAccountForm } from "@/components/admin/PayoutAccountForm";
 // (has_restaurant_access) scopes payouts to the partner's own restaurant.
 const fmtDate = (d: string) =>
   new Date(d).toLocaleDateString("ro-RO", { day: "numeric", month: "short", timeZone: "UTC" });
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 function PayoutStatusBadge({ status }: { status: Payout["status"] }) {
   if (status === "paid")
@@ -67,7 +66,7 @@ export default async function RestaurantEarningsPage() {
     // and catering counts too (its food value = total - fee - tip). (audit #8/#13)
     supabase
       .from("orders")
-      .select("order_type, subtotal_mdl, total_mdl, delivery_fee_mdl, tip_mdl")
+      .select(WEEK_ORDER_COLUMNS)
       .eq("restaurant_id", staffRow.restaurant_id)
       .eq("status", "delivered")
       .eq("payment_status", "paid")
@@ -92,26 +91,10 @@ export default async function RestaurantEarningsPage() {
       .maybeSingle(),
   ]);
 
-  const week = (weekOrders ?? []) as {
-    order_type: string;
-    subtotal_mdl: number;
-    total_mdl: number;
-    delivery_fee_mdl: number;
-    tip_mdl: number;
-  }[];
+  const week = (weekOrders ?? []) as WeekOrderRow[];
   const weekCount = week.length;
-  // Restaurant food value: standard → subtotal; catering → total - fee - tip
-  // (the quoted food/service charge), matching admin_generate_payouts.
-  const weekGross = round2(
-    week.reduce(
-      (s, o) =>
-        s +
-        (o.order_type === "standard"
-          ? Number(o.subtotal_mdl)
-          : Math.max(Number(o.total_mdl) - Number(o.delivery_fee_mdl) - Number(o.tip_mdl ?? 0), 0)),
-      0,
-    ),
-  );
+  // Shared with the /restaurant/orders home strip (src/lib/kitchen/homeKpis.ts).
+  const weekGross = weekGrossMdl(week);
   const payouts = (payoutRows ?? []) as Payout[];
 
   return (

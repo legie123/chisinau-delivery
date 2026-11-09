@@ -10,6 +10,7 @@ import {
   type OrderItem,
 } from "@/lib/types/domain";
 import { formatScheduledFor } from "@/lib/orders/scheduled";
+import { showsCourierCard } from "@/lib/kitchen/courierCard";
 import { RestaurantCancelControl } from "@/components/admin/RestaurantCancelControl";
 import { KitchenTicket } from "@/components/admin/KitchenTicket";
 
@@ -56,6 +57,15 @@ export default async function RestaurantOrderDetailPage({ params }: { params: Pr
   const timeline = (events ?? []) as DeliveryStatusEvent[];
   const cateringDetails = catering as CateringDetails | null;
 
+  // Pickup coordination, same source as the queue page: partners have no read on `couriers`
+  // under RLS, so name + phone come from the restaurant_courier_contact RPC.
+  let courier: { name: string | null; phone: string | null } | null = null;
+  if (showsCourierCard(o.status, o.courier_id)) {
+    const { data: contact } = await supabase.rpc("restaurant_courier_contact", { p_order_id: o.id });
+    const c = contact?.[0];
+    courier = { name: c?.first_name || null, phone: c?.phone || null };
+  }
+
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 pb-16 pt-6">
       <div className="mb-1">
@@ -92,6 +102,22 @@ export default async function RestaurantOrderDetailPage({ params }: { params: Pr
       {["accepted", "ready_for_pickup"].includes(o.status) && (
         <div className="mb-5">
           <RestaurantCancelControl orderId={o.id} />
+        </div>
+      )}
+
+      {courier && (
+        <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl bg-white/5 px-4 py-3 text-sm ring-1 ring-white/10">
+          <span className="text-white/80">
+            🛵 Curier: <span className="font-semibold text-white">{courier.name ?? "atribuit"}</span>
+          </span>
+          {courier.phone && (
+            <a
+              href={`tel:${courier.phone}`}
+              className="ml-auto inline-flex min-h-11 items-center rounded-full bg-white/10 px-4 text-xs font-semibold text-white ring-1 ring-white/15 hover:bg-white/15"
+            >
+              📞 Sună curierul · {courier.phone}
+            </a>
+          )}
         </div>
       )}
 

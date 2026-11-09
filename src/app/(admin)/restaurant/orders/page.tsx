@@ -7,6 +7,9 @@ import { RestaurantPickupMap } from "@/components/admin/RestaurantPickupMap";
 import { RestaurantWaitKpiChips } from "@/components/admin/RestaurantWaitKpiChips";
 import { PushOptIn } from "@/components/shared/PushOptIn";
 import { BusyModeControl } from "@/components/admin/BusyModeControl";
+import { OrderQueueHomeKpis } from "@/components/admin/OrderQueueHomeKpis";
+import { WEEK_ORDER_COLUMNS, weekGrossMdl, type WeekOrderRow } from "@/lib/kitchen/homeKpis";
+import { currentWeekRange } from "@chisinau/shared-domain";
 import type { Order, OrderItem, PrepEstimate, RestaurantWaitKpiRow } from "@/lib/types/domain";
 
 const QUEUE_STATUSES = ["pending_restaurant", "accepted", "ready_for_pickup", "courier_assigned", "picked_up", "en_route"];
@@ -26,7 +29,7 @@ export default async function RestaurantOrdersPage() {
   // than one row. Take the primary (oldest) link so the queue never 500s.
   const { data: staffRows } = await supabase
     .from("restaurant_staff")
-    .select("restaurant_id, restaurants(accept_sla_minutes, lat, lng, busy_extra_minutes, busy_until)")
+    .select("restaurant_id, restaurants(accept_sla_minutes, lat, lng, busy_extra_minutes, busy_until, rating_avg, rating_count)")
     .eq("user_id", user?.id ?? "")
     .order("created_at", { ascending: true })
     .limit(1);
@@ -40,6 +43,8 @@ export default async function RestaurantOrdersPage() {
     lng: number | null;
     busy_extra_minutes: number;
     busy_until: string | null;
+    rating_avg: number | null;
+    rating_count: number;
   } | null;
   const acceptSlaMinutes = rest?.accept_sla_minutes ?? 7;
   const restaurantPoint = rest?.lat != null && rest?.lng != null ? { lat: rest.lat, lng: rest.lng } : null;
@@ -48,13 +53,25 @@ export default async function RestaurantOrdersPage() {
   let prepEstimate: PrepEstimate | null = null;
   // Order 4 — this restaurant's own wait/prep KPI row (has_restaurant_access scoped).
   let waitKpi: RestaurantWaitKpiRow | null = null;
+  // Home strip: this week's delivered+paid orders, same basis + reducer as /restaurant/earnings.
+  let week: WeekOrderRow[] = [];
   if (staffRow?.restaurant_id) {
-    const [prepRows, { data: kpiRow }] = await Promise.all([
+    const { start: weekStart, end: weekEnd } = currentWeekRange(new Date());
+    const [prepRows, { data: kpiRow }, { data: weekOrders }] = await Promise.all([
       getPrepEstimates(supabase, [staffRow.restaurant_id]),
       supabase.from("restaurant_wait_kpis").select("*").eq("restaurant_id", staffRow.restaurant_id).maybeSingle(),
+      supabase
+        .from("orders")
+        .select(WEEK_ORDER_COLUMNS)
+        .eq("restaurant_id", staffRow.restaurant_id)
+        .eq("status", "delivered")
+        .eq("payment_status", "paid")
+        .gte("delivered_at", weekStart.toISOString())
+        .lt("delivered_at", weekEnd.toISOString()),
     ]);
     prepEstimate = ((prepRows ?? []) as PrepEstimate[])[0] ?? null;
     waitKpi = (kpiRow as RestaurantWaitKpiRow | null) ?? null;
+    week = (weekOrders ?? []) as WeekOrderRow[];
   }
 
   // RLS (orders_partner_scope) already restricts this to the caller's own
@@ -187,6 +204,14 @@ export default async function RestaurantOrdersPage() {
           </span>
         )}
       </div>
+      {rest && (
+        <OrderQueueHomeKpis
+          weekGross={weekGrossMdl(week)}
+          weekCount={week.length}
+          ratingAvg={rest.rating_avg}
+          ratingCount={rest.rating_count}
+        />
+      )}
       {rest && (
         <div className="mb-4">
           <BusyModeControl extraMinutes={rest.busy_extra_minutes} until={rest.busy_until} />
